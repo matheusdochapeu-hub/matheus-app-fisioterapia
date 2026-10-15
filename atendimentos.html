@@ -657,6 +657,17 @@ async function postAction(payload){
     body: JSON.stringify(payload)
   });
   if(!res.ok) throw new Error('HTTP '+res.status);
+  // Confirma que o script reconheceu a ação (evita "salvou" fantasma quando o
+  // Apps Script publicado é antigo e não conhece create_exercise etc.).
+  try{
+    var data = await res.clone().json();
+    if(data && data.handled === false){
+      throw new Error(data.error || 'Ação não reconhecida pelo script. Publique a versão nova do Code.gs.');
+    }
+  }catch(e){
+    if(e && e.message && e.message.indexOf('não reconhecida') > -1) throw e;
+    // resposta sem JSON válido: não bloqueia (compatível com scripts antigos que respondem texto)
+  }
   return res;
 }
 
@@ -2301,30 +2312,38 @@ function closeModalBg(ev){
   if(ev.target === ev.currentTarget) closeModal();
 }
 
-/* Marca d'água de outono: folhas estilizadas em tons claros espalhadas no fundo. */
+/* Marca d'água de outono: folhas espalhadas no fundo, com 20% de opacidade. */
 function marcaDaguaOutono(doc, pageW, pageH){
-  function folha(cx, cy, r, rot, cor){
+  // folha estilizada: duas metades (curvas de Bézier) + nervura central e pecíolo
+  function folha(cx, cy, size, rot, cor){
+    var cos = Math.cos(rot), sin = Math.sin(rot);
+    function P(x, y){ return [cx + (x*cos - y*sin), cy + (x*sin + y*cos)]; }
+    var L = size, W = size*0.6;
+    // contorno da folha com 4 curvas (ponta de cima -> direita -> base -> esquerda)
+    var tip = P(0, -L), base = P(0, L*0.6);
+    var right = P(W, -L*0.1), left = P(-W, -L*0.1);
     doc.setFillColor(cor[0], cor[1], cor[2]);
-    // 5 pétalas em volta de um centro (folha/flor estilizada de outono)
-    var petalas = 5;
-    for(var k=0;k<petalas;k++){
-      var ang = rot + (k * (2*Math.PI/petalas));
-      var px = cx + Math.cos(ang) * r*0.55;
-      var py = cy + Math.sin(ang) * r*0.55;
-      doc.ellipse(px, py, r*0.5, r*0.26, 'F');
-    }
-    doc.setFillColor(cor[0]-10, cor[1]-10, cor[2]-10);
-    doc.circle(cx, cy, r*0.22, 'F');
+    // aproxima a folha por um losango arredondado via triângulos (robusto em qualquer jsPDF)
+    doc.triangle(tip[0],tip[1], right[0],right[1], base[0],base[1], 'F');
+    doc.triangle(tip[0],tip[1], left[0],left[1], base[0],base[1], 'F');
+    // nervura central (linha mais escura)
+    doc.setDrawColor(cor[0]-25, cor[1]-25, cor[2]-25); doc.setLineWidth(0.4);
+    doc.line(tip[0],tip[1], base[0],base[1]);
+    doc.setLineWidth(0.2);
   }
-  // cores de outono bem claras (quase marca d'água)
-  var tons = [[245,228,210],[246,233,218],[243,224,205],[247,236,222]];
+  // tons de outono (terracota, âmbar, oliva, mostarda)
+  var tons = [[196,120,70],[201,138,43],[150,125,60],[181,84,46],[163,112,52]];
+  // posições/tamanhos/rotações espalhados pela página
   var pts = [
-    [34, 70, 20], [172, 120, 26], [60, 210, 24], [150, 255, 18],
-    [28, 180, 16], [185, 60, 22], [100, 150, 22]
+    [32,55,22,0.4], [170,95,26,-0.6], [55,200,24,1.1], [150,250,20,0.2],
+    [25,135,18,-0.3], [185,175,22,0.8], [100,110,16,2.4], [120,30,15,1.7],
+    [40,270,19,-1.0], [175,245,17,0.5]
   ];
-  pts.forEach(function(p, i){
-    folha(p[0], p[1], p[2], (i*0.9)%6.28, tons[i % tons.length]);
-  });
+  var hasG = typeof doc.GState === 'function' && typeof doc.setGState === 'function';
+  if(hasG) doc.setGState(new doc.GState({opacity:0.2}));   // 20% de transparência
+  pts.forEach(function(p, i){ folha(p[0], p[1], p[2], p[3], tons[i % tons.length]); });
+  if(hasG) doc.setGState(new doc.GState({opacity:1}));     // volta ao normal
+  doc.setDrawColor(0,0,0);
 }
 
 function drawStamp(doc, x, y){

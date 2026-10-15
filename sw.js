@@ -1,6 +1,6 @@
 /* Service worker do app Atendimentos (Fisioterapia).
    Incrementar CACHE_VERSION ao publicar mudanças de assets para invalidar o cache. */
-var CACHE_VERSION = 'atend-v5';
+var CACHE_VERSION = 'atend-v6';
 var CORE_CACHE = CACHE_VERSION + '-core';
 var RUNTIME_CACHE = CACHE_VERSION + '-runtime';
 

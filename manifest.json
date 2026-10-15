@@ -4,6 +4,7 @@
   "description": "Controle de atendimentos, pagamentos e recibos de fisioterapia domiciliar.",
   "lang": "pt-BR",
   "dir": "ltr",
+  "id": "./",
   "start_url": "./atendimentos.html",
   "scope": "./",
   "display": "standalone",

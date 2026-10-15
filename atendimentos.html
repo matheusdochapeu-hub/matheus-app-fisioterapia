@@ -6,7 +6,7 @@
 <title>Atendimentos · Fisioterapia</title>
 <meta name="description" content="Controle de atendimentos, pagamentos e recibos de fisioterapia domiciliar.">
 <meta name="theme-color" content="#B5542E">
-<link rel="manifest" href="manifest.webmanifest">
+<link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -91,17 +91,28 @@
     padding:16px;margin-bottom:14px;box-shadow:var(--shadow-soft);
   }
 
-  .summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;}
+  .summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
   .metric{
     border-radius:var(--radius);padding:15px 16px;position:relative;overflow:hidden;
-    background:linear-gradient(160deg,var(--primary-soft),#FCEBDD);
-    border:1px solid var(--line);
+    background:linear-gradient(160deg,var(--success-soft),#EEF3E4);
+    border:1px solid #D7E2C8;
   }
-  .metric .label{font-size:12px;color:var(--primary-deep);opacity:.9;margin-bottom:6px;font-weight:500;}
-  .metric .value{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:500;color:var(--primary-deep);}
-  .metric.accent{background:linear-gradient(160deg,var(--accent-soft),#FBF1DC);}
+  .metric .label{font-size:12px;color:var(--success);opacity:.95;margin-bottom:6px;font-weight:600;display:flex;align-items:center;gap:5px;}
+  .metric .value{font-family:'IBM Plex Mono',monospace;font-size:21px;font-weight:500;color:#3F5730;}
+  .metric.accent{background:linear-gradient(160deg,var(--accent-soft),#FBF1DC);border-color:#EFD9AE;}
   .metric.accent .label{color:var(--accent-ink);}
   .metric.accent .value{color:var(--accent-ink);}
+
+  /* Barra fina com contagem de sessões/pacientes do mês */
+  .month-stats{
+    display:flex;gap:8px;margin-bottom:16px;
+  }
+  .month-stats .chip{
+    flex:1;background:var(--surface);border:1px solid var(--line);border-radius:12px;
+    padding:9px 12px;display:flex;align-items:center;gap:8px;box-shadow:var(--shadow-soft);
+  }
+  .month-stats .chip .n{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--primary-deep);font-size:15px;}
+  .month-stats .chip .t{font-size:11.5px;color:var(--ink-soft);line-height:1.2;}
 
   .month-nav{
     display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;
@@ -132,38 +143,49 @@
   .filter-row select{flex:1;}
 
   .entry{
-    display:flex;align-items:flex-start;gap:12px;
-    padding:14px 2px;border-bottom:1px solid var(--line);
+    padding:15px 2px;border-bottom:1px solid var(--line);
   }
   .entry:last-child{border-bottom:none;}
+  .entry-top{display:flex;align-items:flex-start;gap:12px;}
+  .entry-body{flex:1;min-width:0;}
   .entry .avatar{
-    width:40px;height:40px;border-radius:12px;
+    width:42px;height:42px;border-radius:13px;
     background:linear-gradient(150deg,var(--primary-soft),#F3D8C4);
     display:flex;align-items:center;justify-content:center;color:var(--primary-deep);
-    font-weight:600;font-size:13px;flex-shrink:0;margin-top:2px;
+    font-weight:600;font-size:14px;flex-shrink:0;margin-top:2px;
   }
   .entry .info{flex:1;min-width:0;}
   .entry .info .name{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .entry .info .date{font-size:12px;color:var(--ink-soft);margin-top:2px;}
-  .entry .info .paid-note{font-size:11px;color:var(--success);margin-top:3px;font-weight:500;}
+  .entry .info .date{font-size:12.5px;color:var(--ink-soft);margin-top:3px;}
+  .entry .info .paid-note{font-size:11.5px;color:var(--success);margin-top:4px;font-weight:500;}
   .entry .right{text-align:right;flex-shrink:0;}
   .entry .value{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:500;}
   .badge{
-    display:inline-block;font-size:11px;padding:3px 10px;border-radius:20px;margin-top:5px;
+    display:inline-block;font-size:11px;padding:3px 10px;border-radius:20px;margin-top:6px;
     font-weight:600;cursor:pointer;border:1px solid transparent;
   }
   .badge.pago{background:var(--success-soft);color:var(--success);border-color:#CDDCBB;}
   .badge.pendente{background:var(--accent-soft);color:var(--accent-ink);border-color:#EFD9AE;}
-  .entry-actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
-  .entry-actions button{
-    height:34px;min-width:34px;padding:0 10px;border-radius:9px;border:1px solid var(--line);background:var(--surface);
-    color:var(--ink-soft);cursor:pointer;font-size:13px;display:inline-flex;align-items:center;gap:5px;
+
+  /* Ações do atendimento: 'Pagar' em destaque na linha de cima, demais ícones em baixo */
+  .entry-actions{display:flex;gap:8px;margin-top:12px;}
+  .entry-actions .pay{
+    flex:1;height:42px;border-radius:11px;border:none;cursor:pointer;
+    background:linear-gradient(135deg,var(--success),#4C6A38);color:#fff;
+    font-size:14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:7px;
+    box-shadow:0 3px 10px rgba(94,123,71,.28);
   }
-  .entry-actions button:active{background:var(--bg-tint);}
-  .entry-actions button.del{color:var(--danger);}
-  .entry-actions button.pay{color:var(--success);border-color:#CDDCBB;background:var(--success-soft);}
-  .entry-body{flex:1;min-width:0;}
-  .entry-top{display:flex;align-items:flex-start;gap:12px;}
+  .entry-actions .pay:active{filter:brightness(.96);}
+  .entry-icons{display:flex;gap:8px;}
+  .entry-actions.paid .entry-icons{flex:1;}
+  .entry-icons button{
+    flex:1;height:42px;border-radius:11px;border:1px solid var(--line);background:var(--surface);
+    color:var(--ink-soft);cursor:pointer;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  }
+  .entry-icons button:active{background:var(--bg-tint);}
+  .entry-icons button.del{color:var(--danger);}
+  .entry-icons .lbl{display:none;}
+  @media (min-width:400px){ .entry-icons .lbl{display:inline;} }
 
   .empty{text-align:center;padding:34px 10px;color:var(--ink-soft);font-size:14px;line-height:1.6;}
   .empty .leaf{font-size:30px;display:block;margin-bottom:8px;opacity:.8;}
@@ -248,6 +270,18 @@
   .summary-total .name{flex:1;font-size:13px;color:var(--primary-deep);}
   .summary-total .col{width:76px;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--primary-deep);}
 
+  /* Painel de totais em destaque (resumo mensal) */
+  .totals-panel{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:4px 0 16px;}
+  .totals-panel .box{border-radius:13px;padding:12px 10px;text-align:center;border:1px solid var(--line);}
+  .totals-panel .box .t{font-size:10.5px;font-weight:600;margin-bottom:4px;letter-spacing:.2px;}
+  .totals-panel .box .v{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;}
+  .totals-panel .box.exp{background:var(--primary-soft);}
+  .totals-panel .box.exp .t{color:var(--primary-deep);} .totals-panel .box.exp .v{color:var(--primary-deep);}
+  .totals-panel .box.rec{background:var(--success-soft);border-color:#CDDCBB;}
+  .totals-panel .box.rec .t{color:var(--success);} .totals-panel .box.rec .v{color:#3F5730;}
+  .totals-panel .box.pen{background:var(--accent-soft);border-color:#EFD9AE;}
+  .totals-panel .box.pen .t{color:var(--accent-ink);} .totals-panel .box.pen .v{color:var(--accent-ink);}
+
   .toast{
     position:fixed;left:50%;bottom:calc(100px + var(--safe-bottom));transform:translateX(-50%);
     background:var(--ink);color:#fff;padding:11px 16px;border-radius:12px;font-size:13px;
@@ -288,6 +322,7 @@
         </div>
       </div>
       <div class="header-actions">
+        <button id="installBtn" class="icon-btn hidden" onclick="promptInstall()" title="Instalar app" aria-label="Instalar app">&#11015;</button>
         <button class="icon-btn" onclick="openMonthlySummary()" title="Resumo mensal" aria-label="Resumo mensal">&#128202;</button>
         <button class="icon-btn" onclick="openSettings()" title="Configurações" aria-label="Configurações">&#9881;</button>
       </div>
@@ -303,13 +338,19 @@
 
     <div class="summary-grid">
       <div class="metric">
-        <div class="label">Recebido no mês</div>
+        <div class="label">&#10003; Recebido no mês</div>
         <div class="value" id="metricRecebido">R$ 0,00</div>
       </div>
       <div class="metric accent">
-        <div class="label">A receber</div>
+        <div class="label">&#8987; A receber</div>
         <div class="value" id="metricPendente">R$ 0,00</div>
       </div>
+    </div>
+
+    <div class="month-stats">
+      <div class="chip"><span class="n" id="statSessoes">0</span><span class="t">sessões<br>no mês</span></div>
+      <div class="chip"><span class="n" id="statPacientes">0</span><span class="t">pacientes<br>atendidas</span></div>
+      <div class="chip"><span class="n" id="statTotal">R$ 0</span><span class="t">total<br>do mês</span></div>
     </div>
 
     <div class="filter-row">
@@ -534,12 +575,18 @@ function renderList(){
   var container = document.getElementById('entryList');
   var empty = document.getElementById('emptyState');
 
-  var recebido = 0, pendente = 0;
+  var recebido = 0, pendente = 0, total = 0;
+  var pacientesSet = {};
   list.forEach(function(e){
+    total += e.valor;
     if(e.status === 'Pago') recebido += e.valor; else pendente += e.valor;
+    pacientesSet[e.nome] = true;
   });
   document.getElementById('metricRecebido').textContent = formatMoney(recebido);
   document.getElementById('metricPendente').textContent = formatMoney(pendente);
+  document.getElementById('statSessoes').textContent = list.length;
+  document.getElementById('statPacientes').textContent = Object.keys(pacientesSet).length;
+  document.getElementById('statTotal').textContent = formatMoney(total);
 
   if(list.length === 0){
     container.innerHTML = '';
@@ -549,8 +596,9 @@ function renderList(){
   empty.classList.add('hidden');
 
   container.innerHTML = list.map(function(e){
-    var paidNote = e.status === 'Pago' && e.paymentDate ? '<div class="paid-note">&#10003; Pago em '+formatDateBR(e.paymentDate)+'</div>' : '';
-    var payBtn = e.status !== 'Pago' ? '<button class="pay" onclick="openPaymentModal(\''+e.id+'\')">&#128176; Pagar</button>' : '';
+    var pago = e.status === 'Pago';
+    var paidNote = pago && e.paymentDate ? '<div class="paid-note">&#10003; Pago em '+formatDateBR(e.paymentDate)+'</div>' : '';
+    var payBtn = !pago ? '<button class="pay" onclick="openPaymentModal(\''+e.id+'\')">&#128176; Registrar pagamento</button>' : '';
     return '<div class="entry">' +
       '<div class="entry-body">' +
         '<div class="entry-top">' +
@@ -562,14 +610,16 @@ function renderList(){
           '</div>' +
           '<div class="right">' +
             '<div class="value">'+formatMoney(e.valor)+'</div>' +
-            '<span class="badge '+(e.status==='Pago'?'pago':'pendente')+'" onclick="badgeClick(\''+e.id+'\')">'+escapeHtml(e.status)+'</span>' +
+            '<span class="badge '+(pago?'pago':'pendente')+'" onclick="badgeClick(\''+e.id+'\')">'+escapeHtml(e.status)+'</span>' +
           '</div>' +
         '</div>' +
-        '<div class="entry-actions">' +
+        '<div class="entry-actions'+(pago?' paid':'')+'">' +
           payBtn +
-          '<button onclick="generateReceipt(\''+e.id+'\')">&#128220; Recibo</button>' +
-          '<button onclick="openEditEntry(\''+e.id+'\')">&#9998; Editar</button>' +
-          '<button class="del" onclick="deleteEntry(\''+e.id+'\')">&#10005; Excluir</button>' +
+          '<div class="entry-icons">' +
+            '<button onclick="generateReceipt(\''+e.id+'\')" aria-label="Gerar recibo">&#128220; <span class="lbl">Recibo</span></button>' +
+            '<button onclick="openEditEntry(\''+e.id+'\')" aria-label="Editar atendimento">&#9998; <span class="lbl">Editar</span></button>' +
+            '<button class="del" onclick="deleteEntry(\''+e.id+'\')" aria-label="Excluir atendimento">&#10005; <span class="lbl">Excluir</span></button>' +
+          '</div>' +
         '</div>' +
       '</div>' +
     '</div>';
@@ -923,6 +973,11 @@ function openMonthlySummary(){
     '<div class="modal">' +
       '<div class="grabber"></div>' +
       '<h2>Resumo de ' + monthLabel(currentMonth) + '</h2>' +
+      '<div class="totals-panel">' +
+        '<div class="box exp"><div class="t">ESPERADO</div><div class="v">'+formatMoney(totalEsperado)+'</div></div>' +
+        '<div class="box rec"><div class="t">RECEBIDO</div><div class="v">'+formatMoney(totalRecebido)+'</div></div>' +
+        '<div class="box pen"><div class="t">PENDENTE</div><div class="v">'+formatMoney(totalPendente)+'</div></div>' +
+      '</div>' +
       '<div class="summary-head">' +
         '<div class="name">Paciente</div>' +
         '<div class="col">Esperado</div>' +
@@ -937,7 +992,8 @@ function openMonthlySummary(){
         '<div class="col">'+formatMoney(totalPendente)+'</div>' +
       '</div>' +
       '<div class="btn-row">' +
-        '<button class="btn ghost" style="flex:1" onclick="closeModal()">Fechar</button>' +
+        '<button class="btn ghost" onclick="closeModal()">Fechar</button>' +
+        '<button class="btn accent" onclick="closeModal();generateGeneralMonthlyReceipt();">&#128196; Gerar PDF</button>' +
       '</div>' +
     '</div>' +
   '</div>';
@@ -1227,6 +1283,50 @@ function submitMonthlyReceipt(){
 if('serviceWorker' in navigator && location.protocol.indexOf('http') === 0){
   window.addEventListener('load', function(){
     navigator.serviceWorker.register('sw.js').catch(function(){ /* silencioso */ });
+  });
+}
+
+/* ---------- PWA: botão de instalar ---------- */
+var deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', function(e){
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  var b = document.getElementById('installBtn');
+  if(b) b.classList.remove('hidden');
+});
+window.addEventListener('appinstalled', function(){
+  deferredInstallPrompt = null;
+  var b = document.getElementById('installBtn');
+  if(b) b.classList.add('hidden');
+  showToast('App instalado! Procure o ícone na tela inicial.', 'ok');
+});
+function isStandalone(){
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+function isIOS(){
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+}
+async function promptInstall(){
+  if(deferredInstallPrompt){
+    deferredInstallPrompt.prompt();
+    try{ await deferredInstallPrompt.userChoice; }catch(e){}
+    deferredInstallPrompt = null;
+    var b = document.getElementById('installBtn');
+    if(b) b.classList.add('hidden');
+    return;
+  }
+  // Sem prompt nativo (ex.: iPhone/Safari): instrução manual
+  if(isIOS()){
+    alert('Para instalar no iPhone:\n\n1. Toque no botão Compartilhar (quadrado com seta para cima).\n2. Escolha "Adicionar à Tela de Início".');
+  }else{
+    alert('Para instalar: abra o menu do navegador (⋮) e toque em "Instalar aplicativo" ou "Adicionar à tela inicial".');
+  }
+}
+/* Em iOS o beforeinstallprompt não existe: mostra o botão como atalho das instruções. */
+if(isIOS() && !isStandalone()){
+  document.addEventListener('DOMContentLoaded', function(){
+    var b = document.getElementById('installBtn');
+    if(b) b.classList.remove('hidden');
   });
 }
 

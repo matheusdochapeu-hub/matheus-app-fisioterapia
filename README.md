@@ -21,7 +21,9 @@ O app é um **PWA** (Progressive Web App): dá para **instalar na tela inicial**
 - **iPhone (Safari):** botão **Compartilhar** → **Adicionar à Tela de Início**.
 - **Computador (Chrome/Edge):** ícone de instalar na barra de endereço.
 
-Arquivos que compõem o PWA: `manifest.webmanifest` (nome, cores, ícones), `sw.js` (service worker com o cache) e os ícones em `icons/`.
+Arquivos que compõem o PWA: `manifest.json` (nome, cores, ícones), `sw.js` (service worker com o cache) e os ícones em `icons/`.
+
+> O manifesto usa a extensão `.json` (e não `.webmanifest`) de propósito: o GitHub Pages serve `.webmanifest` com um tipo de conteúdo que o Chrome ignora, e aí o botão "Instalar" não aparece. Com `.json` a instalação funciona. O app ainda tem um botão **⬇ Instalar** no cabeçalho (aparece quando o navegador permite; no iPhone abre as instruções de "Adicionar à Tela de Início").
 
 > Ao publicar mudanças de interface, **incremente `CACHE_VERSION`** no topo de `sw.js` para que os aparelhos baixem a versão nova.
 
@@ -33,7 +35,7 @@ Interface **mobile-first** com paleta **terracota e cores de outono** (âmbar/mo
 
 - `atendimentos.html` — o app (página única)
 - `index.html` — redireciona para `atendimentos.html` (permite abrir pela raiz e serve de `start_url` do PWA)
-- `manifest.webmanifest` — manifesto do PWA
+- `manifest.json` — manifesto do PWA
 - `sw.js` — service worker (cache offline do app)
 - `icons/` — ícones do app (192, 512 e *maskable* 512)
 - `scripts/gerar-icones.js` — gera os ícones do zero (Node puro)

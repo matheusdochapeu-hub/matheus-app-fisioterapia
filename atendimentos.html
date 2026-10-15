@@ -395,7 +395,11 @@
   /* ---------- Exercícios ---------- */
   .exe-row{display:flex;align-items:center;gap:11px;padding:11px 0;border-bottom:1px solid var(--line);}
   .exe-row:last-child{border-bottom:none;}
-  .exe-thumb{width:46px;height:46px;border-radius:11px;flex-shrink:0;object-fit:cover;background:var(--bg-tint);border:1px solid var(--line);}
+  .exe-thumb{width:46px;height:46px;border-radius:11px;flex-shrink:0;object-fit:cover;background:var(--bg-tint);border:2px solid var(--primary-soft);box-shadow:0 1px 4px rgba(143,63,32,.12);}
+  .exe-filter{display:flex;gap:8px;margin:2px 0 10px;}
+  .exe-filter input{flex:1;}
+  .exe-filter select{width:132px;flex-shrink:0;}
+  .img-hint{font-size:11.5px;color:var(--ink-soft);line-height:1.5;margin:10px 0 0;background:var(--accent-soft);border-radius:10px;padding:9px 11px;}
   .exe-thumb.ph{display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--primary);}
   .exe-info{flex:1;min-width:0;}
   .exe-name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -407,7 +411,7 @@
 
   /* Upload de imagem */
   .img-picker{display:flex;align-items:center;gap:12px;margin-top:6px;}
-  .img-preview{width:72px;height:72px;border-radius:12px;object-fit:cover;border:1px solid var(--line);background:var(--bg-tint);flex-shrink:0;}
+  .img-preview{width:72px;height:72px;border-radius:12px;object-fit:cover;border:2px solid var(--primary-soft);background:var(--bg-tint);flex-shrink:0;}
   .img-preview.ph{display:flex;align-items:center;justify-content:center;font-size:26px;color:var(--primary);}
   .img-picker .pick-btns{display:flex;flex-direction:column;gap:7px;flex:1;}
 
@@ -420,6 +424,10 @@
   .rot-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);}
   .rot-item:last-child{border-bottom:none;}
   .rot-item .ord{width:24px;height:24px;border-radius:50%;background:var(--primary-soft);color:var(--primary-deep);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .rot-item .ord-move{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;}
+  .rot-item .ord-move .mv{width:26px;height:20px;border:1px solid var(--line);background:var(--surface);border-radius:7px;color:var(--primary);font-size:9px;cursor:pointer;padding:0;line-height:1;}
+  .rot-item .ord-move .mv:disabled{opacity:.3;cursor:default;}
+  .rot-item .ord-move .mv:active:not(:disabled){background:var(--primary-soft);}
   .rot-item .nm{flex:1;min-width:0;font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .rot-item .sr{display:flex;gap:6px;flex-shrink:0;}
   .rot-item .sr input{width:52px;padding:7px 6px;font-size:13px;text-align:center;}
@@ -602,6 +610,11 @@ function formatDateBR(iso){
 function monthLabel(d){
   var meses = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
   return meses[d.getMonth()] + ' de ' + d.getFullYear();
+}
+/* Mesmo rótulo com a primeira letra do mês em maiúscula: "Setembro de 2026". */
+function monthLabelCap(d){
+  var s = monthLabel(d);
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 function initials(name){
   var parts = (name||'').trim().split(/\s+/).filter(Boolean);
@@ -1139,49 +1152,55 @@ function generateGeneralMonthlyReceipt(){
   doc.setFontSize(11);
   doc.setTextColor(138,111,94);
   doc.text('Referência:', 15, 55);
-  doc.setTextColor(58,42,32);
-  doc.text(monthLabel(currentMonth), 45, 55);
+  doc.setTextColor(58,42,32); doc.setFont('helvetica','bold');
+  doc.text(monthLabelCap(currentMonth), 45, 55);
+  doc.setFont('helvetica','normal');
 
-  var rowY = 70;
-  doc.setFontSize(10);
-  doc.setTextColor(138,111,94);
-  doc.text('Paciente', 15, rowY);
-  doc.text('Sessões', 95, rowY, { align: 'right' });
-  doc.text('Esperado', 135, rowY, { align: 'right' });
-  doc.text('Recebido', 165, rowY, { align: 'right' });
-  doc.text('Pendente', 195, rowY, { align: 'right' });
-  rowY += 4;
-  doc.setDrawColor(234,217,201);
-  doc.line(15, rowY, 195, rowY);
-  rowY += 8;
+  // cabeçalho da tabela com faixa de fundo
+  var rowY = 66, rowH = 9;
+  doc.setFillColor(181,84,46);
+  doc.rect(15, rowY, 180, rowH, 'F');
+  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(9);
+  doc.text('PACIENTE', 19, rowY+6);
+  doc.text('SESSÕES', 100, rowY+6, { align: 'right' });
+  doc.text('ESPERADO', 138, rowY+6, { align: 'right' });
+  doc.text('RECEBIDO', 166, rowY+6, { align: 'right' });
+  doc.text('PENDENTE', 191, rowY+6, { align: 'right' });
+  doc.setFont('helvetica','normal');
+  rowY += rowH;
 
   var totalSessoes = 0, totalEsperado = 0, totalRecebido = 0;
-  doc.setTextColor(58,42,32);
-  names.forEach(function(n){
+  doc.setFontSize(9.5);
+  names.forEach(function(n, i){
+    if(rowY + rowH > 258){ doc.addPage(); marcaDaguaOutono(doc,210,297); rowY = 20; }
+    if(i % 2 === 0){ doc.setFillColor(248,236,224); doc.rect(15, rowY, 180, rowH, 'F'); }  // zebra suave
     var p = byPatient[n];
     var pendente = p.esperado - p.recebido;
-    doc.text(String(n), 15, rowY);
-    doc.text(String(p.sessoes), 95, rowY, { align: 'right' });
-    doc.text(formatMoney(p.esperado), 135, rowY, { align: 'right' });
-    doc.text(formatMoney(p.recebido), 165, rowY, { align: 'right' });
-    doc.text(formatMoney(pendente), 195, rowY, { align: 'right' });
+    doc.setTextColor(58,42,32);
+    doc.text(doc.splitTextToSize(String(n), 76)[0], 19, rowY+6);
+    doc.text(String(p.sessoes), 100, rowY+6, { align: 'right' });
+    doc.text(formatMoney(p.esperado), 138, rowY+6, { align: 'right' });
+    doc.setTextColor(94,123,71); doc.text(formatMoney(p.recebido), 166, rowY+6, { align: 'right' });
+    doc.setTextColor(pendente>0?138:150, pendente>0?90:135, pendente>0?20:120);
+    doc.text(formatMoney(pendente), 191, rowY+6, { align: 'right' });
     totalSessoes += p.sessoes;
     totalEsperado += p.esperado;
     totalRecebido += p.recebido;
-    rowY += 8;
-    if(rowY > 265){ doc.addPage(); rowY = 20; }
+    rowY += rowH;
   });
 
-  rowY += 4;
-  doc.line(15, rowY, 195, rowY);
-  rowY += 10;
-  doc.setFontSize(12);
+  rowY += 2;
+  doc.setDrawColor(181,84,46); doc.setLineWidth(0.5);
+  doc.line(15, rowY, 195, rowY); doc.setLineWidth(0.2);
+  rowY += 8;
+  doc.setFontSize(11); doc.setFont('helvetica','bold');
   doc.setTextColor(181,84,46);
-  doc.text('Total', 15, rowY);
-  doc.text(String(totalSessoes), 95, rowY, { align: 'right' });
-  doc.text(formatMoney(totalEsperado), 135, rowY, { align: 'right' });
-  doc.text(formatMoney(totalRecebido), 165, rowY, { align: 'right' });
-  doc.text(formatMoney(totalEsperado - totalRecebido), 195, rowY, { align: 'right' });
+  doc.text('Total', 19, rowY);
+  doc.text(String(totalSessoes), 100, rowY, { align: 'right' });
+  doc.text(formatMoney(totalEsperado), 138, rowY, { align: 'right' });
+  doc.text(formatMoney(totalRecebido), 166, rowY, { align: 'right' });
+  doc.text(formatMoney(totalEsperado - totalRecebido), 191, rowY, { align: 'right' });
+  doc.setFont('helvetica','normal');
 
   drawStamp(doc, 175, rowY + 20);
 
@@ -1593,10 +1612,11 @@ function removeExeImg(){ exeImagemTemp = ''; refreshExeImgPreview(); }
 function openExerciseManager(){
   exeImagemTemp = '';
   var tipos = TIPOS_EXERCICIO.map(function(t){ return '<option value="'+escapeHtml(t)+'">'+escapeHtml(t)+'</option>'; }).join('');
+  var tiposFiltro = '<option value="">Todos os tipos</option>' + TIPOS_EXERCICIO.map(function(t){ return '<option value="'+escapeHtml(t)+'">'+escapeHtml(t)+'</option>'; }).join('');
   var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
     '<div class="modal">' +
       '<div class="grabber"></div>' +
-      '<h2>Exercícios</h2>' +
+      '<h2>Banco de exercícios</h2>' +
       '<div class="inner-card">' +
         '<div class="field-title">Novo exercício</div>' +
         '<label>Nome</label>' +
@@ -1617,10 +1637,15 @@ function openExerciseManager(){
             '<button class="btn small ghost" onclick="removeExeImg()">Remover imagem</button>' +
           '</div>' +
         '</div>' +
+        '<p class="img-hint">&#128161; Para a cartilha ficar bonita, use imagem <b>quadrada</b> (1:1), de preferência com fundo claro. Tamanho ideal a partir de 500×500 px. A imagem é reduzida e otimizada automaticamente.</p>' +
         '<input id="exeImgFile" type="file" accept="image/*" class="hidden" onchange="onExeImagePick(event)">' +
         '<button class="btn primary" style="width:100%;margin-top:16px;" id="addExeBtn" onclick="addExercise()">+ Adicionar exercício</button>' +
       '</div>' +
       '<div class="field-title">Cadastrados <span id="exeCount" style="font-weight:400;color:var(--ink-soft);"></span></div>' +
+      '<div class="exe-filter">' +
+        '<input id="exeSearch" placeholder="&#128269; Buscar por nome..." oninput="renderExerciseList()">' +
+        '<select id="exeFilterTipo" onchange="renderExerciseList()">'+tiposFiltro+'</select>' +
+      '</div>' +
       '<div id="exeListBox">' + renderExerciseListHtml() + '</div>' +
       '<div class="btn-row">' +
         '<button class="btn ghost" style="flex:1" onclick="closeModal()">Fechar</button>' +
@@ -1631,9 +1656,32 @@ function openExerciseManager(){
   updateExeCount();
 }
 
+/* Reaplica busca+filtro e redesenha a lista. */
+function renderExerciseList(){
+  var box = document.getElementById('exeListBox');
+  if(box) box.innerHTML = renderExerciseListHtml();
+  updateExeCount();
+}
+
+function filteredExercises(){
+  var sEl = document.getElementById('exeSearch');
+  var tEl = document.getElementById('exeFilterTipo');
+  var termo = sEl ? sEl.value.trim().toLowerCase() : '';
+  var tipo = tEl ? tEl.value : '';
+  return exercises.filter(function(e){
+    if(tipo && e.tipo !== tipo) return false;
+    if(termo && String(e.nome).toLowerCase().indexOf(termo) === -1) return false;
+    return true;
+  });
+}
+
 function updateExeCount(){
   var el = document.getElementById('exeCount');
-  if(el) el.textContent = exercises.length ? '(' + exercises.length + ')' : '';
+  if(!el) return;
+  var total = exercises.length;
+  var vis = filteredExercises().length;
+  if(total === 0){ el.textContent = ''; return; }
+  el.textContent = (vis === total) ? '(' + total + ')' : '(' + vis + ' de ' + total + ')';
 }
 
 function exeTipoDefault(e){
@@ -1645,7 +1693,9 @@ function exeTipoDefault(e){
 
 function renderExerciseListHtml(){
   if(exercises.length === 0) return '<p class="empty-mini">Nenhum exercício cadastrado ainda. Use o formulário acima.</p>';
-  return exercises.slice().sort(function(a,b){ return String(a.nome).localeCompare(String(b.nome),'pt-BR'); }).map(function(e){
+  var lista = filteredExercises().sort(function(a,b){ return String(a.nome).localeCompare(String(b.nome),'pt-BR'); });
+  if(lista.length === 0) return '<p class="empty-mini">Nenhum exercício encontrado para esse filtro.</p>';
+  return lista.map(function(e){
     var thumb = e.imagem
       ? '<img class="exe-thumb" src="'+e.imagem+'" alt="">'
       : '<div class="exe-thumb ph">&#127939;</div>';
@@ -1840,8 +1890,14 @@ function renderRoutineBody(){
     listaRotina = itens.map(function(r, i){
       var e = exercises.find(function(x){ return x.id===r.exercicioId; });
       if(!e) return '';
+      var upDis = i===0 ? ' disabled' : '';
+      var dnDis = i===itens.length-1 ? ' disabled' : '';
       return '<div class="rot-item">' +
-        '<div class="ord">'+(i+1)+'</div>' +
+        '<div class="ord-move">' +
+          '<button class="mv"'+upDis+' onclick="moveRoutineItem(\''+r.id+'\',-1)" aria-label="Subir">&#9650;</button>' +
+          '<div class="ord">'+(i+1)+'</div>' +
+          '<button class="mv"'+dnDis+' onclick="moveRoutineItem(\''+r.id+'\',1)" aria-label="Descer">&#9660;</button>' +
+        '</div>' +
         '<div class="nm">'+escapeHtml(e.nome)+'</div>' +
         '<div class="sr">' +
           '<input inputmode="numeric" value="'+escapeHtml(r.series)+'" placeholder="séries" onchange="updateRoutineField(\''+r.id+'\',\'series\',this.value)" aria-label="séries">' +
@@ -1917,6 +1973,29 @@ async function removeRoutineItem(id){
   catch(e){ routines.splice(idx,0,removed); renderRoutineBody(); showError('Não foi possível remover.'); }
 }
 
+/* Move um item de rotina para cima (-1) ou para baixo (+1), trocando a ordem com o vizinho. */
+async function moveRoutineItem(id, dir){
+  var itens = routineItemsFor(routinePatientId);
+  var pos = itens.findIndex(function(r){ return r.id===id; });
+  if(pos === -1) return;
+  var alvo = pos + dir;
+  if(alvo < 0 || alvo >= itens.length) return;
+  var a = itens[pos], b = itens[alvo];
+  // troca os valores de ordem (normaliza para 1..n antes, por segurança)
+  itens.forEach(function(r, i){ r.ordem = i+1; });
+  var tmp = a.ordem; a.ordem = b.ordem; b.ordem = tmp;
+  renderRoutineBody();
+  clearError();
+  try{
+    await postAction({ action:'update_routine_item', id:a.id, ordem:a.ordem });
+    await postAction({ action:'update_routine_item', id:b.id, ordem:b.ordem });
+  }catch(e){
+    tmp = a.ordem; a.ordem = b.ordem; b.ordem = tmp;   // rollback
+    renderRoutineBody();
+    showError('Não foi possível reordenar. Tente novamente.');
+  }
+}
+
 /* ============================================================
    CARTILHA em PDF
    ============================================================ */
@@ -1989,6 +2068,7 @@ function generateBooklet(){
   var pageW = 210, pageH = 297, margin = 14;
 
   function cabecalho(){
+    marcaDaguaOutono(doc, pageW, pageH);
     doc.setFillColor(181,84,46);
     doc.rect(0,0,pageW,26,'F');
     doc.setTextColor(255,255,255);
@@ -1999,7 +2079,8 @@ function generateBooklet(){
     doc.setTextColor(107,89,74); doc.setFontSize(9); doc.setFont('helvetica','normal');
     var who = (pac?('Paciente: '+pac.nome):'') ;
     if(who) doc.text(who, margin, 33);
-    doc.text((config.providerName||''), pageW - margin, 33, { align:'right' });
+    var resp = 'Fisioterapeuta Responsável: ' + (config.providerName||'');
+    doc.text(resp, pageW - margin, 33, { align:'right' });
   }
 
   function repsLabel(it){
@@ -2009,14 +2090,27 @@ function generateBooklet(){
     return '';
   }
 
+  /* desenha imagem com moldura terracota (ou placeholder) */
+  function imagemComBorda(it, bx, by, bw, bh){
+    if(it.imagem){
+      try{ doc.addImage(it.imagem, 'JPEG', bx, by, bw, bh); }catch(e){}
+    }else{
+      doc.setFillColor(246,231,218); doc.roundedRect(bx, by, bw, bh, 3, 3, 'F');
+      doc.setTextColor(181,84,46); doc.setFont('helvetica','normal'); doc.setFontSize(16);
+      doc.text('🏃', bx+bw/2, by+bh/2+2, { align:'center' });
+    }
+    doc.setDrawColor(181,84,46); doc.setLineWidth(0.7);
+    doc.roundedRect(bx, by, bw, bh, 3, 3, 'S');
+    doc.setLineWidth(0.2);
+  }
+
   cabecalho();
   var startY = 40;
 
   if(bookletFmt === 'lista'){
     var y = startY;
-    doc.setDrawColor(225,210,195);
     itens.forEach(function(it, i){
-      if(y > pageH - 24){ doc.addPage(); y = 20; }
+      if(y > pageH - 24){ doc.addPage(); marcaDaguaOutono(doc, pageW, pageH); y = 20; }
       doc.setTextColor(58,42,32); doc.setFont('helvetica','bold'); doc.setFontSize(12);
       doc.text((i+1)+'. '+it.nome, margin, y);
       var rl = repsLabel(it);
@@ -2029,47 +2123,42 @@ function generateBooklet(){
   } else if(bookletFmt === '1col'){
     var y = startY;
     itens.forEach(function(it, i){
-      var blockH = 70;
-      if(y + blockH > pageH - 14){ doc.addPage(); y = 20; }
-      if(it.imagem){ try{ doc.addImage(it.imagem, 'JPEG', margin, y, 56, 56); }catch(e){} }
-      var tx = it.imagem ? margin + 64 : margin;
+      var obsLines = it.obs ? doc.splitTextToSize(it.obs, pageW - (margin+64) - margin) : [];
+      var blockH = Math.max(62, 30 + obsLines.length*4.5 + 10);
+      if(y + blockH > pageH - 14){ doc.addPage(); marcaDaguaOutono(doc, pageW, pageH); y = 20; }
+      imagemComBorda(it, margin, y, 56, 56);
+      var tx = margin + 64;
       doc.setTextColor(58,42,32); doc.setFont('helvetica','bold'); doc.setFontSize(14);
-      doc.text((i+1)+'. '+it.nome, tx, y+10);
+      doc.text((i+1)+'. '+it.nome, tx, y+9);
+      var yy = y+9;
+      if(it.obs){ doc.setTextColor(107,89,74); doc.setFont('helvetica','normal'); doc.setFontSize(9.5);
+        doc.text(obsLines, tx, yy+7); yy += 7 + obsLines.length*4.5; }
+      else { yy += 4; }
       var rl = repsLabel(it);
-      if(rl){ doc.setTextColor(94,123,71); doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.text(rl, tx, y+20); }
-      if(it.tipo){ doc.setTextColor(138,90,20); doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.text(it.tipo, tx, y+28); }
-      if(it.obs){ doc.setTextColor(107,89,74); doc.setFont('helvetica','normal'); doc.setFontSize(9);
-        var ot = doc.splitTextToSize(it.obs, pageW - tx - margin); doc.text(ot, tx, y+36); }
+      if(rl){ doc.setTextColor(94,123,71); doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.text(rl, tx, yy+6); }
+      if(it.tipo){ doc.setTextColor(138,90,20); doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.text(it.tipo, tx, yy+13); }
       y += blockH;
     });
   } else {
     // 2col (cartilha)
     var colW = (pageW - margin*2 - 10) / 2;
-    var cellH = 78, imgH = 46;
-    var x = margin, y = startY, col = 0;
+    var imgH = 46, imgW = 44;
+    var cellH = 92;
+    var y = startY, col = 0;
     itens.forEach(function(it, i){
-      if(y + cellH > pageH - 14){ doc.addPage(); cabecalho(); y = startY; col = 0; x = margin; }
+      if(y + cellH > pageH - 14){ doc.addPage(); cabecalho(); y = startY; col = 0; }
       var cx = margin + col*(colW+10);
-      // imagem centralizada
-      if(it.imagem){
-        try{
-          var iw = 44, ih = imgH;
-          doc.addImage(it.imagem, 'JPEG', cx + (colW-iw)/2, y, iw, ih);
-        }catch(e){}
-      }else{
-        doc.setDrawColor(220,210,198); doc.setFillColor(246,231,218);
-        doc.roundedRect(cx + (colW-44)/2, y, 44, imgH, 3, 3, 'FD');
-      }
+      imagemComBorda(it, cx + (colW-imgW)/2, y, imgW, imgH);
       var ty = y + imgH + 7;
       doc.setTextColor(58,42,32); doc.setFont('helvetica','bold'); doc.setFontSize(11);
-      var nome = (i+1)+'. '+it.nome;
-      var nlines = doc.splitTextToSize(nome, colW);
+      var nlines = doc.splitTextToSize((i+1)+'. '+it.nome, colW);
       doc.text(nlines, cx + colW/2, ty, { align:'center' });
       ty += nlines.length*5;
       var rl = repsLabel(it);
       if(rl){ doc.setTextColor(94,123,71); doc.setFont('helvetica','bold'); doc.setFontSize(11);
-        doc.text(rl, cx + colW/2, ty+1, { align:'center' }); }
-      // avança grade
+        doc.text(rl, cx + colW/2, ty, { align:'center' }); ty += 5; }
+      if(it.obs){ doc.setTextColor(120,100,84); doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+        var olines = doc.splitTextToSize(it.obs, colW - 4); doc.text(olines, cx + colW/2, ty, { align:'center' }); }
       col++; if(col>1){ col=0; y += cellH; }
     });
   }
@@ -2212,6 +2301,32 @@ function closeModalBg(ev){
   if(ev.target === ev.currentTarget) closeModal();
 }
 
+/* Marca d'água de outono: folhas estilizadas em tons claros espalhadas no fundo. */
+function marcaDaguaOutono(doc, pageW, pageH){
+  function folha(cx, cy, r, rot, cor){
+    doc.setFillColor(cor[0], cor[1], cor[2]);
+    // 5 pétalas em volta de um centro (folha/flor estilizada de outono)
+    var petalas = 5;
+    for(var k=0;k<petalas;k++){
+      var ang = rot + (k * (2*Math.PI/petalas));
+      var px = cx + Math.cos(ang) * r*0.55;
+      var py = cy + Math.sin(ang) * r*0.55;
+      doc.ellipse(px, py, r*0.5, r*0.26, 'F');
+    }
+    doc.setFillColor(cor[0]-10, cor[1]-10, cor[2]-10);
+    doc.circle(cx, cy, r*0.22, 'F');
+  }
+  // cores de outono bem claras (quase marca d'água)
+  var tons = [[245,228,210],[246,233,218],[243,224,205],[247,236,222]];
+  var pts = [
+    [34, 70, 20], [172, 120, 26], [60, 210, 24], [150, 255, 18],
+    [28, 180, 16], [185, 60, 22], [100, 150, 22]
+  ];
+  pts.forEach(function(p, i){
+    folha(p[0], p[1], p[2], (i*0.9)%6.28, tons[i % tons.length]);
+  });
+}
+
 function drawStamp(doc, x, y){
   doc.setDrawColor(181,84,46);
   doc.setLineWidth(0.8);
@@ -2224,18 +2339,20 @@ function drawStamp(doc, x, y){
 }
 
 function receiptHeader(doc, title){
+  marcaDaguaOutono(doc, 210, 297);
   doc.setFillColor(181,84,46);
   doc.rect(0, 0, 210, 30, 'F');
   doc.setTextColor(255,255,255);
-  doc.setFontSize(16);
-  doc.text(config.providerName || 'Atendimento domiciliar', 15, 15);
-  doc.setFontSize(10);
+  doc.setFont('helvetica','bold'); doc.setFontSize(16);
+  doc.text('Fisioterapeuta Responsável: ' + (config.providerName || ''), 15, 15);
+  doc.setFont('helvetica','normal'); doc.setFontSize(10);
   doc.setTextColor(248,226,212);
   var sub = [config.providerDoc, config.providerContact].filter(Boolean).join('  -  ');
   if(sub) doc.text(sub, 15, 22);
   doc.setTextColor(58,42,32);
-  doc.setFontSize(14);
+  doc.setFont('helvetica','bold'); doc.setFontSize(14);
   doc.text(title, 15, 42);
+  doc.setFont('helvetica','normal');
 }
 
 function generateReceipt(id){
@@ -2299,7 +2416,7 @@ function openMonthlyReceipt(){
       '<label>Paciente</label>' +
       '<select id="monthlyPatient">'+options+'</select>' +
       '<label>Mês de referência</label>' +
-      '<div class="ref-month">&#128197; '+monthLabel(currentMonth)+'</div>' +
+      '<div class="ref-month">&#128197; '+monthLabelCap(currentMonth)+'</div>' +
       '<div class="btn-row">' +
         '<button class="btn ghost" onclick="closeModal()">Cancelar</button>' +
         '<button class="btn accent" onclick="submitMonthlyReceipt()">&#128196; Gerar PDF</button>' +
@@ -2333,44 +2450,52 @@ function submitMonthlyReceipt(){
   doc.setFontSize(11);
   doc.setTextColor(138,111,94);
   doc.text('Paciente:', 15, 55);
-  doc.setTextColor(58,42,32);
+  doc.setTextColor(58,42,32); doc.setFont('helvetica','bold');
   doc.text(patient, 45, 55);
-  doc.setTextColor(138,111,94);
+  doc.setFont('helvetica','normal'); doc.setTextColor(138,111,94);
   doc.text('Referência:', 15, 62);
-  doc.setTextColor(58,42,32);
-  doc.text(monthLabel(currentMonth), 45, 62);
+  doc.setTextColor(58,42,32); doc.setFont('helvetica','bold');
+  doc.text(monthLabelCap(currentMonth), 45, 62);
+  doc.setFont('helvetica','normal');
 
-  var rowY = 78;
-  doc.setFontSize(10);
-  doc.setTextColor(138,111,94);
-  doc.text('Data', 15, rowY);
-  doc.text('Horário', 60, rowY);
-  doc.text('Status', 100, rowY);
-  doc.text('Valor', 170, rowY, { align: 'right' });
-  rowY += 4;
-  doc.setDrawColor(234,217,201);
-  doc.line(15, rowY, 195, rowY);
-  rowY += 8;
+  // cabeçalho da tabela com faixa de fundo
+  var rowY = 74, rowH = 9;
+  doc.setFillColor(181,84,46);
+  doc.rect(15, rowY, 180, rowH, 'F');
+  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(9.5);
+  doc.text('DATA', 19, rowY+6);
+  doc.text('HORÁRIO', 62, rowY+6);
+  doc.text('STATUS', 102, rowY+6);
+  doc.text('VALOR', 191, rowY+6, { align: 'right' });
+  doc.setFont('helvetica','normal');
+  rowY += rowH;
 
   var total = 0;
-  doc.setTextColor(58,42,32);
-  sessions.forEach(function(s){
-    doc.text(formatDateBR(s.data), 15, rowY);
-    doc.text(s.hora || '-', 60, rowY);
-    doc.text(s.status, 100, rowY);
-    doc.text(formatMoney(s.valor), 170, rowY, { align: 'right' });
+  doc.setFontSize(10);
+  sessions.forEach(function(s, i){
+    if(rowY + rowH > 262){ doc.addPage(); marcaDaguaOutono(doc,210,297); rowY = 20; }
+    if(i % 2 === 0){ doc.setFillColor(248,236,224); doc.rect(15, rowY, 180, rowH, 'F'); }  // zebra suave
+    doc.setTextColor(58,42,32);
+    doc.text(formatDateBR(s.data), 19, rowY+6);
+    doc.text(s.hora || '-', 62, rowY+6);
+    var pago = s.status === 'Pago';
+    doc.setTextColor(pago?94:138, pago?123:90, pago?71:20);
+    doc.text(s.status, 102, rowY+6);
+    doc.setTextColor(58,42,32);
+    doc.text(formatMoney(s.valor), 191, rowY+6, { align: 'right' });
     total += s.valor;
-    rowY += 8;
-    if(rowY > 265){ doc.addPage(); rowY = 20; }
+    rowY += rowH;
   });
 
-  rowY += 4;
-  doc.line(15, rowY, 195, rowY);
-  rowY += 10;
-  doc.setFontSize(12);
+  rowY += 2;
+  doc.setDrawColor(181,84,46); doc.setLineWidth(0.5);
+  doc.line(15, rowY, 195, rowY); doc.setLineWidth(0.2);
+  rowY += 9;
+  doc.setFontSize(12); doc.setFont('helvetica','bold');
   doc.setTextColor(181,84,46);
-  doc.text('Total do mês:', 15, rowY);
-  doc.text(formatMoney(total), 170, rowY, { align: 'right' });
+  doc.text('Total do mês:', 19, rowY);
+  doc.text(formatMoney(total), 191, rowY, { align: 'right' });
+  doc.setFont('helvetica','normal');
 
   drawStamp(doc, 175, rowY + 20);
 

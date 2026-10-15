@@ -387,6 +387,44 @@
   .top-row .ct{font-size:11px;color:var(--ink-soft);}
   .top-row .vl{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:var(--primary-deep);}
 
+  /* ---------- Exercícios ---------- */
+  .exe-row{display:flex;align-items:center;gap:11px;padding:11px 0;border-bottom:1px solid var(--line);}
+  .exe-row:last-child{border-bottom:none;}
+  .exe-thumb{width:46px;height:46px;border-radius:11px;flex-shrink:0;object-fit:cover;background:var(--bg-tint);border:1px solid var(--line);}
+  .exe-thumb.ph{display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--primary);}
+  .exe-info{flex:1;min-width:0;}
+  .exe-name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .exe-sub{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
+  .exe-tag{display:inline-block;background:var(--accent-soft);color:var(--accent-ink);font-size:10px;font-weight:600;padding:1px 7px;border-radius:10px;margin-right:5px;}
+  .exe-actions{display:flex;gap:6px;flex-shrink:0;}
+  .exe-actions button{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);cursor:pointer;font-size:13px;}
+  .exe-actions button.del{color:var(--danger);}
+
+  /* Upload de imagem */
+  .img-picker{display:flex;align-items:center;gap:12px;margin-top:6px;}
+  .img-preview{width:72px;height:72px;border-radius:12px;object-fit:cover;border:1px solid var(--line);background:var(--bg-tint);flex-shrink:0;}
+  .img-preview.ph{display:flex;align-items:center;justify-content:center;font-size:26px;color:var(--primary);}
+  .img-picker .pick-btns{display:flex;flex-direction:column;gap:7px;flex:1;}
+
+  /* Montador de rotina */
+  .pick-exe{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);}
+  .pick-exe:last-child{border-bottom:none;}
+  .pick-exe .chk{width:24px;height:24px;flex-shrink:0;accent-color:var(--primary);}
+  .pick-exe .nm{flex:1;min-width:0;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .rot-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);}
+  .rot-item:last-child{border-bottom:none;}
+  .rot-item .ord{width:24px;height:24px;border-radius:50%;background:var(--primary-soft);color:var(--primary-deep);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .rot-item .nm{flex:1;min-width:0;font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .rot-item .sr{display:flex;gap:6px;flex-shrink:0;}
+  .rot-item .sr input{width:52px;padding:7px 6px;font-size:13px;text-align:center;}
+  .rot-item .rm{background:none;border:none;color:var(--danger);font-size:15px;cursor:pointer;flex-shrink:0;}
+
+  /* Seletor de formato de cartilha */
+  .fmt-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:6px;}
+  .fmt-opt{border:1px solid var(--line);border-radius:12px;padding:10px 6px;text-align:center;cursor:pointer;background:var(--surface);font-size:11.5px;font-weight:600;color:var(--ink-soft);}
+  .fmt-opt .ic{font-size:22px;display:block;margin-bottom:4px;}
+  .fmt-opt.sel{border-color:var(--primary);background:var(--primary-soft);color:var(--primary-deep);}
+
   /* Painel de totais em destaque (resumo mensal) */
   .totals-panel{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:4px 0 16px;}
   .totals-panel .box{border-radius:13px;padding:12px 10px;text-align:center;border:1px solid var(--line);}
@@ -489,6 +527,9 @@
       <button class="chip-btn" onclick="openPatientManager()">&#128100; Pacientes</button>
       <button class="chip-btn" onclick="openReports()">&#128200; Relatórios</button>
       <button class="chip-btn" onclick="openMonthlyReceipt()">&#128196; Comprovante</button>
+      <button class="chip-btn" onclick="openExerciseManager()">&#127939; Exercícios</button>
+      <button class="chip-btn" onclick="openRoutineManager()">&#128221; Rotinas</button>
+      <button class="chip-btn" onclick="openBookletBuilder()">&#128214; Cartilha</button>
     </div>
 
     <div class="filter-row">
@@ -523,6 +564,8 @@ var CONFIG_KEY = 'config';
 var config = null;
 var entries = [];
 var patients = [];
+var exercises = [];   // exercícios cadastrados
+var routines = [];    // itens de rotina (vínculo paciente x exercício)
 var currentMonth = new Date();
 
 function pad(n){ return n < 10 ? '0'+n : ''+n; }
@@ -689,6 +732,12 @@ async function loadData(){
     });
     patients = (data.pacientes || []).map(function(r){
       return { id: String(r.ID), nome: r.Nome, telefone: r.Telefone || '', valorPadrao: r.ValorPadrao || '', formaPagamento: r.FormaPagamento || '' };
+    });
+    exercises = (data.exercicios || []).map(function(r){
+      return { id: String(r.ID), nome: r.Nome, tipo: r.Tipo || '', seriesPadrao: r.SeriesPadrao || '', repsPadrao: r.RepsPadrao || '', observacao: r.Observacao || '', imagem: r.Imagem || '' };
+    });
+    routines = (data.rotinas || []).map(function(r){
+      return { id: String(r.ID), pacienteId: String(r.PacienteID||''), pacienteNome: r.PacienteNome || '', exercicioId: String(r.ExercicioID||''), ordem: Number(r.Ordem)||0, series: r.Series || '', reps: r.Reps || '', observacao: r.Observacao || '' };
     });
     populatePatientFilter();
     renderList();
@@ -1472,6 +1521,566 @@ function renderWorkCalendar(){
 }
 
 /* ============================================================
+   EXERCÍCIOS — cadastro com imagem (comprimida)
+   ============================================================ */
+var TIPOS_EXERCICIO = ['Fortalecimento','Alongamento','Mobilidade','Equilíbrio','Core','Aeróbico','Respiratório','Outro'];
+var exeImagemTemp = '';   // imagem (dataURL comprimido) do exercício em edição
+
+/* Comprime uma imagem escolhida para caber na planilha e carregar rápido.
+   Reduz para no máx. ~520px e exporta em JPEG qualidade 0.7. */
+function comprimirImagem(file, maxLado, quality){
+  return new Promise(function(resolve, reject){
+    var reader = new FileReader();
+    reader.onerror = function(){ reject(new Error('leitura')); };
+    reader.onload = function(){
+      var img = new Image();
+      img.onerror = function(){ reject(new Error('imagem')); };
+      img.onload = function(){
+        var w = img.width, h = img.height;
+        var escala = Math.min(1, maxLado / Math.max(w, h));
+        var cw = Math.round(w*escala), ch = Math.round(h*escala);
+        var canvas = document.createElement('canvas');
+        canvas.width = cw; canvas.height = ch;
+        var ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,cw,ch);  // fundo branco (p/ PNG transparente)
+        ctx.drawImage(img, 0, 0, cw, ch);
+        try{ resolve(canvas.toDataURL('image/jpeg', quality || 0.7)); }
+        catch(e){ reject(e); }
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function onExeImagePick(ev){
+  var file = ev.target.files && ev.target.files[0];
+  ev.target.value = '';
+  if(!file) return;
+  if(!/^image\//.test(file.type)){ alert('Escolha um arquivo de imagem.'); return; }
+  var prev = document.getElementById('exeImgPreview');
+  if(prev){ prev.classList.remove('ph'); prev.textContent = '...'; }
+  try{
+    var dataUrl = await comprimirImagem(file, 520, 0.7);
+    // se mesmo comprimido ficar muito grande, reduz mais (limite da célula ~50k chars)
+    if(dataUrl.length > 46000){ dataUrl = await comprimirImagem(file, 380, 0.6); }
+    exeImagemTemp = dataUrl;
+    refreshExeImgPreview();
+  }catch(e){
+    alert('Não foi possível processar a imagem. Tente outra.');
+    refreshExeImgPreview();
+  }
+}
+
+function refreshExeImgPreview(){
+  var prev = document.getElementById('exeImgPreview');
+  if(!prev) return;
+  if(exeImagemTemp){
+    prev.outerHTML = '<img id="exeImgPreview" class="img-preview" src="'+exeImagemTemp+'" alt="prévia">';
+  }else{
+    prev.outerHTML = '<div id="exeImgPreview" class="img-preview ph">&#127939;</div>';
+  }
+}
+
+function removeExeImg(){ exeImagemTemp = ''; refreshExeImgPreview(); }
+
+function openExerciseManager(){
+  exeImagemTemp = '';
+  var tipos = TIPOS_EXERCICIO.map(function(t){ return '<option value="'+escapeHtml(t)+'">'+escapeHtml(t)+'</option>'; }).join('');
+  var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
+    '<div class="modal">' +
+      '<div class="grabber"></div>' +
+      '<h2>Exercícios</h2>' +
+      '<div class="inner-card">' +
+        '<div class="field-title">Novo exercício</div>' +
+        '<label>Nome</label>' +
+        '<input id="exeNome" placeholder="Ex: Agachamento livre">' +
+        '<label>Tipo</label>' +
+        '<select id="exeTipo">'+tipos+'</select>' +
+        '<div style="display:flex;gap:10px;">' +
+          '<div style="flex:1;"><label>Séries padrão</label><input id="exeSeries" inputmode="numeric" placeholder="Ex: 3"></div>' +
+          '<div style="flex:1;"><label>Repetições padrão</label><input id="exeReps" placeholder="Ex: 15"></div>' +
+        '</div>' +
+        '<label>Observação (opcional)</label>' +
+        '<input id="exeObs" placeholder="Ex: manter as costas retas">' +
+        '<label>Imagem (opcional)</label>' +
+        '<div class="img-picker">' +
+          '<div id="exeImgPreview" class="img-preview ph">&#127939;</div>' +
+          '<div class="pick-btns">' +
+            '<button class="btn small" onclick="document.getElementById(\'exeImgFile\').click()">&#128247; Escolher imagem</button>' +
+            '<button class="btn small ghost" onclick="removeExeImg()">Remover imagem</button>' +
+          '</div>' +
+        '</div>' +
+        '<input id="exeImgFile" type="file" accept="image/*" class="hidden" onchange="onExeImagePick(event)">' +
+        '<button class="btn primary" style="width:100%;margin-top:16px;" id="addExeBtn" onclick="addExercise()">+ Adicionar exercício</button>' +
+      '</div>' +
+      '<div class="field-title">Cadastrados <span id="exeCount" style="font-weight:400;color:var(--ink-soft);"></span></div>' +
+      '<div id="exeListBox">' + renderExerciseListHtml() + '</div>' +
+      '<div class="btn-row">' +
+        '<button class="btn ghost" style="flex:1" onclick="closeModal()">Fechar</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+  openModal(html);
+  updateExeCount();
+}
+
+function updateExeCount(){
+  var el = document.getElementById('exeCount');
+  if(el) el.textContent = exercises.length ? '(' + exercises.length + ')' : '';
+}
+
+function exeTipoDefault(e){
+  var reps = [];
+  if(e.seriesPadrao && e.repsPadrao) reps.push(e.seriesPadrao + '×' + e.repsPadrao);
+  else if(e.repsPadrao) reps.push(e.repsPadrao);
+  return reps.join('');
+}
+
+function renderExerciseListHtml(){
+  if(exercises.length === 0) return '<p class="empty-mini">Nenhum exercício cadastrado ainda. Use o formulário acima.</p>';
+  return exercises.slice().sort(function(a,b){ return String(a.nome).localeCompare(String(b.nome),'pt-BR'); }).map(function(e){
+    var thumb = e.imagem
+      ? '<img class="exe-thumb" src="'+e.imagem+'" alt="">'
+      : '<div class="exe-thumb ph">&#127939;</div>';
+    var meta = [];
+    if(e.tipo) meta.push('<span class="exe-tag">'+escapeHtml(e.tipo)+'</span>');
+    var def = exeTipoDefault(e);
+    var sub = (def ? def : '') + (e.observacao ? (def?' · ':'')+escapeHtml(e.observacao) : '');
+    return '<div class="exe-row">' +
+        thumb +
+        '<div class="exe-info"><div class="exe-name">'+escapeHtml(e.nome)+'</div>' +
+          '<div class="exe-sub">'+meta.join('')+escapeHtml(sub)+'</div></div>' +
+        '<div class="exe-actions">' +
+          '<button onclick="editExercise(\''+e.id+'\')" aria-label="Editar">&#9998;</button>' +
+          '<button class="del" onclick="deleteExercise(\''+e.id+'\')" aria-label="Excluir">&#10005;</button>' +
+        '</div>' +
+      '</div>';
+  }).join('');
+}
+
+async function addExercise(){
+  var nome = document.getElementById('exeNome').value.trim();
+  if(!nome){ alert('Informe o nome do exercício.'); return; }
+  var tipo = document.getElementById('exeTipo').value;
+  var series = document.getElementById('exeSeries').value.trim();
+  var reps = document.getElementById('exeReps').value.trim();
+  var obs = document.getElementById('exeObs').value.trim();
+  var img = exeImagemTemp;
+  var btn = document.getElementById('addExeBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Adicionando...'; }
+  var id = 'x' + Date.now();
+  var novo = { id:id, nome:nome, tipo:tipo, seriesPadrao:series, repsPadrao:reps, observacao:obs, imagem:img };
+  exercises.push(novo);
+  document.getElementById('exeListBox').innerHTML = renderExerciseListHtml();
+  updateExeCount();
+  // limpa form
+  document.getElementById('exeNome').value='';
+  document.getElementById('exeSeries').value='';
+  document.getElementById('exeReps').value='';
+  document.getElementById('exeObs').value='';
+  exeImagemTemp=''; refreshExeImgPreview();
+  document.getElementById('exeNome').focus();
+  clearError();
+  try{
+    await postAction({ action:'create_exercise', id:id, nome:nome, tipo:tipo, seriesPadrao:series, repsPadrao:reps, observacao:obs, imagem:img });
+    showToast('Exercício adicionado.', 'ok');
+  }catch(e){
+    exercises = exercises.filter(function(x){ return x.id !== id; });
+    var box=document.getElementById('exeListBox'); if(box) box.innerHTML = renderExerciseListHtml();
+    updateExeCount();
+    showError('Não foi possível salvar o exercício na planilha.');
+  }
+  if(btn){ btn.disabled = false; btn.textContent = '+ Adicionar exercício'; }
+}
+
+function editExercise(id){
+  var e = exercises.find(function(x){ return x.id === id; });
+  if(!e) return;
+  exeImagemTemp = e.imagem || '';
+  var tipos = TIPOS_EXERCICIO.map(function(t){ return '<option value="'+escapeHtml(t)+'" '+(t===e.tipo?'selected':'')+'>'+escapeHtml(t)+'</option>'; }).join('');
+  if(e.tipo && TIPOS_EXERCICIO.indexOf(e.tipo)===-1) tipos = '<option value="'+escapeHtml(e.tipo)+'" selected>'+escapeHtml(e.tipo)+'</option>'+tipos;
+  var preview = exeImagemTemp ? '<img id="exeImgPreview" class="img-preview" src="'+exeImagemTemp+'" alt="prévia">' : '<div id="exeImgPreview" class="img-preview ph">&#127939;</div>';
+  var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
+    '<div class="modal">' +
+      '<div class="grabber"></div>' +
+      '<h2>Editar exercício</h2>' +
+      '<label>Nome</label>' +
+      '<input id="exeNome" value="'+escapeHtml(e.nome)+'">' +
+      '<label>Tipo</label>' +
+      '<select id="exeTipo">'+tipos+'</select>' +
+      '<div style="display:flex;gap:10px;">' +
+        '<div style="flex:1;"><label>Séries padrão</label><input id="exeSeries" inputmode="numeric" value="'+escapeHtml(e.seriesPadrao)+'"></div>' +
+        '<div style="flex:1;"><label>Repetições padrão</label><input id="exeReps" value="'+escapeHtml(e.repsPadrao)+'"></div>' +
+      '</div>' +
+      '<label>Observação (opcional)</label>' +
+      '<input id="exeObs" value="'+escapeHtml(e.observacao)+'">' +
+      '<label>Imagem (opcional)</label>' +
+      '<div class="img-picker">' + preview +
+        '<div class="pick-btns">' +
+          '<button class="btn small" onclick="document.getElementById(\'exeImgFile\').click()">&#128247; Trocar imagem</button>' +
+          '<button class="btn small ghost" onclick="removeExeImg()">Remover imagem</button>' +
+        '</div>' +
+      '</div>' +
+      '<input id="exeImgFile" type="file" accept="image/*" class="hidden" onchange="onExeImagePick(event)">' +
+      '<div class="btn-row">' +
+        '<button class="btn ghost" onclick="openExerciseManager()">Voltar</button>' +
+        '<button class="btn primary" id="editExeBtn" onclick="submitEditExercise(\''+id+'\')">Salvar</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+  openModal(html);
+}
+
+async function submitEditExercise(id){
+  var e = exercises.find(function(x){ return x.id === id; });
+  if(!e) return;
+  var nome = document.getElementById('exeNome').value.trim();
+  if(!nome){ alert('Informe o nome.'); return; }
+  var prev = { nome:e.nome, tipo:e.tipo, seriesPadrao:e.seriesPadrao, repsPadrao:e.repsPadrao, observacao:e.observacao, imagem:e.imagem };
+  e.nome = nome;
+  e.tipo = document.getElementById('exeTipo').value;
+  e.seriesPadrao = document.getElementById('exeSeries').value.trim();
+  e.repsPadrao = document.getElementById('exeReps').value.trim();
+  e.observacao = document.getElementById('exeObs').value.trim();
+  e.imagem = exeImagemTemp;
+  var btn = document.getElementById('editExeBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Salvando...'; }
+  clearError();
+  try{
+    await postAction({ action:'update_exercise', id:id, nome:e.nome, tipo:e.tipo, seriesPadrao:e.seriesPadrao, repsPadrao:e.repsPadrao, observacao:e.observacao, imagem:e.imagem });
+    showToast('Exercício atualizado.', 'ok');
+    openExerciseManager();
+  }catch(err){
+    e.nome=prev.nome; e.tipo=prev.tipo; e.seriesPadrao=prev.seriesPadrao; e.repsPadrao=prev.repsPadrao; e.observacao=prev.observacao; e.imagem=prev.imagem;
+    if(btn){ btn.disabled=false; btn.textContent='Salvar'; }
+    showError('Não foi possível atualizar o exercício.');
+  }
+}
+
+async function deleteExercise(id){
+  if(!confirm('Excluir este exercício? Ele também será removido das rotinas das pacientes.')) return;
+  var idx = exercises.findIndex(function(x){ return x.id === id; });
+  if(idx === -1) return;
+  var removed = exercises[idx];
+  var removedRot = routines.filter(function(r){ return r.exercicioId === id; });
+  exercises.splice(idx,1);
+  routines = routines.filter(function(r){ return r.exercicioId !== id; });
+  var box=document.getElementById('exeListBox'); if(box) box.innerHTML = renderExerciseListHtml();
+  updateExeCount();
+  clearError();
+  try{
+    await postAction({ action:'delete_exercise', id:id });
+    showToast('Exercício excluído.', 'ok');
+  }catch(e){
+    exercises.splice(idx,0,removed);
+    routines = routines.concat(removedRot);
+    if(box) box.innerHTML = renderExerciseListHtml();
+    updateExeCount();
+    showError('Não foi possível excluir o exercício.');
+  }
+}
+
+/* ============================================================
+   ROTINAS por paciente
+   ============================================================ */
+var routinePatientId = '';
+
+function openRoutineManager(){
+  if(patients.length === 0){ alert('Cadastre uma paciente primeiro.'); openPatientManager(); return; }
+  if(exercises.length === 0){ alert('Cadastre exercícios primeiro.'); openExerciseManager(); return; }
+  if(!routinePatientId || !patients.some(function(p){ return p.id===routinePatientId; })){
+    routinePatientId = patients[0].id;
+  }
+  var opts = patients.slice().sort(function(a,b){ return String(a.nome).localeCompare(String(b.nome),'pt-BR'); })
+    .map(function(p){ return '<option value="'+p.id+'" '+(p.id===routinePatientId?'selected':'')+'>'+escapeHtml(p.nome)+'</option>'; }).join('');
+  var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
+    '<div class="modal">' +
+      '<div class="grabber"></div>' +
+      '<h2>Rotina de exercícios</h2>' +
+      '<label>Paciente</label>' +
+      '<select id="routinePatient" onchange="onRoutinePatientChange()">'+opts+'</select>' +
+      '<div id="routineBody"></div>' +
+      '<div class="btn-row">' +
+        '<button class="btn ghost" onclick="closeModal()">Fechar</button>' +
+        '<button class="btn accent" onclick="bookletFromRoutine()">&#128214; Gerar cartilha</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+  openModal(html);
+  renderRoutineBody();
+}
+
+function onRoutinePatientChange(){
+  routinePatientId = document.getElementById('routinePatient').value;
+  renderRoutineBody();
+}
+
+function routineItemsFor(pid){
+  return routines.filter(function(r){ return r.pacienteId === pid; })
+    .sort(function(a,b){ return (a.ordem||0)-(b.ordem||0); });
+}
+
+function renderRoutineBody(){
+  var body = document.getElementById('routineBody');
+  if(!body) return;
+  var itens = routineItemsFor(routinePatientId);
+  var naRotina = {}; itens.forEach(function(r){ naRotina[r.exercicioId]=true; });
+
+  var listaRotina = '';
+  if(itens.length === 0){
+    listaRotina = '<p class="empty-mini">Nenhum exercício na rotina ainda. Marque abaixo para adicionar.</p>';
+  }else{
+    listaRotina = itens.map(function(r, i){
+      var e = exercises.find(function(x){ return x.id===r.exercicioId; });
+      if(!e) return '';
+      return '<div class="rot-item">' +
+        '<div class="ord">'+(i+1)+'</div>' +
+        '<div class="nm">'+escapeHtml(e.nome)+'</div>' +
+        '<div class="sr">' +
+          '<input inputmode="numeric" value="'+escapeHtml(r.series)+'" placeholder="séries" onchange="updateRoutineField(\''+r.id+'\',\'series\',this.value)" aria-label="séries">' +
+          '<input value="'+escapeHtml(r.reps)+'" placeholder="reps" onchange="updateRoutineField(\''+r.id+'\',\'reps\',this.value)" aria-label="repetições">' +
+        '</div>' +
+        '<button class="rm" onclick="removeRoutineItem(\''+r.id+'\')" aria-label="Remover">&#10005;</button>' +
+      '</div>';
+    }).join('');
+  }
+
+  var disponiveis = exercises.slice().sort(function(a,b){ return String(a.nome).localeCompare(String(b.nome),'pt-BR'); })
+    .filter(function(e){ return !naRotina[e.id]; });
+  var listaDisp = disponiveis.length === 0
+    ? '<p class="empty-mini">Todos os exercícios já estão na rotina.</p>'
+    : disponiveis.map(function(e){
+        return '<div class="pick-exe">' +
+          '<input type="checkbox" class="chk" id="pick_'+e.id+'">' +
+          '<div class="nm">'+escapeHtml(e.nome)+(e.tipo?' <span class="exe-tag">'+escapeHtml(e.tipo)+'</span>':'')+'</div>' +
+        '</div>';
+      }).join('');
+
+  body.innerHTML =
+    '<div class="field-title">Rotina atual ('+itens.length+')</div>' + listaRotina +
+    '<div class="field-title">Adicionar exercícios</div>' + listaDisp +
+    (disponiveis.length ? '<button class="btn primary" style="width:100%;margin-top:12px;" onclick="addCheckedToRoutine()">+ Adicionar selecionados</button>' : '');
+}
+
+async function addCheckedToRoutine(){
+  var pid = routinePatientId;
+  var pac = patients.find(function(p){ return p.id===pid; });
+  var base = routineItemsFor(pid).length;
+  var escolhidos = exercises.filter(function(e){
+    var cb = document.getElementById('pick_'+e.id);
+    return cb && cb.checked;
+  });
+  if(escolhidos.length === 0){ alert('Marque pelo menos um exercício.'); return; }
+  clearError();
+  for(var i=0;i<escolhidos.length;i++){
+    var e = escolhidos[i];
+    var id = 'r' + Date.now() + '_' + i;
+    var item = { id:id, pacienteId:pid, pacienteNome:pac?pac.nome:'', exercicioId:e.id, ordem:base+i+1, series:e.seriesPadrao||'', reps:e.repsPadrao||'', observacao:'' };
+    routines.push(item);
+    try{
+      await postAction({ action:'create_routine_item', id:id, pacienteId:pid, pacienteNome:item.pacienteNome, exercicioId:e.id, ordem:item.ordem, series:item.series, reps:item.reps, observacao:'' });
+    }catch(err){
+      routines = routines.filter(function(r){ return r.id !== id; });
+      showError('Alguns exercícios não foram salvos. Confira a conexão.');
+    }
+  }
+  renderRoutineBody();
+  showToast('Rotina atualizada.', 'ok');
+}
+
+async function updateRoutineField(id, field, value){
+  var r = routines.find(function(x){ return x.id===id; });
+  if(!r) return;
+  var prev = r[field];
+  r[field] = value;
+  var payload = { action:'update_routine_item', id:id };
+  payload[field] = value;
+  try{ await postAction(payload); }
+  catch(e){ r[field]=prev; showError('Não foi possível salvar a alteração.'); }
+}
+
+async function removeRoutineItem(id){
+  var idx = routines.findIndex(function(x){ return x.id===id; });
+  if(idx===-1) return;
+  var removed = routines[idx];
+  routines.splice(idx,1);
+  renderRoutineBody();
+  clearError();
+  try{ await postAction({ action:'delete_routine_item', id:id }); showToast('Exercício removido da rotina.','ok'); }
+  catch(e){ routines.splice(idx,0,removed); renderRoutineBody(); showError('Não foi possível remover.'); }
+}
+
+/* ============================================================
+   CARTILHA em PDF
+   ============================================================ */
+var bookletFmt = '2col';   // 2col | 1col | lista
+
+function openBookletBuilder(preselectPid){
+  if(patients.length === 0){ alert('Cadastre uma paciente primeiro.'); openPatientManager(); return; }
+  var pid = preselectPid || routinePatientId || patients[0].id;
+  var opts = patients.slice().sort(function(a,b){ return String(a.nome).localeCompare(String(b.nome),'pt-BR'); })
+    .map(function(p){ return '<option value="'+p.id+'" '+(p.id===pid?'selected':'')+'>'+escapeHtml(p.nome)+'</option>'; }).join('');
+  var pac = patients.find(function(p){ return p.id===pid; });
+  var tituloSug = 'Rotina de exercícios';
+  var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
+    '<div class="modal">' +
+      '<div class="grabber"></div>' +
+      '<h2>Montar cartilha</h2>' +
+      '<label>Paciente</label>' +
+      '<select id="bkPatient">'+opts+'</select>' +
+      '<label>Título da cartilha</label>' +
+      '<input id="bkTitle" value="'+escapeHtml(tituloSug)+'" placeholder="Ex: Segunda-feira · Corpo todo">' +
+      '<label>Subtítulo (opcional)</label>' +
+      '<input id="bkSubtitle" placeholder="Ex: Fortalecimento e mobilidade">' +
+      '<label>Formato</label>' +
+      '<div class="fmt-grid">' +
+        '<div class="fmt-opt sel" data-fmt="2col" onclick="selectFmt(this)"><span class="ic">&#128441;</span>Cartilha<br>(2 colunas)</div>' +
+        '<div class="fmt-opt" data-fmt="1col" onclick="selectFmt(this)"><span class="ic">&#128444;</span>Detalhada<br>(imagem grande)</div>' +
+        '<div class="fmt-opt" data-fmt="lista" onclick="selectFmt(this)"><span class="ic">&#128203;</span>Lista<br>(compacta)</div>' +
+      '</div>' +
+      '<div class="hint-banner" style="margin-top:16px;">&#128161; A cartilha usa os exercícios da rotina da paciente. Monte a rotina em "Rotinas" se ainda não fez.</div>' +
+      '<div class="btn-row">' +
+        '<button class="btn ghost" onclick="closeModal()">Cancelar</button>' +
+        '<button class="btn accent" id="bkGenBtn" onclick="generateBooklet()">&#128214; Gerar PDF</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+  openModal(html);
+  bookletFmt = '2col';
+}
+
+function selectFmt(el){
+  var all = document.querySelectorAll('.fmt-opt');
+  for(var i=0;i<all.length;i++) all[i].classList.remove('sel');
+  el.classList.add('sel');
+  bookletFmt = el.getAttribute('data-fmt');
+}
+
+function bookletFromRoutine(){
+  var pid = routinePatientId;
+  closeModal();
+  openBookletBuilder(pid);
+}
+
+function generateBooklet(){
+  var pid = document.getElementById('bkPatient').value;
+  var titulo = (document.getElementById('bkTitle').value || 'Rotina de exercícios').trim();
+  var subtitulo = (document.getElementById('bkSubtitle').value || '').trim();
+  var pac = patients.find(function(p){ return p.id===pid; });
+  var itens = routineItemsFor(pid).map(function(r){
+    var e = exercises.find(function(x){ return x.id===r.exercicioId; });
+    return e ? { nome:e.nome, tipo:e.tipo, imagem:e.imagem, obs:(r.observacao||e.observacao||''),
+                 series:r.series||e.seriesPadrao||'', reps:r.reps||e.repsPadrao||'' } : null;
+  }).filter(Boolean);
+
+  if(itens.length === 0){
+    alert('A paciente ' + (pac?pac.nome:'') + ' ainda não tem exercícios na rotina. Monte a rotina em "Rotinas".');
+    return;
+  }
+  closeModal();
+  var doc = new jspdf.jsPDF();
+  var pageW = 210, pageH = 297, margin = 14;
+
+  function cabecalho(){
+    doc.setFillColor(181,84,46);
+    doc.rect(0,0,pageW,26,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold'); doc.setFontSize(17);
+    doc.text(String(titulo).toUpperCase(), pageW/2, 12, { align:'center' });
+    if(subtitulo){ doc.setFont('helvetica','normal'); doc.setFontSize(11); doc.setTextColor(248,226,212);
+      doc.text(subtitulo, pageW/2, 20, { align:'center' }); }
+    doc.setTextColor(107,89,74); doc.setFontSize(9); doc.setFont('helvetica','normal');
+    var who = (pac?('Paciente: '+pac.nome):'') ;
+    if(who) doc.text(who, margin, 33);
+    doc.text((config.providerName||''), pageW - margin, 33, { align:'right' });
+  }
+
+  function repsLabel(it){
+    if(it.series && it.reps) return it.series + ' x ' + it.reps;
+    if(it.reps) return it.reps;
+    if(it.series) return it.series + ' séries';
+    return '';
+  }
+
+  cabecalho();
+  var startY = 40;
+
+  if(bookletFmt === 'lista'){
+    var y = startY;
+    doc.setDrawColor(225,210,195);
+    itens.forEach(function(it, i){
+      if(y > pageH - 24){ doc.addPage(); y = 20; }
+      doc.setTextColor(58,42,32); doc.setFont('helvetica','bold'); doc.setFontSize(12);
+      doc.text((i+1)+'. '+it.nome, margin, y);
+      var rl = repsLabel(it);
+      if(rl){ doc.setTextColor(94,123,71); doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.text(rl, pageW - margin, y, { align:'right' }); }
+      y += 6;
+      if(it.obs){ doc.setTextColor(107,89,74); doc.setFont('helvetica','normal'); doc.setFontSize(9);
+        var ltxt = doc.splitTextToSize(it.obs, pageW - margin*2); doc.text(ltxt, margin, y); y += ltxt.length*4.5; }
+      y += 4; doc.setDrawColor(230,220,208); doc.line(margin, y, pageW-margin, y); y += 7;
+    });
+  } else if(bookletFmt === '1col'){
+    var y = startY;
+    itens.forEach(function(it, i){
+      var blockH = 70;
+      if(y + blockH > pageH - 14){ doc.addPage(); y = 20; }
+      if(it.imagem){ try{ doc.addImage(it.imagem, 'JPEG', margin, y, 56, 56); }catch(e){} }
+      var tx = it.imagem ? margin + 64 : margin;
+      doc.setTextColor(58,42,32); doc.setFont('helvetica','bold'); doc.setFontSize(14);
+      doc.text((i+1)+'. '+it.nome, tx, y+10);
+      var rl = repsLabel(it);
+      if(rl){ doc.setTextColor(94,123,71); doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.text(rl, tx, y+20); }
+      if(it.tipo){ doc.setTextColor(138,90,20); doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.text(it.tipo, tx, y+28); }
+      if(it.obs){ doc.setTextColor(107,89,74); doc.setFont('helvetica','normal'); doc.setFontSize(9);
+        var ot = doc.splitTextToSize(it.obs, pageW - tx - margin); doc.text(ot, tx, y+36); }
+      y += blockH;
+    });
+  } else {
+    // 2col (cartilha)
+    var colW = (pageW - margin*2 - 10) / 2;
+    var cellH = 78, imgH = 46;
+    var x = margin, y = startY, col = 0;
+    itens.forEach(function(it, i){
+      if(y + cellH > pageH - 14){ doc.addPage(); cabecalho(); y = startY; col = 0; x = margin; }
+      var cx = margin + col*(colW+10);
+      // imagem centralizada
+      if(it.imagem){
+        try{
+          var iw = 44, ih = imgH;
+          doc.addImage(it.imagem, 'JPEG', cx + (colW-iw)/2, y, iw, ih);
+        }catch(e){}
+      }else{
+        doc.setDrawColor(220,210,198); doc.setFillColor(246,231,218);
+        doc.roundedRect(cx + (colW-44)/2, y, 44, imgH, 3, 3, 'FD');
+      }
+      var ty = y + imgH + 7;
+      doc.setTextColor(58,42,32); doc.setFont('helvetica','bold'); doc.setFontSize(11);
+      var nome = (i+1)+'. '+it.nome;
+      var nlines = doc.splitTextToSize(nome, colW);
+      doc.text(nlines, cx + colW/2, ty, { align:'center' });
+      ty += nlines.length*5;
+      var rl = repsLabel(it);
+      if(rl){ doc.setTextColor(94,123,71); doc.setFont('helvetica','bold'); doc.setFontSize(11);
+        doc.text(rl, cx + colW/2, ty+1, { align:'center' }); }
+      // avança grade
+      col++; if(col>1){ col=0; y += cellH; }
+    });
+  }
+
+  // rodapé
+  var pages = doc.internal.getNumberOfPages();
+  for(var p=1;p<=pages;p++){
+    doc.setPage(p);
+    doc.setTextColor(150,135,120); doc.setFontSize(8); doc.setFont('helvetica','normal');
+    doc.text('Gerado em ' + formatDateBR(isoDate(new Date())) + (config.providerContact?('  ·  '+config.providerContact):''), pageW/2, pageH-7, { align:'center' });
+  }
+
+  var fname = 'cartilha_' + (pac?pac.nome.replace(/\s+/g,'_'):'paciente') + '_' + isoDate(new Date()) + '.pdf';
+  doc.save(fname);
+}
+
+/* ============================================================
    BACKUP — exportar / importar
    ============================================================ */
 function downloadFile(name, text, mime){
@@ -1506,11 +2115,13 @@ function exportBackup(fmt){
   }
   var data = {
     _app: 'atendimentos-fisioterapia',
-    _version: 1,
+    _version: 2,
     exportadoEm: new Date().toISOString(),
     profissional: config ? config.providerName : '',
     atendimentos: entries,
-    pacientes: patients
+    pacientes: patients,
+    exercicios: exercises,
+    rotinas: routines
   };
   downloadFile('backup_atendimentos_'+stamp+'.json', JSON.stringify(data, null, 2), 'application/json');
   showToast('Backup exportado.', 'ok');
@@ -1526,36 +2137,46 @@ async function importBackup(ev){
   try{ data = JSON.parse(text); }catch(e){ showError('Arquivo inválido (não é um backup .json).'); return; }
   var impAtend = Array.isArray(data.atendimentos) ? data.atendimentos : [];
   var impPac = Array.isArray(data.pacientes) ? data.pacientes : [];
-  if(impAtend.length === 0 && impPac.length === 0){ showError('O arquivo não contém dados para restaurar.'); return; }
+  var impExe = Array.isArray(data.exercicios) ? data.exercicios : [];
+  var impRot = Array.isArray(data.rotinas) ? data.rotinas : [];
+  if(impAtend.length === 0 && impPac.length === 0 && impExe.length === 0 && impRot.length === 0){ showError('O arquivo não contém dados para restaurar.'); return; }
 
   // Só adiciona o que ainda não existe (por ID) — não apaga nem duplica o que já está lá.
   var existingE = {}; entries.forEach(function(e){ existingE[e.id] = true; });
   var existingP = {}; patients.forEach(function(p){ existingP[p.id] = true; });
+  var existingX = {}; exercises.forEach(function(x){ existingX[x.id] = true; });
+  var existingR = {}; routines.forEach(function(r){ existingR[r.id] = true; });
   var novosE = impAtend.filter(function(e){ return e && e.id && !existingE[e.id]; });
   var novosP = impPac.filter(function(p){ return p && p.id && !existingP[p.id]; });
+  var novosX = impExe.filter(function(x){ return x && x.id && !existingX[x.id]; });
+  var novosR = impRot.filter(function(r){ return r && r.id && !existingR[r.id]; });
 
-  if(novosE.length === 0 && novosP.length === 0){
+  if(novosE.length === 0 && novosP.length === 0 && novosX.length === 0 && novosR.length === 0){
     showToast('Tudo do backup já estava no app. Nada a restaurar.', 'ok');
     return;
   }
-  if(!confirm('Restaurar ' + novosP.length + ' paciente(s) e ' + novosE.length + ' atendimento(s) do backup? Os dados atuais são mantidos.')) return;
+  if(!confirm('Restaurar ' + novosP.length + ' paciente(s), ' + novosE.length + ' atendimento(s), ' + novosX.length + ' exercício(s) e ' + novosR.length + ' item(ns) de rotina? Os dados atuais são mantidos.')) return;
 
   var falhas = 0;
-  // pacientes primeiro
   for(var i=0;i<novosP.length;i++){
     var p = novosP[i];
     patients.push(p);
-    try{
-      await postAction({ action:'create_patient', id:p.id, nome:p.nome, telefone:p.telefone||'', valorPadrao:p.valorPadrao||'', formaPagamento:p.formaPagamento||'' });
-    }catch(e){ falhas++; }
+    try{ await postAction({ action:'create_patient', id:p.id, nome:p.nome, telefone:p.telefone||'', valorPadrao:p.valorPadrao||'', formaPagamento:p.formaPagamento||'' }); }catch(e){ falhas++; }
   }
   for(var j=0;j<novosE.length;j++){
     var e = novosE[j];
     entries.push(e);
-    try{
-      await postAction({ action:'create', id:e.id, nome:e.nome, data:e.data, hora:e.hora||'', valor:e.valor,
-        status:e.status||'Pendente', paymentDate:e.paymentDate||'', lat:e.lat||'', lng:e.lng||'' });
-    }catch(err){ falhas++; }
+    try{ await postAction({ action:'create', id:e.id, nome:e.nome, data:e.data, hora:e.hora||'', valor:e.valor, status:e.status||'Pendente', paymentDate:e.paymentDate||'', lat:e.lat||'', lng:e.lng||'' }); }catch(err){ falhas++; }
+  }
+  for(var k=0;k<novosX.length;k++){
+    var x = novosX[k];
+    exercises.push(x);
+    try{ await postAction({ action:'create_exercise', id:x.id, nome:x.nome, tipo:x.tipo||'', seriesPadrao:x.seriesPadrao||'', repsPadrao:x.repsPadrao||'', observacao:x.observacao||'', imagem:x.imagem||'' }); }catch(err){ falhas++; }
+  }
+  for(var l=0;l<novosR.length;l++){
+    var r = novosR[l];
+    routines.push(r);
+    try{ await postAction({ action:'create_routine_item', id:r.id, pacienteId:r.pacienteId||'', pacienteNome:r.pacienteNome||'', exercicioId:r.exercicioId||'', ordem:r.ordem||'', series:r.series||'', reps:r.reps||'', observacao:r.observacao||'' }); }catch(err){ falhas++; }
   }
   populatePatientFilter();
   renderList();

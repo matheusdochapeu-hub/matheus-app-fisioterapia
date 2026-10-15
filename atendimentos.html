@@ -131,6 +131,11 @@
     font-family:'Inter',sans-serif;font-size:16px;background:var(--surface);color:var(--ink);
     appearance:none;-webkit-appearance:none;
   }
+  /* checkbox/radio precisam da aparência nativa (a regra acima a removia) */
+  input[type=checkbox],input[type=radio]{
+    appearance:auto;-webkit-appearance:auto;
+    width:auto;padding:0;border:none;background:none;accent-color:var(--primary);
+  }
   select:focus,input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft);}
   select{
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23B5542E' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
@@ -409,7 +414,8 @@
   /* Montador de rotina */
   .pick-exe{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);}
   .pick-exe:last-child{border-bottom:none;}
-  .pick-exe .chk{width:24px;height:24px;flex-shrink:0;accent-color:var(--primary);}
+  .pick-exe{cursor:pointer;}
+  .pick-exe .chk{width:22px;height:22px;flex-shrink:0;accent-color:var(--primary);margin:0;transform:scale(1.15);transform-origin:left center;}
   .pick-exe .nm{flex:1;min-width:0;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .rot-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);}
   .rot-item:last-child{border-bottom:none;}
@@ -1851,10 +1857,10 @@ function renderRoutineBody(){
   var listaDisp = disponiveis.length === 0
     ? '<p class="empty-mini">Todos os exercícios já estão na rotina.</p>'
     : disponiveis.map(function(e){
-        return '<div class="pick-exe">' +
+        return '<label class="pick-exe" for="pick_'+e.id+'">' +
           '<input type="checkbox" class="chk" id="pick_'+e.id+'">' +
           '<div class="nm">'+escapeHtml(e.nome)+(e.tipo?' <span class="exe-tag">'+escapeHtml(e.tipo)+'</span>':'')+'</div>' +
-        '</div>';
+        '</label>';
       }).join('');
 
   body.innerHTML =

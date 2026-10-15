@@ -117,7 +117,7 @@ function doGet(e) {
 
 function doPost(e) {
   var body = JSON.parse(e.postData.contents);
-  var result = { success: true };
+  var result = { success: true, action: body.action || 'create', handled: true };
 
   if (body.action === 'delete') {
     deleteRowById_(getAtendSheet_(), body.id);
@@ -180,7 +180,7 @@ function doPost(e) {
     // apaga todos os itens de rotina de um paciente
     deleteRowsByField_(getRotSheet_(), 1, body.pacienteId); // coluna PacienteID (0-based = 1)
 
-  } else {
+  } else if (!body.action || body.action === 'create') {
     getAtendSheet_().appendRow([
       body.id,
       body.nome,
@@ -193,6 +193,13 @@ function doPost(e) {
       body.lng || '',
       new Date().toISOString()
     ]);
+
+  } else {
+    // Ação desconhecida: NÃO grava nada (evita criar lixo). Sinaliza ao app.
+    result.success = false;
+    result.handled = false;
+    result.error = 'Ação não reconhecida pelo script: ' + body.action +
+      '. Publique a versão mais recente do Code.gs (Nova versão) no Apps Script.';
   }
 
   return ContentService.createTextOutput(JSON.stringify(result))

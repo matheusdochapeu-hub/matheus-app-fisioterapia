@@ -14,6 +14,9 @@ App para celular (PWA instalável) que controla pacientes atendidas e valores a 
 - Comprovante mensal em PDF por paciente ou com o resumo de todos os pacientes
 - **Relatório anual** com faturamento, recebido × a receber, nº de sessões, pacientes, ticket médio, meses trabalhados × ociosos, gráfico de barras por mês, ranking de pacientes e **calendário dos dias trabalhados**
 - **Backup**: exportar todos os dados em `.json` (restaurável) ou `.csv` (abre no Excel) e **restaurar** a partir de um `.json`
+- **Exercícios**: cadastro por nome, tipo (fortalecimento, alongamento, mobilidade…), séries/repetições padrão, observação e **imagem** (escolhida do aparelho, comprimida automaticamente)
+- **Rotina por paciente**: montar a lista de exercícios de cada paciente, com séries/repetições específicas e ordem
+- **Cartilha em PDF** para impressão, em 3 formatos (cartilha em 2 colunas com imagem, detalhada com imagem grande, ou lista compacta), com **título e paciente** escolhidos na hora
 
 ## 🔗 Link da planilha embutido
 
@@ -75,6 +78,8 @@ Isso recria `icons/icon-192.png`, `icon-512.png` e `icon-maskable-512.png`. Não
 ## Atualizando o script
 
 Sempre que o `Code.gs` for alterado, cole a nova versão no Apps Script e publique uma nova versão em **Implantar > Gerenciar implantações > Editar > Nova versão**. O link `/exec` continua o mesmo.
+
+> **Importante (exercícios e rotinas):** a versão atual do `Code.gs` cria duas abas novas — **Exercicios** e **Rotinas**. Para o cadastro de exercícios, as rotinas e a cartilha funcionarem, é preciso **colar o `Code.gs` novo no Apps Script e publicar uma nova versão** (passo acima). As abas são criadas sozinhas na primeira vez. Os dados de atendimentos/pacientes já existentes **não são afetados**.
 
 ## Observações
 

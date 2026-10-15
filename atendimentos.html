@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Atendimentos - Fisioterapia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#F4F2ED;
+    --surface:#FFFFFF;
+    --line:#E1DED4;
+    --ink:#262521;
+    --ink-soft:#6B6862;
+    --primary:#2F4B44;
+    --primary-soft:#E4ECE9;
+    --accent:#C08A2E;
+    --accent-soft:#F5E9D4;
+    --danger:#B14B3E;
+    --danger-soft:#F6E2DF;
+    --success:#3F7D5C;
+    --success-soft:#E1EEE7;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    padding-bottom:170px;
+  }
+  .wrap{max-width:480px;margin:0 auto;padding:20px 16px;}
+  h1,h2,h3{font-family:'Fraunces',serif;font-weight:600;margin:0;}
+  .hidden{display:none !important;}
+
+  header.top{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:20px;
+  }
+  header.top .brand{display:flex;align-items:center;gap:10px;}
+  .stamp{
+    width:38px;height:38px;border-radius:50%;
+    border:2px solid var(--primary);
+    display:flex;align-items:center;justify-content:center;
+    color:var(--primary);font-family:'Fraunces',serif;font-weight:600;font-size:15px;
+    flex-shrink:0;
+  }
+  header.top h1{font-size:19px;color:var(--primary);}
+  header.top .sub{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+  .icon-btn{
+    width:38px;height:38px;border-radius:50%;border:1px solid var(--line);
+    background:var(--surface);display:flex;align-items:center;justify-content:center;
+    cursor:pointer;font-size:16px;color:var(--ink-soft);flex-shrink:0;
+  }
+  .icon-btn:active{background:var(--primary-soft);}
+  .header-actions{display:flex;gap:8px;}
+
+  .card{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px;margin-bottom:14px;
+  }
+
+  .summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+  .metric{background:var(--primary-soft);border-radius:var(--radius);padding:14px;}
+  .metric .label{font-size:12px;color:var(--primary);opacity:.85;margin-bottom:4px;}
+  .metric .value{font-family:'IBM Plex Mono',monospace;font-size:19px;font-weight:500;color:var(--primary);}
+  .metric.accent{background:var(--accent-soft);}
+  .metric.accent .label{color:#7A5518;}
+  .metric.accent .value{color:#7A5518;}
+
+  .month-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .month-nav button{background:none;border:none;font-size:18px;color:var(--primary);cursor:pointer;padding:4px 10px;}
+  .month-nav .label{font-size:15px;font-weight:500;text-transform:capitalize;}
+
+  select,input{
+    width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;
+    font-family:'Inter',sans-serif;font-size:14px;background:var(--surface);color:var(--ink);
+  }
+  label{font-size:12px;color:var(--ink-soft);display:block;margin-bottom:5px;margin-top:12px;}
+  label:first-child{margin-top:0;}
+
+  .filter-row{display:flex;gap:8px;margin-bottom:14px;align-items:center;}
+  .filter-row select{flex:1;}
+
+  .entry{
+    display:flex;align-items:flex-start;gap:12px;
+    padding:12px 0;border-bottom:1px solid var(--line);
+  }
+  .entry:last-child{border-bottom:none;}
+  .entry .avatar{
+    width:36px;height:36px;border-radius:50%;background:var(--primary-soft);
+    display:flex;align-items:center;justify-content:center;color:var(--primary);
+    font-weight:500;font-size:13px;flex-shrink:0;margin-top:2px;
+  }
+  .entry .info{flex:1;min-width:0;}
+  .entry .info .name{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .entry .info .date{font-size:12px;color:var(--ink-soft);margin-top:1px;}
+  .entry .info .paid-note{font-size:11px;color:var(--success);margin-top:2px;}
+  .entry .right{text-align:right;flex-shrink:0;}
+  .entry .value{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:500;}
+  .badge{
+    display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;margin-top:3px;
+    font-weight:500;cursor:pointer;
+  }
+  .badge.pago{background:var(--success-soft);color:var(--success);}
+  .badge.pendente{background:var(--accent-soft);color:#7A5518;}
+  .entry .actions{display:flex;gap:4px;margin-left:2px;flex-shrink:0;}
+  .entry .actions button{
+    width:27px;height:27px;border-radius:7px;border:1px solid var(--line);background:var(--surface);
+    color:var(--ink-soft);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;
+  }
+  .entry .actions button.del{color:var(--danger);}
+  .entry .actions button.pay{color:var(--success);}
+
+  .empty{text-align:center;padding:30px 10px;color:var(--ink-soft);font-size:14px;}
+
+  .fab{
+    position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
+    width:calc(100% - 32px);max-width:448px;
+    background:var(--primary);color:#fff;border:none;border-radius:14px;
+    padding:15px;font-size:15px;font-weight:500;font-family:'Inter',sans-serif;
+    cursor:pointer;box-shadow:0 4px 14px rgba(47,75,68,.28);
+    display:flex;align-items:center;justify-content:center;gap:8px;
+  }
+  .fab:active{opacity:.9;}
+
+  .modal-bg{
+    position:fixed;inset:0;background:rgba(38,37,33,.45);
+    display:flex;align-items:flex-end;justify-content:center;z-index:50;
+  }
+  .modal{
+    background:var(--surface);width:100%;max-width:480px;border-radius:20px 20px 0 0;
+    padding:22px 18px 100px;max-height:88vh;overflow-y:auto;
+  }
+  .modal h2{font-size:17px;margin-bottom:16px;color:var(--primary);}
+  .btn-row{display:flex;gap:10px;margin-top:20px;}
+  .btn{
+    flex:1;padding:12px;border-radius:10px;border:1px solid var(--line);
+    background:var(--surface);font-family:'Inter',sans-serif;font-size:14px;font-weight:500;
+    cursor:pointer;color:var(--ink);
+  }
+  .btn.primary{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .btn.accent{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .btn.ghost{background:none;}
+  .btn.small{flex:none;padding:8px 14px;font-size:13px;}
+
+  .setup-box{padding-top:40px;}
+  .setup-box p{font-size:14px;color:var(--ink-soft);line-height:1.6;margin-bottom:16px;}
+  .error-banner{
+    background:var(--danger-soft);color:var(--danger);font-size:13px;padding:10px 12px;
+    border-radius:10px;margin-bottom:14px;
+  }
+  .hint-banner{
+    background:var(--primary-soft);color:var(--primary);font-size:13px;padding:10px 12px;
+    border-radius:10px;margin-bottom:14px;
+  }
+  .loading{text-align:center;padding:40px 0;color:var(--ink-soft);font-size:14px;}
+  .field-title{font-size:13px;font-weight:500;color:var(--primary);margin:16px 0 4px;}
+  .field-title:first-child{margin-top:0;}
+  .patient-row{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:9px 0;border-bottom:1px solid var(--line);font-size:14px;
+  }
+  .patient-row:last-child{border-bottom:none;}
+  .patient-row button{background:none;border:none;color:var(--danger);font-size:14px;cursor:pointer;}
+  .summary-row{
+    display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);
+  }
+  .summary-row:last-child{border-bottom:none;}
+  .summary-row .name{flex:1;font-size:13px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .summary-row .col{width:78px;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;}
+  .summary-head{
+    display:flex;gap:10px;padding-bottom:6px;border-bottom:2px solid var(--line);margin-bottom:2px;
+  }
+  .summary-head .name{flex:1;font-size:11px;color:var(--ink-soft);}
+  .summary-head .col{width:78px;text-align:right;font-size:11px;color:var(--ink-soft);}
+  .summary-total{
+    display:flex;gap:10px;padding-top:10px;margin-top:4px;border-top:2px solid var(--primary);
+    font-weight:600;
+  }
+  .summary-total .name{flex:1;font-size:13px;color:var(--primary);}
+  .summary-total .col{width:78px;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--primary);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="setupScreen" class="hidden setup-box">
+    <div class="stamp" style="margin:0 auto 18px;width:52px;height:52px;font-size:20px;">FT</div>
+    <h1 style="text-align:center;font-size:20px;color:var(--primary);margin-bottom:8px;">Configurar o app</h1>
+    <p style="text-align:center;">Cole o link do App da Web que você publicou no Google Apps Script (termina em <code>/exec</code>).</p>
+    <label>Link do App da Web</label>
+    <input id="scriptUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
+    <div class="field-title">Seus dados (aparecem no recibo)</div>
+    <label>Nome da profissional</label>
+    <input id="providerNameInput" placeholder="Nome completo">
+    <label>CREFITO / CPF (opcional)</label>
+    <input id="providerDocInput" placeholder="Número de registro ou CPF">
+    <label>Telefone ou PIX para contato (opcional)</label>
+    <input id="providerContactInput" placeholder="Ex: (11) 99999-9999">
+    <button class="btn primary" style="width:100%;margin-top:20px;" onclick="saveSetup()">Salvar e continuar</button>
+    <div id="setupError" class="error-banner hidden" style="margin-top:14px;"></div>
+  </div>
+
+  <div id="mainScreen" class="hidden">
+    <header class="top">
+      <div class="brand">
+        <div class="stamp">FT</div>
+        <div>
+          <h1 id="providerNameDisplay">Atendimentos</h1>
+          <div class="sub">Controle de sessões</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" onclick="openMonthlySummary()" title="Resumo mensal" aria-label="Resumo mensal">&#128202;</button>
+        <button class="icon-btn" onclick="openSettings()" title="Configurações" aria-label="Configurações">&#9881;</button>
+      </div>
+    </header>
+
+    <div id="errorBanner" class="error-banner hidden"></div>
+
+    <div class="month-nav">
+      <button onclick="shiftMonth(-1)">&lsaquo;</button>
+      <div class="label" id="monthLabel">-</div>
+      <button onclick="shiftMonth(1)">&rsaquo;</button>
+    </div>
+
+    <div class="summary-grid">
+      <div class="metric">
+        <div class="label">Recebido no mês</div>
+        <div class="value" id="metricRecebido">R$ 0,00</div>
+      </div>
+      <div class="metric accent">
+        <div class="label">A receber</div>
+        <div class="value" id="metricPendente">R$ 0,00</div>
+      </div>
+    </div>
+
+    <div class="filter-row">
+      <select id="patientFilter" onchange="renderList()">
+        <option value="">Todas as pacientes</option>
+      </select>
+      <button class="icon-btn" onclick="openPatientManager()" title="Pacientes" aria-label="Gerenciar pacientes">&#43;</button>
+      <button class="icon-btn" onclick="openMonthlyReceipt()" title="Comprovante mensal" aria-label="Comprovante mensal">&#128196;</button>
+    </div>
+
+    <div class="card" style="padding:6px 16px;">
+      <div id="entryList"></div>
+      <div id="emptyState" class="empty hidden">Nenhum atendimento neste mês ainda.</div>
+      <div id="loadingState" class="loading">Carregando...</div>
+    </div>
+  </div>
+
+  <button id="fab" class="fab hidden" onclick="openNewEntry()">+ Novo atendimento</button>
+</div>
+
+<div id="modalRoot"></div>
+
+<script>
+var CONFIG_KEY = 'config';
+var config = null;
+var entries = [];
+var patients = [];
+var currentMonth = new Date();
+
+function pad(n){ return n < 10 ? '0'+n : ''+n; }
+function isoDate(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function isoTime(d){ return pad(d.getHours())+':'+pad(d.getMinutes()); }
+function formatMoney(n){
+  return (Number(n)||0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+}
+function formatDateBR(iso){
+  if(!iso) return '';
+  var parts = String(iso).split('-');
+  if(parts.length !== 3) return iso;
+  return parts[2]+'/'+parts[1]+'/'+parts[0];
+}
+function monthLabel(d){
+  var meses = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  return meses[d.getMonth()] + ' de ' + d.getFullYear();
+}
+function initials(name){
+  var parts = (name||'').trim().split(' ').filter(Boolean);
+  if(parts.length === 0) return '?';
+  if(parts.length === 1) return parts[0].substring(0,2).toUpperCase();
+  return (parts[0][0] + parts[parts.length-1][0]).toUpperCase();
+}
+function escapeHtml(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+async function init(){
+  try{
+    var raw = localStorage.getItem(CONFIG_KEY);
+    config = raw ? JSON.parse(raw) : null;
+  }catch(e){
+    config = null;
+  }
+  if(!config || !config.scriptUrl){
+    document.getElementById('setupScreen').classList.remove('hidden');
+  }else{
+    document.getElementById('mainScreen').classList.remove('hidden');
+    document.getElementById('fab').classList.remove('hidden');
+    document.getElementById('providerNameDisplay').textContent = config.providerName || 'Atendimentos';
+    updateMonthLabel();
+    await loadData();
+  }
+}
+
+async function saveSetup(){
+  var url = document.getElementById('scriptUrlInput').value.trim();
+  var name = document.getElementById('providerNameInput').value.trim();
+  var doc = document.getElementById('providerDocInput').value.trim();
+  var contact = document.getElementById('providerContactInput').value.trim();
+  var errEl = document.getElementById('setupError');
+  errEl.classList.add('hidden');
+
+  if(!url || url.indexOf('/exec') === -1){
+    errEl.textContent = 'Cole o link completo do App da Web, terminando em /exec.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  if(!name){
+    errEl.textContent = 'Informe o nome da profissional.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  var newConfig = { scriptUrl: url, providerName: name, providerDoc: doc, providerContact: contact };
+  try{
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(newConfig));
+    config = newConfig;
+  }catch(e){
+    errEl.textContent = 'Não foi possível salvar. Verifique se o navegador permite armazenamento local.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  document.getElementById('setupScreen').classList.add('hidden');
+  document.getElementById('mainScreen').classList.remove('hidden');
+  document.getElementById('fab').classList.remove('hidden');
+  document.getElementById('providerNameDisplay').textContent = name;
+  updateMonthLabel();
+  await loadData();
+}
+
+function openSettings(){
+  document.getElementById('mainScreen').classList.add('hidden');
+  document.getElementById('fab').classList.add('hidden');
+  document.getElementById('setupScreen').classList.remove('hidden');
+  document.getElementById('scriptUrlInput').value = config.scriptUrl || '';
+  document.getElementById('providerNameInput').value = config.providerName || '';
+  document.getElementById('providerDocInput').value = config.providerDoc || '';
+  document.getElementById('providerContactInput').value = config.providerContact || '';
+}
+
+async function loadData(){
+  document.getElementById('loadingState').classList.remove('hidden');
+  document.getElementById('errorBanner').classList.add('hidden');
+  try{
+    var res = await fetch(config.scriptUrl, { method: 'GET' });
+    var data = await res.json();
+    entries = (data.atendimentos || []).map(function(r){
+      return {
+        id: String(r.ID), nome: r.Paciente, data: r.Data, hora: r.Hora || '',
+        valor: Number(r.Valor), status: r.Status || 'Pendente',
+        paymentDate: r.DataPagamento || '', lat: r.Latitude || '', lng: r.Longitude || ''
+      };
+    });
+    patients = (data.pacientes || []).map(function(r){
+      return { id: String(r.ID), nome: r.Nome, telefone: r.Telefone || '', valorPadrao: r.ValorPadrao || '', formaPagamento: r.FormaPagamento || '' };
+    });
+    populatePatientFilter();
+    renderList();
+  }catch(e){
+    document.getElementById('errorBanner').textContent = 'Não foi possível carregar os dados da planilha. Confira sua conexão ou o link configurado.';
+    document.getElementById('errorBanner').classList.remove('hidden');
+  }
+  document.getElementById('loadingState').classList.add('hidden');
+}
+
+function populatePatientFilter(){
+  var sel = document.getElementById('patientFilter');
+  var current = sel.value;
+  var names = patients.map(function(p){ return p.nome; }).sort();
+  sel.innerHTML = '<option value="">Todas as pacientes</option>' + names.map(function(n){
+    return '<option value="'+escapeHtml(n)+'">'+escapeHtml(n)+'</option>';
+  }).join('');
+  sel.value = current;
+}
+
+function entriesForMonth(){
+  var y = currentMonth.getFullYear(), m = currentMonth.getMonth();
+  var patientFilter = document.getElementById('patientFilter').value;
+  return entries.filter(function(e){
+    var d = new Date(e.data + 'T00:00:00');
+    var match = d.getFullYear() === y && d.getMonth() === m;
+    if(patientFilter) match = match && e.nome === patientFilter;
+    return match;
+  }).sort(function(a,b){ return b.data.localeCompare(a.data); });
+}
+
+function updateMonthLabel(){
+  document.getElementById('monthLabel').textContent = monthLabel(currentMonth);
+}
+
+function shiftMonth(delta){
+  currentMonth.setMonth(currentMonth.getMonth() + delta);
+  updateMonthLabel();
+  renderList();
+}
+
+function renderList(){
+  var list = entriesForMonth();
+  var container = document.getElementById('entryList');
+  var empty = document.getElementById('emptyState');
+
+  var recebido = 0, pendente = 0;
+  list.forEach(function(e){
+    if(e.status === 'Pago') recebido += e.valor; else pendente += e.valor;
+  });
+  document.getElementById('metricRecebido').textContent = formatMoney(recebido);
+  document.getElementById('metricPendente').textContent = formatMoney(pendente);
+
+  if(list.length === 0){
+    container.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  container.innerHTML = list.map(function(e){
+    var paidNote = e.status === 'Pago' && e.paymentDate ? '<div class="paid-note">Pago em '+formatDateBR(e.paymentDate)+'</div>' : '';
+    var payBtn = e.status !== 'Pago' ? '<button class="pay" onclick="openPaymentModal(\''+e.id+'\')" title="Registrar pagamento">&#128176;</button>' : '';
+    return '<div class="entry">' +
+      '<div class="avatar">'+initials(e.nome)+'</div>' +
+      '<div class="info">' +
+        '<div class="name">'+escapeHtml(e.nome)+'</div>' +
+        '<div class="date">'+formatDateBR(e.data)+(e.hora ? ' às '+e.hora : '')+'</div>' +
+        paidNote +
+      '</div>' +
+      '<div class="right">' +
+        '<div class="value">'+formatMoney(e.valor)+'</div>' +
+        '<span class="badge '+(e.status==='Pago'?'pago':'pendente')+'" onclick="badgeClick(\''+e.id+'\')">'+e.status+'</span>' +
+      '</div>' +
+      '<div class="actions">' +
+        '<button onclick="generateReceipt(\''+e.id+'\')" title="Comprovante">&#128220;</button>' +
+        '<button onclick="openEditEntry(\''+e.id+'\')" title="Editar">&#9998;</button>' +
+        payBtn +
+        '<button class="del" onclick="deleteEntry(\''+e.id+'\')" title="Excluir">&#10005;</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function badgeClick(id){
+  var entry = entries.find(function(e){ return e.id === id; });
+  if(!entry) return;
+  if(entry.status === 'Pago'){
+    if(!confirm('Desfazer o registro de pagamento desta sessão?')) return;
+    updateStatus(id, 'Pendente', '');
+  }else{
+    openPaymentModal(id);
+  }
+}
+
+async function updateStatus(id, status, paymentDate){
+  var entry = entries.find(function(e){ return e.id === id; });
+  if(!entry) return;
+  entry.status = status;
+  entry.paymentDate = paymentDate || '';
+  renderList();
+  try{
+    await fetch(config.scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'update_status', id: id, status: status, paymentDate: paymentDate || '' })
+    });
+  }catch(e){
+    document.getElementById('errorBanner').textContent = 'Não foi possível atualizar na planilha. Tente novamente.';
+    document.getElementById('errorBanner').classList.remove('hidden');
+  }
+}
+
+function openPaymentModal(id){
+  var entry = entries.find(function(e){ return e.id === id; });
+  if(!entry) return;
+  var today = isoDate(new Date());
+  var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
+    '<div class="modal">' +
+      '<h2>Registrar pagamento</h2>' +
+      '<p style="font-size:13px;color:var(--ink-soft);margin:0 0 4px;">'+escapeHtml(entry.nome)+' &middot; sessão de '+formatDateBR(entry.data)+' &middot; '+formatMoney(entry.valor)+'</p>' +
+      '<label>Data do pagamento</label>' +
+      '<input id="paymentDateInput" type="date" value="'+today+'">' +
+      '<div class="btn-row">' +
+        '<button class="btn ghost" onclick="closeModal()">Cancelar</button>' +
+        '<button class="btn primary" onclick="confirmPayment(\''+id+'\')">Confirmar pagamento</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+  document.getElementById('modalRoot').innerHTML = html;
+}
+
+function confirmPayment(id){
+  var date = document.getElementById('paymentDateInput').value;
+  if(!date){ alert('Escolha a data do pagamento.'); return; }
+  updateStatus(id, 'Pago', date);
+  closeModal();
+}
+
+async function deleteEntry(id){
+  if(!confirm('Excluir este atendimento?')) return;
+  entries = entries.filter(function(e){ return e.id !== id; });
+  renderList();
+  try{
+    await fetch(config.scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'delete', id: id })
+    });
+  }catch(e){
+    document.getElementById('errorBanner').textContent = 'Não foi possível excluir na planilha. Tente novamente.';
+    document.getElementById('errorBanner').classList.remove('hidden');
+  }
+}
+
+function openEditEntry(id){
+  var entry = entries.find(function(e){ return e.id === id; });
+  if(!entry) return;
+  var options = patients.map(function(p){
+    return '<option value="'+escapeHtml(p.nome)+'" '+(p.nome===entry.nome?'selected':'')+'>'+escapeHtml(p.nome)+'</option>';
+  }).join('');
+  var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
+    '<div class="modal">' +
+      '<h2>Editar atendimento</h2>' +
+      '<label>Paciente</label>' +
+      '<select id="editNome">'+options+'</select>' +
+      '<label>Data da sessão</label>' +
+      '<input id="editData" type="date" value="'+entry.data+'">' +
+      '<label>Horário</label>' +
+      '<input id="editHora" type="time" value="'+(entry.hora||'')+'">' +
+      '<label>Valor da sessão</label>' +
+      '<input id="editValor" type="number" step="0.01" value="'+entry.valor+'">' +
+      '<div class="btn-row">' +
+        '<button class="btn ghost" onclick="closeModal()">Cancelar</button>' +
+        '<button class="btn primary" onclick="submitEditEntry(\''+id+'\')">Salvar alterações</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+  document.getElementById('modalRoot').innerHTML = html;
+}
+
+async function submitEditEntry(id){
+  var entry = entries.find(function(e){ return e.id === id; });
+  if(!entry) return;
+  var nome = document.getElementById('editNome').value;
+  var data = document.getElementById('editData').value;
+  var hora = document.getElementById('editHora').value;
+  var valor = parseFloat(document.getElementById('editValor').value);
+  if(!nome || !data || isNaN(valor)){
+    alert('Preencha paciente, data e valor.');
+    return;
+  }
+  entry.nome = nome; entry.data = data; entry.hora = hora; entry.valor = valor;
+  populatePatientFilter();
+  renderList();
+  closeModal();
+  try{
+    await fetch(config.scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'update', id: id, nome: nome, data: data, hora: hora, valor: valor })
+    });
+  }catch(e){
+    document.getElementById('errorBanner').textContent = 'Não foi possível atualizar na planilha. Tente novamente.';
+    document.getElementById('errorBanner').classList.remove('hidden');
+  }
+}
+
+function openPatientManager(){
+  var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
+    '<div class="modal">' +
+      '<h2>Pacientes</h2>' +
+      '<label>Nome da paciente</label>' +
+      '<input id="newPatientName" placeholder="Nome completo">' +
+      '<label>Telefone (opcional)</label>' +
+      '<input id="newPatientPhone" placeholder="Ex: (11) 99999-9999">' +
+      '<label>Valor padrão da sessão (opcional)</label>' +
+      '<input id="newPatientValor" type="number" step="0.01" placeholder="0,00">' +
+      '<label>Forma de pagamento</label>' +
+      '<select id="newPatientPagamento">' +
+        '<option value="">Não informado</option>' +
+        '<option value="PIX">PIX</option>' +
+        '<option value="Dinheiro">Dinheiro</option>' +
+        '<option value="Outro">Outro</option>' +
+      '</select>' +
+      '<button class="btn primary" style="width:100%;margin-top:14px;" onclick="addPatient()">Adicionar paciente</button>' +
+      '<div class="field-title">Já cadastradas</div>' +
+      '<div id="patientListBox">' + renderPatientListHtml() + '</div>' +
+      '<div class="btn-row">' +
+        '<button class="btn ghost" style="flex:1" onclick="closeModal()">Fechar</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+  document.getElementById('modalRoot').innerHTML = html;
+}
+
+function renderPatientListHtml(){
+  if(patients.length === 0) return '<p style="font-size:13px;color:var(--ink-soft);">Nenhuma paciente cadastrada ainda.</p>';
+  return patients.map(function(p){
+    var details = [];
+    if(p.valorPadrao) details.push(formatMoney(p.valorPadrao));
+    if(p.formaPagamento) details.push(p.formaPagamento);
+    var sub = details.length ? '<div style="font-size:11px;color:var(--ink-soft);">'+details.join(' · ')+'</div>' : '';
+    return '<div class="patient-row" style="align-items:flex-start;"><div><span>'+escapeHtml(p.nome)+'</span>'+sub+'</div><button onclick="removePatient(\''+p.id+'\')">Remover</button></div>';
+  }).join('');
+}
+
+async function addPatient(){
+  var nome = document.getElementById('newPatientName').value.trim();
+  var telefone = document.getElementById('newPatientPhone').value.trim();
+  var valorPadrao = document.getElementById('newPatientValor').value;
+  var formaPagamento = document.getElementById('newPatientPagamento').value;
+  if(!nome){ alert('Informe o nome da paciente.'); return; }
+  var id = 'p' + Date.now();
+  patients.push({ id: id, nome: nome, telefone: telefone, valorPadrao: valorPadrao, formaPagamento: formaPagamento });
+  populatePatientFilter();
+  document.getElementById('patientListBox').innerHTML = renderPatientListHtml();
+  document.getElementById('newPatientName').value = '';
+  document.getElementById('newPatientPhone').value = '';
+  document.getElementById('newPatientValor').value = '';
+  document.getElementById('newPatientPagamento').value = '';
+  try{
+    await fetch(config.scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'create_patient', id: id, nome: nome, telefone: telefone, valorPadrao: valorPadrao, formaPagamento: formaPagamento })
+    });
+  }catch(e){
+    document.getElementById('errorBanner').textContent = 'Não foi possível salvar a paciente na planilha.';
+    document.getElementById('errorBanner').classList.remove('hidden');
+  }
+}
+
+async function removePatient(id){
+  if(!confirm('Remover esta paciente da lista? Atendimentos já registrados não serão apagados.')) return;
+  patients = patients.filter(function(p){ return p.id !== id; });
+  populatePatientFilter();
+  document.getElementById('patientListBox').innerHTML = renderPatientListHtml();
+  try{
+    await fetch(config.scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'delete_patient', id: id })
+    });
+  }catch(e){
+    document.getElementById('errorBanner').textContent = 'Não foi possível remover a paciente na planilha.';
+    document.getElementById('errorBanner').classList.remove('hidden');
+  }
+}
+
+function generateGeneralMonthlyReceipt(){
+  var y = currentMonth.getFullYear(), m = currentMonth.getMonth();
+  var monthEntries = entries.filter(function(e){
+    var d = new Date(e.data + 'T00:00:00');
+    return d.getFullYear() === y && d.getMonth() === m;
+  });
+
+  if(monthEntries.length === 0){
+    alert('Nenhum atendimento registrado em ' + monthLabel(currentMonth) + '.');
+    return;
+  }
+
+  var byPatient = {};
+  monthEntries.forEach(function(e){
+    if(!byPatient[e.nome]) byPatient[e.nome] = { sessoes: 0, esperado: 0, recebido: 0 };
+    byPatient[e.nome].sessoes += 1;
+    byPatient[e.nome].esperado += e.valor;
+    if(e.status === 'Pago') byPatient[e.nome].recebido += e.valor;
+  });
+  var names = Object.keys(byPatient).sort();
+
+  var doc = new jspdf.jsPDF();
+  receiptHeader(doc, 'Resumo mensal - todos os pacientes');
+
+  doc.setFontSize(11);
+  doc.setTextColor(107,104,98);
+  doc.text('Referência:', 15, 55);
+  doc.setTextColor(38,37,33);
+  doc.text(monthLabel(currentMonth), 45, 55);
+
+  var rowY = 70;
+  doc.setFontSize(10);
+  doc.setTextColor(107,104,98);
+  doc.text('Paciente', 15, rowY);
+  doc.text('Sessões', 95, rowY, { align: 'right' });
+  doc.text('Esperado', 135, rowY, { align: 'right' });
+  doc.text('Recebido', 165, rowY, { align: 'right' });
+  doc.text('Pendente', 195, rowY, { align: 'right' });
+  rowY += 4;
+  doc.setDrawColor(225,222,212);
+  doc.line(15, rowY, 195, rowY);
+  rowY += 8;
+
+  var totalSessoes = 0, totalEsperado = 0, totalRecebido = 0;
+  doc.setTextColor(38,37,33);
+  names.forEach(function(n){
+    var p = byPatient[n];
+    var pendente = p.esperado - p.recebido;
+    doc.text(n, 15, rowY);
+    doc.text(String(p.sessoes), 95, rowY, { align: 'right' });
+    doc.text(formatMoney(p.esperado), 135, rowY, { align: 'right' });
+    doc.text(formatMoney(p.recebido), 165, rowY, { align: 'right' });
+    doc.text(formatMoney(pendente), 195, rowY, { align: 'right' });
+    totalSessoes += p.sessoes;
+    totalEsperado += p.esperado;
+    totalRecebido += p.recebido;
+    rowY += 8;
+    if(rowY > 265){ doc.addPage(); rowY = 20; }
+  });
+
+  rowY += 4;
+  doc.line(15, rowY, 195, rowY);
+  rowY += 10;
+  doc.setFontSize(12);
+  doc.setTextColor(47,75,68);
+  doc.text('Total', 15, rowY);
+  doc.text(String(totalSessoes), 95, rowY, { align: 'right' });
+  doc.text(formatMoney(totalEsperado), 135, rowY, { align: 'right' });
+  doc.text(formatMoney(totalRecebido), 165, rowY, { align: 'right' });
+  doc.text(formatMoney(totalEsperado - totalRecebido), 195, rowY, { align: 'right' });
+
+  drawStamp(doc, 175, rowY + 20);
+
+  doc.setFontSize(9);
+  doc.setTextColor(107,104,98);
+  doc.text('Emitido em ' + formatDateBR(isoDate(new Date())), 15, 285);
+
+  doc.save('resumo_mensal_' + (m+1) + '_' + y + '.pdf');
+}
+
+function openMonthlySummary(){
+  var y = currentMonth.getFullYear(), m = currentMonth.getMonth();
+  var monthEntries = entries.filter(function(e){
+    var d = new Date(e.data + 'T00:00:00');
+    return d.getFullYear() === y && d.getMonth() === m;
+  });
+
+  if(monthEntries.length === 0){
+    alert('Nenhum atendimento registrado em ' + monthLabel(currentMonth) + '.');
+    return;
+  }
+
+  var byPatient = {};
+  monthEntries.forEach(function(e){
+    if(!byPatient[e.nome]) byPatient[e.nome] = { esperado: 0, recebido: 0 };
+    byPatient[e.nome].esperado += e.valor;
+    if(e.status === 'Pago') byPatient[e.nome].recebido += e.valor;
+  });
+
+  var names = Object.keys(byPatient).sort();
+  var totalEsperado = 0, totalRecebido = 0;
+
+  var rowsHtml = names.map(function(n){
+    var p = byPatient[n];
+    var pendente = p.esperado - p.recebido;
+    totalEsperado += p.esperado;
+    totalRecebido += p.recebido;
+    return '<div class="summary-row">' +
+      '<div class="name">'+escapeHtml(n)+'</div>' +
+      '<div class="col">'+formatMoney(p.esperado)+'</div>' +
+      '<div class="col" style="color:var(--success);">'+formatMoney(p.recebido)+'</div>' +
+      '<div class="col" style="color:'+(pendente > 0 ? '#7A5518' : 'var(--ink-soft)')+';">'+formatMoney(pendente)+'</div>' +
+    '</div>';
+  }).join('');
+
+  var totalPendente = totalEsperado - totalRecebido;
+
+  var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
+    '<div class="modal">' +
+      '<h2>Resumo de ' + monthLabel(currentMonth) + '</h2>' +
+      '<div class="summary-head">' +
+        '<div class="name">Paciente</div>' +
+        '<div class="col">Esperado</div>' +
+        '<div class="col">Recebido</div>' +
+        '<div class="col">Pendente</div>' +
+      '</div>' +
+      rowsHtml +
+      '<div class="summary-total">' +
+        '<div class="name">Total</div>' +
+        '<div class="col">'+formatMoney(totalEsperado)+'</div>' +
+        '<div class="col">'+formatMoney(totalRecebido)+'</div>' +
+        '<div class="col">'+formatMoney(totalPendente)+'</div>' +
+      '</div>' +
+      '<div class="btn-row">' +
+        '<button class="btn ghost" style="flex:1" onclick="closeModal()">Fechar</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+  document.getElementById('modalRoot').innerHTML = html;
+}
+
+function openNewEntry(){
+  if(patients.length === 0){
+    closeModal();
+    alert('Cadastre uma paciente antes de lançar um atendimento.');
+    openPatientManager();
+    return;
+  }
+  var now = new Date();
+  var options = patients.map(function(p){
+    return '<option value="'+escapeHtml(p.nome)+'" data-valor="'+(p.valorPadrao||'')+'">'+escapeHtml(p.nome)+'</option>';
+  }).join('');
+  var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
+    '<div class="modal">' +
+      '<h2>Novo atendimento</h2>' +
+      '<label>Paciente</label>' +
+      '<select id="newNome" onchange="fillDefaultValor()">'+options+'</select>' +
+      '<label>Data da sessão</label>' +
+      '<input id="newData" type="date" value="'+isoDate(now)+'">' +
+      '<label>Horário</label>' +
+      '<input id="newHora" type="time" value="'+isoTime(now)+'">' +
+      '<label>Valor da sessão</label>' +
+      '<input id="newValor" type="number" step="0.01" placeholder="0,00">' +
+      '<div id="locHint" class="hint-banner" style="margin-top:14px;">A localização do atendimento será registrada ao salvar, se você permitir o acesso.</div>' +
+      '<div class="btn-row">' +
+        '<button class="btn ghost" onclick="closeModal()">Cancelar</button>' +
+        '<button class="btn primary" id="saveEntryBtn" onclick="submitNewEntry()">Salvar</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+  document.getElementById('modalRoot').innerHTML = html;
+  fillDefaultValor();
+}
+
+function fillDefaultValor(){
+  var sel = document.getElementById('newNome');
+  var valorInput = document.getElementById('newValor');
+  if(!sel || !valorInput) return;
+  var opt = sel.options[sel.selectedIndex];
+  var valor = opt ? opt.getAttribute('data-valor') : '';
+  if(valor) valorInput.value = valor;
+}
+
+function getLocation(){
+  return new Promise(function(resolve){
+    if(!navigator.geolocation){ resolve(null); return; }
+    navigator.geolocation.getCurrentPosition(
+      function(pos){ resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }); },
+      function(){ resolve(null); },
+      { timeout: 6000, maximumAge: 60000 }
+    );
+  });
+}
+
+async function submitNewEntry(){
+  var nome = document.getElementById('newNome').value;
+  var data = document.getElementById('newData').value;
+  var hora = document.getElementById('newHora').value;
+  var valor = parseFloat(document.getElementById('newValor').value);
+  if(!nome || !data || isNaN(valor)){
+    alert('Preencha paciente, data e valor.');
+    return;
+  }
+
+  var btn = document.getElementById('saveEntryBtn');
+  btn.textContent = 'Obtendo local...';
+  btn.disabled = true;
+  var loc = await getLocation();
+  btn.disabled = false;
+
+  var id = 'e' + Date.now();
+  var newEntry = {
+    id: id, nome: nome, data: data, hora: hora, valor: valor, status: 'Pendente',
+    paymentDate: '', lat: loc ? loc.lat : '', lng: loc ? loc.lng : ''
+  };
+  entries.push(newEntry);
+  renderList();
+  closeModal();
+  try{
+    await fetch(config.scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'create', id: id, nome: nome, data: data, hora: hora, valor: valor,
+        status: 'Pendente', paymentDate: '', lat: newEntry.lat, lng: newEntry.lng
+      })
+    });
+  }catch(e){
+    document.getElementById('errorBanner').textContent = 'Não foi possível salvar na planilha. Tente novamente.';
+    document.getElementById('errorBanner').classList.remove('hidden');
+  }
+}
+
+function closeModal(){
+  document.getElementById('modalRoot').innerHTML = '';
+}
+function closeModalBg(ev){
+  if(ev.target === ev.currentTarget) closeModal();
+}
+
+function drawStamp(doc, x, y){
+  doc.setDrawColor(47,75,68);
+  doc.setLineWidth(0.8);
+  doc.circle(x, y, 11);
+  doc.setFontSize(8);
+  doc.setTextColor(47,75,68);
+  doc.text('CONFERIDO', x, y - 1, { align: 'center' });
+  doc.setFontSize(7);
+  doc.text('sessão registrada', x, y + 3, { align: 'center' });
+}
+
+function receiptHeader(doc, title){
+  doc.setFillColor(47,75,68);
+  doc.rect(0, 0, 210, 30, 'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(16);
+  doc.text(config.providerName || 'Atendimento domiciliar', 15, 15);
+  doc.setFontSize(10);
+  doc.setTextColor(228,236,233);
+  var sub = [config.providerDoc, config.providerContact].filter(Boolean).join('  -  ');
+  if(sub) doc.text(sub, 15, 22);
+  doc.setTextColor(38,37,33);
+  doc.setFontSize(14);
+  doc.text(title, 15, 42);
+}
+
+function generateReceipt(id){
+  var e = entries.find(function(x){ return x.id === id; });
+  if(!e) return;
+  var doc = new jspdf.jsPDF();
+  receiptHeader(doc, 'Recibo de sessão');
+
+  doc.setFontSize(11);
+  var y = 58;
+  function line(label, value){
+    doc.setTextColor(107,104,98);
+    doc.text(label, 15, y);
+    doc.setTextColor(38,37,33);
+    doc.text(value, 60, y);
+    y += 9;
+  }
+  line('Paciente:', e.nome);
+  line('Data da sessão:', formatDateBR(e.data) + (e.hora ? '  as  ' + e.hora : ''));
+  line('Valor:', formatMoney(e.valor));
+  line('Status:', e.status + (e.paymentDate ? ' em ' + formatDateBR(e.paymentDate) : ''));
+
+  if(e.lat && e.lng){
+    doc.setTextColor(107,104,98);
+    doc.text('Local:', 15, y);
+    doc.setTextColor(47,75,68);
+    doc.textWithLink('Ver localização no Google Maps', 60, y, { url: 'https://www.google.com/maps?q=' + e.lat + ',' + e.lng });
+    y += 9;
+  }
+
+  doc.setDrawColor(225,222,212);
+  doc.line(15, y+2, 195, y+2);
+  y += 14;
+  doc.setFontSize(9);
+  doc.setTextColor(107,104,98);
+  doc.text('Este recibo comprova a realização de sessão de fisioterapia domiciliar,', 15, y);
+  doc.text('conforme os dados acima.', 15, y+5);
+
+  drawStamp(doc, 175, y - 3);
+
+  doc.setFontSize(9);
+  doc.setTextColor(107,104,98);
+  doc.text('Emitido em ' + formatDateBR(isoDate(new Date())), 15, 280);
+
+  doc.save('recibo_' + e.nome.replace(/\s+/g,'_') + '_' + e.data + '.pdf');
+}
+
+function openMonthlyReceipt(){
+  if(patients.length === 0){
+    alert('Ainda não há pacientes cadastradas.');
+    return;
+  }
+  var names = patients.map(function(p){ return p.nome; }).sort();
+  var options = '<option value="">Todos os pacientes (resumo geral)</option>' +
+    names.map(function(n){ return '<option value="'+escapeHtml(n)+'">'+escapeHtml(n)+'</option>'; }).join('');
+  var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
+    '<div class="modal">' +
+      '<h2>Comprovante mensal</h2>' +
+      '<label>Paciente</label>' +
+      '<select id="monthlyPatient">'+options+'</select>' +
+      '<label>Mês de referência</label>' +
+      '<div class="label" style="margin-top:6px;font-size:14px;color:var(--ink);">'+monthLabel(currentMonth)+'</div>' +
+      '<div class="btn-row">' +
+        '<button class="btn ghost" onclick="closeModal()">Cancelar</button>' +
+        '<button class="btn accent" onclick="submitMonthlyReceipt()">Gerar PDF</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+  document.getElementById('modalRoot').innerHTML = html;
+}
+
+function submitMonthlyReceipt(){
+  var patient = document.getElementById('monthlyPatient').value;
+  if(!patient){
+    generateGeneralMonthlyReceipt();
+    closeModal();
+    return;
+  }
+  var y = currentMonth.getFullYear(), m = currentMonth.getMonth();
+  var sessions = entries.filter(function(e){
+    var d = new Date(e.data + 'T00:00:00');
+    return e.nome === patient && d.getFullYear() === y && d.getMonth() === m;
+  }).sort(function(a,b){ return a.data.localeCompare(b.data); });
+
+  if(sessions.length === 0){
+    alert('Nenhuma sessão dessa paciente neste mês.');
+    return;
+  }
+
+  var doc = new jspdf.jsPDF();
+  receiptHeader(doc, 'Comprovante mensal de sessões');
+
+  doc.setFontSize(11);
+  doc.setTextColor(107,104,98);
+  doc.text('Paciente:', 15, 55);
+  doc.setTextColor(38,37,33);
+  doc.text(patient, 45, 55);
+  doc.setTextColor(107,104,98);
+  doc.text('Referência:', 15, 62);
+  doc.setTextColor(38,37,33);
+  doc.text(monthLabel(currentMonth), 45, 62);
+
+  var rowY = 78;
+  doc.setFontSize(10);
+  doc.setTextColor(107,104,98);
+  doc.text('Data', 15, rowY);
+  doc.text('Horário', 60, rowY);
+  doc.text('Status', 100, rowY);
+  doc.text('Valor', 170, rowY, { align: 'right' });
+  rowY += 4;
+  doc.setDrawColor(225,222,212);
+  doc.line(15, rowY, 195, rowY);
+  rowY += 8;
+
+  var total = 0;
+  doc.setTextColor(38,37,33);
+  sessions.forEach(function(s){
+    doc.text(formatDateBR(s.data), 15, rowY);
+    doc.text(s.hora || '-', 60, rowY);
+    doc.text(s.status, 100, rowY);
+    doc.text(formatMoney(s.valor), 170, rowY, { align: 'right' });
+    total += s.valor;
+    rowY += 8;
+  });
+
+  rowY += 4;
+  doc.line(15, rowY, 195, rowY);
+  rowY += 10;
+  doc.setFontSize(12);
+  doc.setTextColor(47,75,68);
+  doc.text('Total do mês:', 15, rowY);
+  doc.text(formatMoney(total), 170, rowY, { align: 'right' });
+
+  drawStamp(doc, 175, rowY + 20);
+
+  doc.setFontSize(9);
+  doc.setTextColor(107,104,98);
+  doc.text('Emitido em ' + formatDateBR(isoDate(new Date())), 15, 280);
+
+  doc.save('comprovante_mensal_' + patient.replace(/\s+/g,'_') + '_' + (m+1) + '_' + y + '.pdf');
+  closeModal();
+}
+
+init();
+</script>
+</body>
+</html>

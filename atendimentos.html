@@ -400,6 +400,7 @@
   .exe-filter input{flex:1;}
   .exe-filter select{width:132px;flex-shrink:0;}
   .img-hint{font-size:11.5px;color:var(--ink-soft);line-height:1.5;margin:10px 0 0;background:var(--accent-soft);border-radius:10px;padding:9px 11px;}
+  .diag-out{margin-top:12px;background:#2b2219;color:#f0e6da;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:1.5;padding:12px;border-radius:10px;white-space:pre-wrap;word-break:break-word;max-height:320px;overflow:auto;}
   .exe-thumb.ph{display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--primary);}
   .exe-info{flex:1;min-width:0;}
   .exe-name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -483,6 +484,13 @@
     <div class="btn-row" style="margin-top:4px;">
       <button id="setupCancelBtn" class="btn ghost hidden" onclick="cancelSetup()">Cancelar</button>
       <button class="btn primary" onclick="saveSetup()">Salvar e continuar</button>
+    </div>
+
+    <div id="diagBox" class="card hidden" style="margin-top:16px;">
+      <div class="field-title">Diagnóstico de salvamento</div>
+      <p style="font-size:12.5px;color:var(--ink-soft);line-height:1.55;margin:0 0 12px;">Testa se o app consegue gravar e ler da sua planilha. Útil se algo não estiver salvando.</p>
+      <button class="btn" style="width:100%;" id="diagBtn" onclick="runDiagnostico()">&#129658; Testar conexão com a planilha</button>
+      <pre id="diagOut" class="diag-out hidden"></pre>
     </div>
 
     <div id="backupBox" class="card hidden" style="margin-top:16px;">
@@ -730,6 +738,7 @@ function openSettings(){
   document.getElementById('setupIntro').textContent = 'Atualize seus dados. Eles aparecem nos recibos.';
   document.getElementById('setupCancelBtn').classList.remove('hidden');
   document.getElementById('backupBox').classList.remove('hidden');
+  document.getElementById('diagBox').classList.remove('hidden');
   document.getElementById('providerNameInput').value = config.providerName || '';
   document.getElementById('providerDocInput').value = config.providerDoc || '';
   document.getElementById('providerContactInput').value = config.providerContact || '';
@@ -2190,6 +2199,113 @@ function generateBooklet(){
 
   var fname = 'cartilha_' + (pac?pac.nome.replace(/\s+/g,'_'):'paciente') + '_' + isoDate(new Date()) + '.pdf';
   doc.save(fname);
+}
+
+/* ============================================================
+   DIAGNÓSTICO — testa gravar/ler exercícios na planilha
+   ============================================================ */
+async function runDiagnostico(){
+  var out = document.getElementById('diagOut');
+  var btn = document.getElementById('diagBtn');
+  out.classList.remove('hidden');
+  var log = [];
+  function p(s){ log.push(s); out.textContent = log.join('\n'); }
+  if(btn){ btn.disabled = true; btn.textContent = 'Testando...'; }
+
+  var url = scriptUrl();
+  p('URL usada:');
+  p('  ' + (url.length > 60 ? url.slice(0,45)+'...'+url.slice(-12) : url));
+  p('');
+
+  // 1) GET inicial
+  var data = null;
+  try{
+    p('1) Lendo a planilha (GET)...');
+    var r = await fetch(url, { method:'GET' });
+    p('   HTTP ' + r.status);
+    data = await r.json();
+    p('   Chaves recebidas: ' + Object.keys(data).join(', '));
+    p('   Tem a lista "exercicios"? ' + (Array.isArray(data.exercicios) ? 'SIM' : 'NÃO'));
+    if(Array.isArray(data.exercicios)){
+      p('   Exercícios hoje na planilha: ' + data.exercicios.length);
+      if(data.exercicios[0]){
+        p('   Colunas do 1º exercício: ' + Object.keys(data.exercicios[0]).join(', '));
+      }
+    }
+  }catch(e){
+    p('   ERRO ao ler: ' + (e && e.message ? e.message : e));
+    p('');
+    p('>>> O app não consegue nem LER a planilha. Verifique o link /exec e a implantação (Qualquer pessoa).');
+    finishDiag(btn); return;
+  }
+  p('');
+
+  // 2) grava exercício de teste
+  var testId = 'diagtest_' + Date.now();
+  var reconheceu = true;
+  try{
+    p('2) Gravando um exercício de teste...');
+    var resp = await fetch(url, {
+      method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({ action:'create_exercise', id:testId, nome:'TESTE (apagar)', tipo:'Outro', seriesPadrao:'1', repsPadrao:'1', observacao:'diagnóstico', imagem:'' })
+    });
+    p('   HTTP ' + resp.status);
+    var rj = null; try{ rj = await resp.clone().json(); }catch(_){ rj = null; }
+    if(rj){
+      p('   Resposta do script: handled=' + rj.handled + ' action=' + rj.action);
+      if(rj.handled === false){
+        reconheceu = false;
+        p('   >>> O SCRIPT NÃO RECONHECE "create_exercise".');
+        p('   >>> A versão publicada do Code.gs está DESATUALIZADA.');
+      }
+    }else{
+      p('   Resposta não-JSON (script antigo que responde texto).');
+      reconheceu = false;
+    }
+  }catch(e){
+    p('   ERRO ao gravar: ' + (e && e.message ? e.message : e));
+  }
+  p('');
+
+  // 3) relê e confere se o teste apareceu
+  var apareceu = false;
+  try{
+    p('3) Relendo para confirmar se gravou...');
+    var r2 = await fetch(url, { method:'GET' });
+    var d2 = await r2.json();
+    var achou = (d2.exercicios||[]).filter(function(x){ return String(x.ID) === testId; });
+    apareceu = achou.length > 0;
+    p('   Exercício de teste encontrado na planilha? ' + (apareceu ? 'SIM ✓' : 'NÃO ✗'));
+  }catch(e){
+    p('   ERRO ao reler: ' + (e && e.message ? e.message : e));
+  }
+  p('');
+
+  // 4) limpa o teste
+  try{
+    await fetch(url, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({ action:'delete_exercise', id:testId }) });
+  }catch(e){}
+
+  // veredito
+  p('================ RESULTADO ================');
+  if(apareceu){
+    p('✅ TUDO CERTO: o app grava e lê exercícios.');
+    p('Se mesmo assim somem na tela, me avise — pode ser cache.');
+  }else if(!reconheceu){
+    p('❌ A planilha (Apps Script) está com Code.gs ANTIGO.');
+    p('AÇÃO: no Apps Script, cole o Code.gs novo e faça');
+    p('Implantar › Gerenciar implantações › Editar › Nova versão.');
+  }else{
+    p('⚠️ Gravou mas não voltou. Verifique se a aba "Exercicios"');
+    p('tem o cabeçalho: ID | Nome | Tipo | SeriesPadrao |');
+    p('RepsPadrao | Observacao | Imagem | CriadoEm (nessa ordem).');
+  }
+  p('(O exercício de teste foi apagado.)');
+  finishDiag(btn);
+}
+function finishDiag(btn){
+  if(btn){ btn.disabled = false; btn.textContent = '🩺 Testar conexão com a planilha'; }
 }
 
 /* ============================================================

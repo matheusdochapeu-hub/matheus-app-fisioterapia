@@ -12,6 +12,14 @@ App para celular (PWA instalável) que controla pacientes atendidas e valores a 
 - Resumo mensal por paciente (esperado × recebido × pendente)
 - Comprovante em PDF por sessão
 - Comprovante mensal em PDF por paciente ou com o resumo de todos os pacientes
+- **Relatório anual** com faturamento, recebido × a receber, nº de sessões, pacientes, ticket médio, meses trabalhados × ociosos, gráfico de barras por mês, ranking de pacientes e **calendário dos dias trabalhados**
+- **Backup**: exportar todos os dados em `.json` (restaurável) ou `.csv` (abre no Excel) e **restaurar** a partir de um `.json`
+
+## 🔗 Link da planilha embutido
+
+O link do Google Apps Script (`/exec`) fica **embutido no código**, na constante `SCRIPT_URL` no topo do `<script>` de `atendimentos.html`. Assim o app abre direto, de qualquer aparelho, **sem pedir o link** na primeira vez — pede apenas o nome da profissional (para os recibos).
+
+> Para apontar o app para outra planilha, basta trocar a URL de `SCRIPT_URL` (deve terminar em `/exec`). Instalações antigas que já tinham o link salvo continuam funcionando (o app usa o link salvo quando existe).
 
 ## 📱 App instalável e offline (PWA)
 

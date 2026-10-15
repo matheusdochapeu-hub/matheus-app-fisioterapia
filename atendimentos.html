@@ -95,9 +95,9 @@
   .metric{
     border-radius:var(--radius);padding:15px 16px;position:relative;overflow:hidden;
     background:linear-gradient(160deg,var(--success-soft),#EEF3E4);
-    border:1px solid #D7E2C8;
+    border:1px solid #D7E2C8;text-align:center;
   }
-  .metric .label{font-size:12px;color:var(--success);opacity:.95;margin-bottom:6px;font-weight:600;display:flex;align-items:center;gap:5px;}
+  .metric .label{font-size:12px;color:var(--success);opacity:.95;margin-bottom:6px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:5px;}
   .metric .value{font-family:'IBM Plex Mono',monospace;font-size:21px;font-weight:500;color:#3F5730;}
   .metric.accent{background:linear-gradient(160deg,var(--accent-soft),#FBF1DC);border-color:#EFD9AE;}
   .metric.accent .label{color:var(--accent-ink);}
@@ -328,6 +328,65 @@
   .summary-total .name{flex:1;font-size:13px;color:var(--primary-deep);}
   .summary-total .col{width:76px;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--primary-deep);}
 
+  /* ---------- Relatórios anuais ---------- */
+  .year-nav{
+    display:flex;align-items:center;justify-content:space-between;margin:4px 0 16px;
+    background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:4px;
+  }
+  .year-nav button{background:none;border:none;font-size:20px;color:var(--primary);cursor:pointer;
+    width:46px;height:40px;border-radius:10px;}
+  .year-nav button:active{background:var(--primary-soft);}
+  .year-nav .y{font-family:'Fraunces',serif;font-size:19px;font-weight:600;color:var(--ink);}
+
+  .rep-kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;}
+  .rep-kpi{border-radius:14px;padding:13px;border:1px solid var(--line);background:var(--surface);text-align:center;}
+  .rep-kpi .t{font-size:11px;color:var(--ink-soft);font-weight:600;margin-bottom:5px;}
+  .rep-kpi .v{font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:600;color:var(--primary-deep);}
+  .rep-kpi.rec{background:var(--success-soft);border-color:#CDDCBB;} .rep-kpi.rec .v{color:#3F5730;} .rep-kpi.rec .t{color:var(--success);}
+  .rep-kpi.pen{background:var(--accent-soft);border-color:#EFD9AE;} .rep-kpi.pen .v{color:var(--accent-ink);} .rep-kpi.pen .t{color:var(--accent-ink);}
+
+  .rep-section-title{font-family:'Fraunces',serif;font-size:15px;color:var(--primary-deep);font-weight:600;margin:20px 0 10px;}
+
+  /* Gráfico de barras por mês (faturamento) */
+  .bars{display:flex;align-items:flex-end;gap:5px;height:130px;padding:6px 2px 0;}
+  .bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;height:100%;justify-content:flex-end;min-width:0;}
+  .bar{width:100%;max-width:22px;border-radius:6px 6px 2px 2px;background:linear-gradient(180deg,var(--primary),var(--primary-deep));
+    transition:height .3s ease;min-height:3px;}
+  .bar.idle{background:var(--line);}
+  .bar-wrap{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center;}
+  .bar-lbl{font-size:9.5px;color:var(--ink-soft);text-transform:uppercase;}
+  .bar-val{font-size:8.5px;color:var(--primary-deep);font-family:'IBM Plex Mono',monospace;}
+
+  /* Meses: trabalhados x ociosos */
+  .months-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;}
+  .mon{border-radius:10px;padding:9px 4px;text-align:center;border:1px solid var(--line);background:var(--surface);}
+  .mon .m{font-size:11px;font-weight:600;text-transform:capitalize;}
+  .mon .s{font-size:10px;color:var(--ink-soft);margin-top:2px;}
+  .mon.work{background:var(--success-soft);border-color:#CDDCBB;} .mon.work .m{color:var(--success);}
+  .mon.idle{opacity:.7;} .mon.idle .m{color:var(--ink-soft);}
+  .legend{display:flex;gap:14px;justify-content:center;margin-top:10px;font-size:11px;color:var(--ink-soft);}
+  .legend span{display:inline-flex;align-items:center;gap:5px;}
+  .legend i{width:11px;height:11px;border-radius:3px;display:inline-block;}
+
+  /* Mini-calendário de dias trabalhados */
+  .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  .cal-head .cm{font-size:13px;font-weight:600;text-transform:capitalize;}
+  .cal-head button{background:none;border:1px solid var(--line);border-radius:8px;width:34px;height:30px;color:var(--primary);cursor:pointer;}
+  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+  .cal .dow{font-size:9.5px;color:var(--ink-soft);text-align:center;font-weight:600;padding-bottom:2px;}
+  .cal .cell{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:8px;font-size:11px;color:var(--ink);background:var(--bg);}
+  .cal .cell.empty{background:transparent;}
+  .cal .cell.work{background:linear-gradient(150deg,var(--primary-soft),#F3D8C4);color:var(--primary-deep);font-weight:600;}
+  .cal .cell.work .dot{width:4px;height:4px;border-radius:50%;background:var(--primary);margin-top:1px;}
+  .cal .cell.today{outline:2px solid var(--accent);}
+
+  .top-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);}
+  .top-row:last-child{border-bottom:none;}
+  .top-row .rank{width:22px;height:22px;border-radius:50%;background:var(--primary-soft);color:var(--primary-deep);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .top-row .nm{flex:1;font-size:13px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .top-row .ct{font-size:11px;color:var(--ink-soft);}
+  .top-row .vl{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:var(--primary-deep);}
+
   /* Painel de totais em destaque (resumo mensal) */
   .totals-panel{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:4px 0 16px;}
   .totals-panel .box{border-radius:13px;padding:12px 10px;text-align:center;border:1px solid var(--line);}
@@ -355,17 +414,8 @@
 
   <div id="setupScreen" class="hidden setup-box">
     <div class="stamp" style="margin:0 auto 18px;width:60px;height:60px;font-size:24px;border-radius:19px;">FT</div>
-    <h1 id="setupTitle" style="text-align:center;font-size:23px;color:var(--primary-deep);margin-bottom:8px;">Configurar o app</h1>
-    <p style="text-align:center;">Cole o link do App da Web que você publicou no Google Apps Script (termina em <code>/exec</code>).</p>
-
-    <div class="card" style="margin-top:4px;">
-      <label>Link do App da Web</label>
-      <input id="scriptUrlInput" inputmode="url" autocomplete="off" placeholder="https://script.google.com/macros/s/.../exec">
-      <details class="help">
-        <summary>Onde encontro esse link?</summary>
-        <p>No Google Apps Script da sua planilha: <b>Implantar &rsaquo; Gerenciar implantações</b>, copie o endereço que termina em <code>/exec</code>.</p>
-      </details>
-    </div>
+    <h1 id="setupTitle" style="text-align:center;font-size:23px;color:var(--primary-deep);margin-bottom:8px;">Bem-vinda!</h1>
+    <p id="setupIntro" style="text-align:center;">Preencha seus dados para começar. Eles aparecem nos recibos.</p>
 
     <div class="card">
       <div class="field-title">Seus dados <span style="font-weight:400;color:var(--ink-soft);">(aparecem no recibo)</span></div>
@@ -381,6 +431,17 @@
     <div class="btn-row" style="margin-top:4px;">
       <button id="setupCancelBtn" class="btn ghost hidden" onclick="cancelSetup()">Cancelar</button>
       <button class="btn primary" onclick="saveSetup()">Salvar e continuar</button>
+    </div>
+
+    <div id="backupBox" class="card hidden" style="margin-top:16px;">
+      <div class="field-title">Backup dos dados</div>
+      <p style="font-size:12.5px;color:var(--ink-soft);line-height:1.55;margin:0 0 12px;">Baixe uma cópia de todos os atendimentos e pacientes para guardar onde quiser. Dá para restaurar depois a partir do arquivo.</p>
+      <div class="btn-row" style="margin-top:0;">
+        <button class="btn" onclick="exportBackup('json')">&#11015; Backup (.json)</button>
+        <button class="btn" onclick="exportBackup('csv')">&#128202; Planilha (.csv)</button>
+      </div>
+      <button class="btn ghost" style="width:100%;margin-top:10px;" onclick="document.getElementById('importFile').click()">&#11014; Restaurar de um backup (.json)</button>
+      <input id="importFile" type="file" accept="application/json,.json" class="hidden" onchange="importBackup(event)">
     </div>
   </div>
 
@@ -426,7 +487,7 @@
 
     <div class="action-bar">
       <button class="chip-btn" onclick="openPatientManager()">&#128100; Pacientes</button>
-      <button class="chip-btn" onclick="openMonthlySummary()">&#128202; Resumo</button>
+      <button class="chip-btn" onclick="openReports()">&#128200; Relatórios</button>
       <button class="chip-btn" onclick="openMonthlyReceipt()">&#128196; Comprovante</button>
     </div>
 
@@ -451,6 +512,13 @@
 <div id="toastRoot"></div>
 
 <script>
+/* ============================================================
+   LINK DA PLANILHA (Google Apps Script) — já embutido no app.
+   Para trocar de planilha, basta substituir a URL abaixo pela
+   nova implantação que termina em /exec.
+   ============================================================ */
+var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbykxU4Vmk-UfaWW8lAz9PHTY3Fh4ukcgOyWy_d2X2DlQR9occh7bK5Y8UTFcBdArhCC/exec';
+
 var CONFIG_KEY = 'config';
 var config = null;
 var entries = [];
@@ -511,10 +579,17 @@ function clearError(){
   if(el) el.classList.add('hidden');
 }
 
+/* URL da planilha: usa o link salvo (compatível com instalações antigas)
+   ou, na ausência, o link embutido SCRIPT_URL. */
+function scriptUrl(){
+  if(config && config.scriptUrl && config.scriptUrl.indexOf('/exec') > -1) return config.scriptUrl;
+  return SCRIPT_URL;
+}
+
 /* Envia uma ação ao Apps Script. Rejeita a Promise em erro de rede
    (status/resposta não-OK) para permitir rollback no chamador. */
 async function postAction(payload){
-  var res = await fetch(config.scriptUrl, {
+  var res = await fetch(scriptUrl(), {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(payload)
@@ -530,7 +605,8 @@ async function init(){
   }catch(e){
     config = null;
   }
-  if(!config || !config.scriptUrl){
+  // Precisa configurar na primeira vez só se ainda não há nome salvo.
+  if(!config || !config.providerName){
     document.getElementById('setupScreen').classList.remove('hidden');
   }else{
     document.getElementById('mainScreen').classList.remove('hidden');
@@ -542,25 +618,23 @@ async function init(){
 }
 
 async function saveSetup(){
-  var url = document.getElementById('scriptUrlInput').value.trim();
   var name = document.getElementById('providerNameInput').value.trim();
   var doc = document.getElementById('providerDocInput').value.trim();
   var contact = document.getElementById('providerContactInput').value.trim();
   var errEl = document.getElementById('setupError');
   errEl.classList.add('hidden');
 
-  if(!url || url.indexOf('/exec') === -1){
-    errEl.textContent = 'Cole o link completo do App da Web, terminando em /exec.';
-    errEl.classList.remove('hidden');
-    return;
-  }
   if(!name){
     errEl.textContent = 'Informe o nome da profissional.';
     errEl.classList.remove('hidden');
     return;
   }
 
-  var newConfig = { scriptUrl: url, providerName: name, providerDoc: doc, providerContact: contact };
+  // Preserva um scriptUrl salvo de instalação antiga; caso contrário usa o embutido.
+  var newConfig = {
+    scriptUrl: (config && config.scriptUrl) ? config.scriptUrl : '',
+    providerName: name, providerDoc: doc, providerContact: contact
+  };
   try{
     localStorage.setItem(CONFIG_KEY, JSON.stringify(newConfig));
     config = newConfig;
@@ -583,8 +657,9 @@ function openSettings(){
   document.getElementById('fab').classList.add('hidden');
   document.getElementById('setupScreen').classList.remove('hidden');
   document.getElementById('setupTitle').textContent = 'Configurações';
+  document.getElementById('setupIntro').textContent = 'Atualize seus dados. Eles aparecem nos recibos.';
   document.getElementById('setupCancelBtn').classList.remove('hidden');
-  document.getElementById('scriptUrlInput').value = config.scriptUrl || '';
+  document.getElementById('backupBox').classList.remove('hidden');
   document.getElementById('providerNameInput').value = config.providerName || '';
   document.getElementById('providerDocInput').value = config.providerDoc || '';
   document.getElementById('providerContactInput').value = config.providerContact || '';
@@ -602,7 +677,7 @@ async function loadData(){
   document.getElementById('loadingState').classList.remove('hidden');
   clearError();
   try{
-    var res = await fetch(config.scriptUrl, { method: 'GET' });
+    var res = await fetch(scriptUrl(), { method: 'GET' });
     if(!res.ok) throw new Error('HTTP '+res.status);
     var data = await res.json();
     entries = (data.atendimentos || []).map(function(r){
@@ -1218,6 +1293,276 @@ async function submitNewEntry(){
     renderList();
     if(btn){ btn.disabled = false; btn.textContent = 'Salvar'; }
     showError('Não foi possível salvar na planilha. Tente novamente.');
+  }
+}
+
+/* ============================================================
+   RELATÓRIOS ANUAIS
+   ============================================================ */
+var reportYear = new Date().getFullYear();
+var calMonth = new Date();  // mês exibido no mini-calendário dos relatórios
+
+function entriesOfYear(year){
+  return entries.filter(function(e){
+    var d = new Date(e.data + 'T00:00:00');
+    return !isNaN(d.getTime()) && d.getFullYear() === year;
+  });
+}
+
+function openReports(){
+  reportYear = currentMonth.getFullYear();
+  calMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+  var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
+    '<div class="modal">' +
+      '<div class="grabber"></div>' +
+      '<h2>Relatório anual</h2>' +
+      '<div class="year-nav">' +
+        '<button onclick="shiftReportYear(-1)" aria-label="Ano anterior">&lsaquo;</button>' +
+        '<div class="y" id="repYear">'+reportYear+'</div>' +
+        '<button onclick="shiftReportYear(1)" aria-label="Próximo ano">&rsaquo;</button>' +
+      '</div>' +
+      '<div id="repBody"></div>' +
+      '<div class="btn-row">' +
+        '<button class="btn ghost" onclick="closeModal()">Fechar</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+  openModal(html);
+  renderReportBody();
+}
+
+function shiftReportYear(delta){
+  reportYear += delta;
+  calMonth = new Date(reportYear, 0, 1);
+  document.getElementById('repYear').textContent = reportYear;
+  renderReportBody();
+}
+
+function renderReportBody(){
+  var list = entriesOfYear(reportYear);
+  var meses = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  var mesesLongos = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+
+  // Totais do ano
+  var recebido=0, pendente=0, total=0, sessoes=list.length;
+  var pacientesSet={}, porMes=[], porPaciente={};
+  for(var i=0;i<12;i++) porMes[i]={fat:0, sessoes:0};
+  list.forEach(function(e){
+    var m = new Date(e.data+'T00:00:00').getMonth();
+    total += e.valor;
+    porMes[m].fat += e.valor;
+    porMes[m].sessoes += 1;
+    if(e.status==='Pago') recebido += e.valor; else pendente += e.valor;
+    pacientesSet[e.nome]=true;
+    if(!porPaciente[e.nome]) porPaciente[e.nome]={sessoes:0, valor:0};
+    porPaciente[e.nome].sessoes += 1;
+    porPaciente[e.nome].valor += e.valor;
+  });
+  var nPacientes = Object.keys(pacientesSet).length;
+  var ticket = sessoes ? total/sessoes : 0;
+  var mesesTrabalhados = porMes.filter(function(m){ return m.sessoes>0; }).length;
+  var mediaMensal = mesesTrabalhados ? total/mesesTrabalhados : 0;
+
+  if(sessoes === 0){
+    document.getElementById('repBody').innerHTML =
+      '<div class="empty" style="padding:30px 10px;"><span class="leaf">&#128202;</span>Nenhum atendimento registrado em '+reportYear+'.</div>';
+    return;
+  }
+
+  // KPIs
+  var kpis = '<div class="rep-kpis">' +
+    '<div class="rep-kpi"><div class="t">FATURADO NO ANO</div><div class="v">'+formatMoney(total)+'</div></div>' +
+    '<div class="rep-kpi rec"><div class="t">RECEBIDO</div><div class="v">'+formatMoney(recebido)+'</div></div>' +
+    '<div class="rep-kpi pen"><div class="t">A RECEBER</div><div class="v">'+formatMoney(pendente)+'</div></div>' +
+    '<div class="rep-kpi"><div class="t">SESSÕES</div><div class="v">'+sessoes+'</div></div>' +
+    '<div class="rep-kpi"><div class="t">PACIENTES</div><div class="v">'+nPacientes+'</div></div>' +
+    '<div class="rep-kpi"><div class="t">TICKET MÉDIO</div><div class="v">'+formatMoney(ticket)+'</div></div>' +
+    '<div class="rep-kpi"><div class="t">MESES TRABALHADOS</div><div class="v">'+mesesTrabalhados+' / 12</div></div>' +
+    '<div class="rep-kpi"><div class="t">MÉDIA / MÊS ATIVO</div><div class="v">'+formatMoney(mediaMensal)+'</div></div>' +
+  '</div>';
+
+  // Gráfico de barras (faturamento por mês)
+  var maxFat = 0; porMes.forEach(function(m){ if(m.fat>maxFat) maxFat=m.fat; });
+  var bars = '<div class="rep-section-title">Faturamento por mês</div><div class="bars">';
+  for(var i=0;i<12;i++){
+    var h = maxFat>0 ? Math.round((porMes[i].fat/maxFat)*100) : 0;
+    var idle = porMes[i].sessoes===0;
+    var valTxt = porMes[i].fat>0 ? 'R$'+Math.round(porMes[i].fat) : '';
+    bars += '<div class="bar-col">' +
+      '<div class="bar-val">'+valTxt+'</div>' +
+      '<div class="bar-wrap"><div class="bar'+(idle?' idle':'')+'" style="height:'+(idle?3:Math.max(h,3))+'%"></div></div>' +
+      '<div class="bar-lbl">'+meses[i]+'</div>' +
+    '</div>';
+  }
+  bars += '</div>';
+
+  // Meses trabalhados x ociosos
+  var monthsGrid = '<div class="rep-section-title">Meses trabalhados e ociosos</div><div class="months-grid">';
+  for(var i=0;i<12;i++){
+    var work = porMes[i].sessoes>0;
+    monthsGrid += '<div class="mon '+(work?'work':'idle')+'">' +
+      '<div class="m">'+meses[i]+'</div>' +
+      '<div class="s">'+(work?porMes[i].sessoes+(porMes[i].sessoes>1?' sessões':' sessão'):'ocioso')+'</div>' +
+    '</div>';
+  }
+  monthsGrid += '</div>' +
+    '<div class="legend"><span><i style="background:var(--success);"></i>trabalhado</span>' +
+    '<span><i style="background:var(--line);"></i>ocioso</span></div>';
+
+  // Top pacientes
+  var topNames = Object.keys(porPaciente).sort(function(a,b){ return porPaciente[b].valor - porPaciente[a].valor; }).slice(0,5);
+  var top = '<div class="rep-section-title">Pacientes do ano</div>';
+  topNames.forEach(function(n, idx){
+    var p = porPaciente[n];
+    top += '<div class="top-row">' +
+      '<div class="rank">'+(idx+1)+'</div>' +
+      '<div class="nm">'+escapeHtml(n)+'<div class="ct">'+p.sessoes+(p.sessoes>1?' sessões':' sessão')+'</div></div>' +
+      '<div class="vl">'+formatMoney(p.valor)+'</div>' +
+    '</div>';
+  });
+
+  // Mini-calendário de dias trabalhados
+  var cal = '<div class="rep-section-title">Dias trabalhados</div>' +
+    '<div class="cal-head">' +
+      '<button onclick="shiftCalMonth(-1)" aria-label="Mês anterior">&lsaquo;</button>' +
+      '<div class="cm" id="calMonthLabel"></div>' +
+      '<button onclick="shiftCalMonth(1)" aria-label="Próximo mês">&rsaquo;</button>' +
+    '</div>' +
+    '<div class="cal" id="calGrid"></div>';
+
+  document.getElementById('repBody').innerHTML = kpis + bars + monthsGrid + top + cal;
+  renderWorkCalendar();
+}
+
+function shiftCalMonth(delta){
+  calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth()+delta, 1);
+  renderWorkCalendar();
+}
+
+function renderWorkCalendar(){
+  var label = document.getElementById('calMonthLabel');
+  var grid = document.getElementById('calGrid');
+  if(!label || !grid) return;
+  var y = calMonth.getFullYear(), m = calMonth.getMonth();
+  label.textContent = monthLabel(calMonth);
+
+  // conta sessões por dia do mês
+  var byDay = {};
+  entries.forEach(function(e){
+    var d = new Date(e.data+'T00:00:00');
+    if(!isNaN(d.getTime()) && d.getFullYear()===y && d.getMonth()===m){
+      byDay[d.getDate()] = (byDay[d.getDate()]||0) + 1;
+    }
+  });
+
+  var dows = ['D','S','T','Q','Q','S','S'];
+  var html = dows.map(function(d){ return '<div class="dow">'+d+'</div>'; }).join('');
+  var firstDow = new Date(y, m, 1).getDay();
+  var daysInMonth = new Date(y, m+1, 0).getDate();
+  var today = new Date();
+  for(var i=0;i<firstDow;i++) html += '<div class="cell empty"></div>';
+  for(var dia=1; dia<=daysInMonth; dia++){
+    var work = byDay[dia] > 0;
+    var isToday = today.getFullYear()===y && today.getMonth()===m && today.getDate()===dia;
+    html += '<div class="cell'+(work?' work':'')+(isToday?' today':'')+'">' +
+      dia + (work ? '<span class="dot"></span>' : '') +
+    '</div>';
+  }
+  grid.innerHTML = html;
+}
+
+/* ============================================================
+   BACKUP — exportar / importar
+   ============================================================ */
+function downloadFile(name, text, mime){
+  var blob = new Blob([text], { type: mime });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1500);
+}
+
+function csvCell(v){
+  var s = String(v==null?'':v);
+  if(/[";\n]/.test(s)) s = '"' + s.replace(/"/g,'""') + '"';
+  return s;
+}
+
+function exportBackup(fmt){
+  var stamp = isoDate(new Date());
+  if(fmt === 'csv'){
+    var head = ['ID','Paciente','Data','Hora','Valor','Status','DataPagamento'];
+    var rows = [head.join(';')];
+    entries.slice().sort(function(a,b){ return String(a.data).localeCompare(String(b.data)); }).forEach(function(e){
+      var valorBR = (Number(e.valor)||0).toFixed(2).replace('.',',');
+      rows.push([e.id, e.nome, e.data, e.hora, valorBR, e.status, e.paymentDate].map(csvCell).join(';'));
+    });
+    // BOM para o Excel abrir acentos corretamente
+    downloadFile('backup_atendimentos_'+stamp+'.csv', '\uFEFF'+rows.join('\n'), 'text/csv;charset=utf-8');
+    showToast('Planilha exportada.', 'ok');
+    return;
+  }
+  var data = {
+    _app: 'atendimentos-fisioterapia',
+    _version: 1,
+    exportadoEm: new Date().toISOString(),
+    profissional: config ? config.providerName : '',
+    atendimentos: entries,
+    pacientes: patients
+  };
+  downloadFile('backup_atendimentos_'+stamp+'.json', JSON.stringify(data, null, 2), 'application/json');
+  showToast('Backup exportado.', 'ok');
+}
+
+async function importBackup(ev){
+  var file = ev.target.files && ev.target.files[0];
+  ev.target.value = '';   // permite reimportar o mesmo arquivo
+  if(!file) return;
+  var text;
+  try{ text = await file.text(); }catch(e){ showError('Não foi possível ler o arquivo.'); return; }
+  var data;
+  try{ data = JSON.parse(text); }catch(e){ showError('Arquivo inválido (não é um backup .json).'); return; }
+  var impAtend = Array.isArray(data.atendimentos) ? data.atendimentos : [];
+  var impPac = Array.isArray(data.pacientes) ? data.pacientes : [];
+  if(impAtend.length === 0 && impPac.length === 0){ showError('O arquivo não contém dados para restaurar.'); return; }
+
+  // Só adiciona o que ainda não existe (por ID) — não apaga nem duplica o que já está lá.
+  var existingE = {}; entries.forEach(function(e){ existingE[e.id] = true; });
+  var existingP = {}; patients.forEach(function(p){ existingP[p.id] = true; });
+  var novosE = impAtend.filter(function(e){ return e && e.id && !existingE[e.id]; });
+  var novosP = impPac.filter(function(p){ return p && p.id && !existingP[p.id]; });
+
+  if(novosE.length === 0 && novosP.length === 0){
+    showToast('Tudo do backup já estava no app. Nada a restaurar.', 'ok');
+    return;
+  }
+  if(!confirm('Restaurar ' + novosP.length + ' paciente(s) e ' + novosE.length + ' atendimento(s) do backup? Os dados atuais são mantidos.')) return;
+
+  var falhas = 0;
+  // pacientes primeiro
+  for(var i=0;i<novosP.length;i++){
+    var p = novosP[i];
+    patients.push(p);
+    try{
+      await postAction({ action:'create_patient', id:p.id, nome:p.nome, telefone:p.telefone||'', valorPadrao:p.valorPadrao||'', formaPagamento:p.formaPagamento||'' });
+    }catch(e){ falhas++; }
+  }
+  for(var j=0;j<novosE.length;j++){
+    var e = novosE[j];
+    entries.push(e);
+    try{
+      await postAction({ action:'create', id:e.id, nome:e.nome, data:e.data, hora:e.hora||'', valor:e.valor,
+        status:e.status||'Pendente', paymentDate:e.paymentDate||'', lat:e.lat||'', lng:e.lng||'' });
+    }catch(err){ falhas++; }
+  }
+  populatePatientFilter();
+  renderList();
+  if(falhas > 0){
+    showError('Restauração concluída, mas ' + falhas + ' item(ns) não foram para a planilha. Confira a conexão e exporte de novo se precisar.');
+  }else{
+    showToast('Backup restaurado com sucesso.', 'ok');
   }
 }
 

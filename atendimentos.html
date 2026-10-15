@@ -139,8 +139,27 @@
   label{font-size:12px;color:var(--ink-soft);display:block;margin-bottom:6px;margin-top:14px;font-weight:500;}
   label:first-child{margin-top:0;}
 
-  .filter-row{display:flex;gap:8px;margin-bottom:14px;align-items:center;}
+  /* Barra de ações com rótulos (antes eram ícones enigmáticos) */
+  .action-bar{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;}
+  .chip-btn{
+    background:var(--surface);border:1px solid var(--line);border-radius:12px;
+    padding:11px 6px;font-size:12.5px;font-weight:600;color:var(--primary-deep);
+    cursor:pointer;box-shadow:var(--shadow-soft);display:flex;align-items:center;justify-content:center;gap:5px;
+    font-family:'Inter',sans-serif;line-height:1;
+  }
+  .chip-btn:active{background:var(--primary-soft);transform:scale(.97);}
+
+  .filter-row{display:flex;gap:10px;margin-bottom:14px;align-items:center;}
+  .filter-row .filter-label{font-size:12px;color:var(--ink-soft);font-weight:600;margin:0;flex-shrink:0;}
   .filter-row select{flex:1;}
+
+  /* Campo de dinheiro com prefixo R$ */
+  .money-field{position:relative;}
+  .money-field .prefix{
+    position:absolute;left:13px;top:50%;transform:translateY(-50%);
+    color:var(--ink-soft);font-size:15px;font-weight:600;pointer-events:none;
+  }
+  .money-field input{padding-left:38px;}
 
   .entry{
     padding:15px 2px;border-bottom:1px solid var(--line);
@@ -187,8 +206,10 @@
   .entry-icons .lbl{display:none;}
   @media (min-width:400px){ .entry-icons .lbl{display:inline;} }
 
-  .empty{text-align:center;padding:34px 10px;color:var(--ink-soft);font-size:14px;line-height:1.6;}
-  .empty .leaf{font-size:30px;display:block;margin-bottom:8px;opacity:.8;}
+  .empty{text-align:center;padding:34px 14px;color:var(--ink-soft);font-size:14px;line-height:1.6;
+    display:flex;flex-direction:column;align-items:center;}
+  .empty .leaf{font-size:34px;display:block;margin-bottom:10px;opacity:.85;}
+  .empty .btn{width:100%;}
 
   .fab{
     position:fixed;bottom:calc(26px + var(--safe-bottom));left:50%;transform:translateX(-50%);
@@ -228,8 +249,14 @@
   .btn.small{flex:none;padding:9px 14px;font-size:13px;}
   .btn:active{filter:brightness(.96);}
 
-  .setup-box{padding-top:34px;}
+  .setup-box{padding-top:30px;}
   .setup-box p{font-size:14px;color:var(--ink-soft);line-height:1.65;margin-bottom:16px;}
+  .help{margin-top:12px;}
+  .help summary{font-size:12.5px;color:var(--primary);cursor:pointer;font-weight:600;list-style:none;}
+  .help summary::-webkit-details-marker{display:none;}
+  .help summary::before{content:'\25B8  ';}
+  .help[open] summary::before{content:'\25BE  ';}
+  .help p{font-size:12.5px;color:var(--ink-soft);line-height:1.55;margin:8px 0 0;}
   .error-banner{
     background:var(--danger-soft);color:var(--danger);font-size:13px;padding:11px 13px;
     border-radius:var(--radius-sm);margin-bottom:14px;border:1px solid #ECC6BE;line-height:1.5;
@@ -246,12 +273,43 @@
   @keyframes spin{to{transform:rotate(360deg);}}
   .field-title{font-size:13px;font-weight:600;color:var(--primary-deep);margin:18px 0 2px;}
   .field-title:first-child{margin-top:0;}
+  .ref-month{
+    margin-top:6px;background:var(--primary-soft);color:var(--primary-deep);
+    border-radius:var(--radius-sm);padding:11px 13px;font-size:14px;font-weight:600;text-transform:capitalize;
+  }
+  /* Resumo no modal de pagamento */
+  .pay-summary{
+    background:var(--success-soft);border:1px solid #CDDCBB;border-radius:14px;
+    padding:14px 16px;margin-bottom:6px;text-align:center;
+  }
+  .pay-summary .pay-name{font-weight:600;font-size:15px;color:var(--ink);}
+  .pay-summary .pay-meta{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+  .pay-summary .pay-value{font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:600;color:#3F5730;margin-top:8px;}
+  /* Cartão interno (formulário dentro de modal) */
+  .inner-card{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:8px;}
+  .empty-mini{font-size:13px;color:var(--ink-soft);text-align:center;padding:16px 8px;line-height:1.5;}
+
   .patient-row{
-    display:flex;align-items:center;justify-content:space-between;gap:10px;
-    padding:11px 0;border-bottom:1px solid var(--line);font-size:14px;
+    display:flex;align-items:center;gap:11px;
+    padding:12px 0;border-bottom:1px solid var(--line);font-size:14px;
   }
   .patient-row:last-child{border-bottom:none;}
-  .patient-row button{background:none;border:none;color:var(--danger);font-size:13px;font-weight:600;cursor:pointer;padding:6px 4px;}
+  .patient-row .p-avatar{
+    width:38px;height:38px;border-radius:11px;flex-shrink:0;
+    background:linear-gradient(150deg,var(--primary-soft),#F3D8C4);
+    display:flex;align-items:center;justify-content:center;color:var(--primary-deep);font-weight:600;font-size:12.5px;
+  }
+  .patient-row .p-info{flex:1;min-width:0;}
+  .patient-row .p-name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .patient-row .p-sub{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
+  .patient-row .p-actions{display:flex;gap:6px;flex-shrink:0;}
+  .patient-row .p-act{
+    width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--surface);
+    display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer;text-decoration:none;color:var(--ink-soft);
+  }
+  .patient-row .p-act.wa{color:#1EA860;border-color:#BFE6CE;}
+  .patient-row .p-act.call{color:var(--primary);}
+  .patient-row .p-act.del{color:var(--danger);border:none;background:none;}
   .summary-row{
     display:flex;align-items:center;gap:8px;padding:11px 0;border-bottom:1px solid var(--line);
   }
@@ -296,20 +354,34 @@
 <div class="wrap">
 
   <div id="setupScreen" class="hidden setup-box">
-    <div class="stamp" style="margin:0 auto 18px;width:56px;height:56px;font-size:22px;border-radius:18px;">FT</div>
-    <h1 style="text-align:center;font-size:22px;color:var(--primary-deep);margin-bottom:8px;">Configurar o app</h1>
+    <div class="stamp" style="margin:0 auto 18px;width:60px;height:60px;font-size:24px;border-radius:19px;">FT</div>
+    <h1 id="setupTitle" style="text-align:center;font-size:23px;color:var(--primary-deep);margin-bottom:8px;">Configurar o app</h1>
     <p style="text-align:center;">Cole o link do App da Web que você publicou no Google Apps Script (termina em <code>/exec</code>).</p>
-    <label>Link do App da Web</label>
-    <input id="scriptUrlInput" inputmode="url" autocomplete="off" placeholder="https://script.google.com/macros/s/.../exec">
-    <div class="field-title">Seus dados (aparecem no recibo)</div>
-    <label>Nome da profissional</label>
-    <input id="providerNameInput" placeholder="Nome completo">
-    <label>CREFITO / CPF (opcional)</label>
-    <input id="providerDocInput" placeholder="Número de registro ou CPF">
-    <label>Telefone ou PIX para contato (opcional)</label>
-    <input id="providerContactInput" placeholder="Ex: (11) 99999-9999">
-    <button class="btn primary" style="width:100%;margin-top:22px;" onclick="saveSetup()">Salvar e continuar</button>
-    <div id="setupError" class="error-banner hidden" style="margin-top:14px;"></div>
+
+    <div class="card" style="margin-top:4px;">
+      <label>Link do App da Web</label>
+      <input id="scriptUrlInput" inputmode="url" autocomplete="off" placeholder="https://script.google.com/macros/s/.../exec">
+      <details class="help">
+        <summary>Onde encontro esse link?</summary>
+        <p>No Google Apps Script da sua planilha: <b>Implantar &rsaquo; Gerenciar implantações</b>, copie o endereço que termina em <code>/exec</code>.</p>
+      </details>
+    </div>
+
+    <div class="card">
+      <div class="field-title">Seus dados <span style="font-weight:400;color:var(--ink-soft);">(aparecem no recibo)</span></div>
+      <label>Nome da profissional</label>
+      <input id="providerNameInput" placeholder="Nome completo">
+      <label>CREFITO / CPF (opcional)</label>
+      <input id="providerDocInput" placeholder="Número de registro ou CPF">
+      <label>Telefone ou PIX para contato (opcional)</label>
+      <input id="providerContactInput" placeholder="Ex: (11) 99999-9999">
+    </div>
+
+    <div id="setupError" class="error-banner hidden"></div>
+    <div class="btn-row" style="margin-top:4px;">
+      <button id="setupCancelBtn" class="btn ghost hidden" onclick="cancelSetup()">Cancelar</button>
+      <button class="btn primary" onclick="saveSetup()">Salvar e continuar</button>
+    </div>
   </div>
 
   <div id="mainScreen" class="hidden">
@@ -318,12 +390,11 @@
         <div class="stamp">FT</div>
         <div style="min-width:0;">
           <h1 id="providerNameDisplay">Atendimentos</h1>
-          <div class="sub">Controle de sessões</div>
+          <div class="sub">Fisioterapia domiciliar</div>
         </div>
       </div>
       <div class="header-actions">
         <button id="installBtn" class="icon-btn hidden" onclick="promptInstall()" title="Instalar app" aria-label="Instalar app">&#11015;</button>
-        <button class="icon-btn" onclick="openMonthlySummary()" title="Resumo mensal" aria-label="Resumo mensal">&#128202;</button>
         <button class="icon-btn" onclick="openSettings()" title="Configurações" aria-label="Configurações">&#9881;</button>
       </div>
     </header>
@@ -353,17 +424,22 @@
       <div class="chip"><span class="n" id="statTotal">R$ 0</span><span class="t">total<br>do mês</span></div>
     </div>
 
+    <div class="action-bar">
+      <button class="chip-btn" onclick="openPatientManager()">&#128100; Pacientes</button>
+      <button class="chip-btn" onclick="openMonthlySummary()">&#128202; Resumo</button>
+      <button class="chip-btn" onclick="openMonthlyReceipt()">&#128196; Comprovante</button>
+    </div>
+
     <div class="filter-row">
+      <label class="filter-label" for="patientFilter">Filtrar</label>
       <select id="patientFilter" onchange="renderList()" aria-label="Filtrar por paciente">
         <option value="">Todas as pacientes</option>
       </select>
-      <button class="icon-btn" onclick="openPatientManager()" title="Pacientes" aria-label="Gerenciar pacientes">&#43;</button>
-      <button class="icon-btn" onclick="openMonthlyReceipt()" title="Comprovante mensal" aria-label="Comprovante mensal">&#128196;</button>
     </div>
 
     <div class="card" style="padding:6px 16px;">
       <div id="entryList"></div>
-      <div id="emptyState" class="empty hidden"><span class="leaf">&#127810;</span>Nenhum atendimento neste mês ainda.</div>
+      <div id="emptyState" class="empty hidden"></div>
       <div id="loadingState" class="loading"><div class="spinner"></div>Carregando...</div>
     </div>
   </div>
@@ -506,10 +582,20 @@ function openSettings(){
   document.getElementById('mainScreen').classList.add('hidden');
   document.getElementById('fab').classList.add('hidden');
   document.getElementById('setupScreen').classList.remove('hidden');
+  document.getElementById('setupTitle').textContent = 'Configurações';
+  document.getElementById('setupCancelBtn').classList.remove('hidden');
   document.getElementById('scriptUrlInput').value = config.scriptUrl || '';
   document.getElementById('providerNameInput').value = config.providerName || '';
   document.getElementById('providerDocInput').value = config.providerDoc || '';
   document.getElementById('providerContactInput').value = config.providerContact || '';
+  window.scrollTo(0, 0);
+}
+
+function cancelSetup(){
+  document.getElementById('setupScreen').classList.add('hidden');
+  document.getElementById('setupError').classList.add('hidden');
+  document.getElementById('mainScreen').classList.remove('hidden');
+  document.getElementById('fab').classList.remove('hidden');
 }
 
 async function loadData(){
@@ -590,6 +676,16 @@ function renderList(){
 
   if(list.length === 0){
     container.innerHTML = '';
+    if(patients.length === 0){
+      empty.innerHTML = '<span class="leaf">&#127811;</span>Cadastre a primeira paciente para começar.' +
+        '<button class="btn primary" style="margin:16px auto 0;max-width:260px;" onclick="openPatientManager()">&#128100; Cadastrar paciente</button>';
+    }else{
+      var filtroAtivo = document.getElementById('patientFilter').value;
+      empty.innerHTML = '<span class="leaf">&#127810;</span>' +
+        (filtroAtivo ? 'Nenhum atendimento desta paciente em ' + monthLabel(currentMonth) + '.'
+                     : 'Nenhum atendimento em ' + monthLabel(currentMonth) + '.') +
+        '<button class="btn primary" style="margin:16px auto 0;max-width:260px;" onclick="openNewEntry()">+ Lançar atendimento</button>';
+    }
     empty.classList.remove('hidden');
     return;
   }
@@ -663,12 +759,16 @@ function openPaymentModal(id){
     '<div class="modal">' +
       '<div class="grabber"></div>' +
       '<h2>Registrar pagamento</h2>' +
-      '<p style="font-size:13px;color:var(--ink-soft);margin:0 0 4px;">'+escapeHtml(entry.nome)+' &middot; sessão de '+formatDateBR(entry.data)+' &middot; '+formatMoney(entry.valor)+'</p>' +
+      '<div class="pay-summary">' +
+        '<div class="pay-name">'+escapeHtml(entry.nome)+'</div>' +
+        '<div class="pay-meta">Sessão de '+formatDateBR(entry.data)+'</div>' +
+        '<div class="pay-value">'+formatMoney(entry.valor)+'</div>' +
+      '</div>' +
       '<label>Data do pagamento</label>' +
       '<input id="paymentDateInput" type="date" value="'+today+'">' +
       '<div class="btn-row">' +
         '<button class="btn ghost" onclick="closeModal()">Cancelar</button>' +
-        '<button class="btn primary" onclick="confirmPayment(\''+id+'\')">Confirmar pagamento</button>' +
+        '<button class="btn primary" onclick="confirmPayment(\''+id+'\')">&#10003; Confirmar</button>' +
       '</div>' +
     '</div>' +
   '</div>';
@@ -720,7 +820,7 @@ function openEditEntry(id){
       '<label>Horário</label>' +
       '<input id="editHora" type="time" value="'+escapeHtml(entry.hora||'')+'">' +
       '<label>Valor da sessão</label>' +
-      '<input id="editValor" type="number" inputmode="decimal" step="0.01" min="0" value="'+entry.valor+'">' +
+      '<div class="money-field"><span class="prefix">R$</span><input id="editValor" type="number" inputmode="decimal" step="0.01" min="0" value="'+entry.valor+'"></div>' +
       '<div class="btn-row">' +
         '<button class="btn ghost" onclick="closeModal()">Cancelar</button>' +
         '<button class="btn primary" id="editSaveBtn" onclick="submitEditEntry(\''+id+'\')">Salvar alterações</button>' +
@@ -765,21 +865,24 @@ function openPatientManager(){
     '<div class="modal">' +
       '<div class="grabber"></div>' +
       '<h2>Pacientes</h2>' +
-      '<label>Nome da paciente</label>' +
-      '<input id="newPatientName" placeholder="Nome completo">' +
-      '<label>Telefone (opcional)</label>' +
-      '<input id="newPatientPhone" inputmode="tel" placeholder="Ex: (11) 99999-9999">' +
-      '<label>Valor padrão da sessão (opcional)</label>' +
-      '<input id="newPatientValor" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0,00">' +
-      '<label>Forma de pagamento</label>' +
-      '<select id="newPatientPagamento">' +
-        '<option value="">Não informado</option>' +
-        '<option value="PIX">PIX</option>' +
-        '<option value="Dinheiro">Dinheiro</option>' +
-        '<option value="Outro">Outro</option>' +
-      '</select>' +
-      '<button class="btn primary" style="width:100%;margin-top:16px;" id="addPatientBtn" onclick="addPatient()">Adicionar paciente</button>' +
-      '<div class="field-title">Já cadastradas</div>' +
+      '<div class="inner-card">' +
+        '<div class="field-title">Nova paciente</div>' +
+        '<label>Nome</label>' +
+        '<input id="newPatientName" placeholder="Nome completo">' +
+        '<label>Telefone (opcional)</label>' +
+        '<input id="newPatientPhone" inputmode="tel" placeholder="Ex: (11) 99999-9999">' +
+        '<label>Valor padrão da sessão (opcional)</label>' +
+        '<div class="money-field"><span class="prefix">R$</span><input id="newPatientValor" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0,00"></div>' +
+        '<label>Forma de pagamento</label>' +
+        '<select id="newPatientPagamento">' +
+          '<option value="">Não informado</option>' +
+          '<option value="PIX">PIX</option>' +
+          '<option value="Dinheiro">Dinheiro</option>' +
+          '<option value="Outro">Outro</option>' +
+        '</select>' +
+        '<button class="btn primary" style="width:100%;margin-top:16px;" id="addPatientBtn" onclick="addPatient()">+ Adicionar paciente</button>' +
+      '</div>' +
+      '<div class="field-title">Cadastradas <span id="patientCount" style="font-weight:400;color:var(--ink-soft);"></span></div>' +
       '<div id="patientListBox">' + renderPatientListHtml() + '</div>' +
       '<div class="btn-row">' +
         '<button class="btn ghost" style="flex:1" onclick="closeModal()">Fechar</button>' +
@@ -787,16 +890,38 @@ function openPatientManager(){
     '</div>' +
   '</div>';
   openModal(html);
+  updatePatientCount();
 }
 
+function updatePatientCount(){
+  var el = document.getElementById('patientCount');
+  if(el) el.textContent = patients.length ? '(' + patients.length + ')' : '';
+}
+
+function onlyDigits(s){ return String(s||'').replace(/\D/g,''); }
+
 function renderPatientListHtml(){
-  if(patients.length === 0) return '<p style="font-size:13px;color:var(--ink-soft);">Nenhuma paciente cadastrada ainda.</p>';
-  return patients.map(function(p){
+  if(patients.length === 0) return '<p class="empty-mini">Nenhuma paciente cadastrada ainda. Use o formulário acima.</p>';
+  return patients.slice().sort(function(a,b){ return String(a.nome).localeCompare(String(b.nome),'pt-BR'); }).map(function(p){
     var details = [];
     if(p.valorPadrao) details.push(formatMoney(parseValor(p.valorPadrao)));
     if(p.formaPagamento) details.push(p.formaPagamento);
-    var sub = details.length ? '<div style="font-size:11px;color:var(--ink-soft);">'+escapeHtml(details.join(' · '))+'</div>' : '';
-    return '<div class="patient-row" style="align-items:flex-start;"><div><span>'+escapeHtml(p.nome)+'</span>'+sub+'</div><button onclick="removePatient(\''+p.id+'\')">Remover</button></div>';
+    var sub = details.length ? '<div class="p-sub">'+escapeHtml(details.join(' · '))+'</div>' : '';
+    var tel = onlyDigits(p.telefone);
+    var contactBtns = '';
+    if(tel){
+      contactBtns =
+        '<a class="p-act wa" href="https://wa.me/55'+tel+'" target="_blank" rel="noopener" title="WhatsApp" aria-label="WhatsApp">&#128172;</a>' +
+        '<a class="p-act call" href="tel:'+tel+'" title="Ligar" aria-label="Ligar">&#128222;</a>';
+    }
+    return '<div class="patient-row">' +
+        '<div class="p-avatar">'+initials(p.nome)+'</div>' +
+        '<div class="p-info"><div class="p-name">'+escapeHtml(p.nome)+'</div>'+sub+
+          (p.telefone ? '<div class="p-sub">'+escapeHtml(p.telefone)+'</div>' : '')+'</div>' +
+        '<div class="p-actions">'+contactBtns+
+          '<button class="p-act del" onclick="removePatient(\''+p.id+'\')" title="Remover" aria-label="Remover">&#10005;</button>' +
+        '</div>' +
+      '</div>';
   }).join('');
 }
 
@@ -813,10 +938,12 @@ async function addPatient(){
   patients.push(novo);
   populatePatientFilter();
   document.getElementById('patientListBox').innerHTML = renderPatientListHtml();
+  updatePatientCount();
   document.getElementById('newPatientName').value = '';
   document.getElementById('newPatientPhone').value = '';
   document.getElementById('newPatientValor').value = '';
   document.getElementById('newPatientPagamento').value = '';
+  document.getElementById('newPatientName').focus();
   clearError();
   try{
     await postAction({ action: 'create_patient', id: id, nome: nome, telefone: telefone, valorPadrao: valorPadrao, formaPagamento: formaPagamento });
@@ -826,9 +953,10 @@ async function addPatient(){
     populatePatientFilter();
     var box = document.getElementById('patientListBox');
     if(box) box.innerHTML = renderPatientListHtml();
+    updatePatientCount();
     showError('Não foi possível salvar a paciente na planilha.');
   }
-  if(btn){ btn.disabled = false; btn.textContent = 'Adicionar paciente'; }
+  if(btn){ btn.disabled = false; btn.textContent = '+ Adicionar paciente'; }
 }
 
 async function removePatient(id){
@@ -840,6 +968,7 @@ async function removePatient(id){
   populatePatientFilter();
   var box = document.getElementById('patientListBox');
   if(box) box.innerHTML = renderPatientListHtml();
+  updatePatientCount();
   clearError();
   try{
     await postAction({ action: 'delete_patient', id: id });
@@ -848,6 +977,7 @@ async function removePatient(id){
     patients.splice(idx, 0, removed);   // rollback
     populatePatientFilter();
     if(box) box.innerHTML = renderPatientListHtml();
+    updatePatientCount();
     showError('Não foi possível remover a paciente na planilha.');
   }
 }
@@ -1021,8 +1151,8 @@ function openNewEntry(){
       '<label>Horário</label>' +
       '<input id="newHora" type="time" value="'+isoTime(now)+'">' +
       '<label>Valor da sessão</label>' +
-      '<input id="newValor" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0,00">' +
-      '<div id="locHint" class="hint-banner" style="margin-top:16px;">A localização do atendimento será registrada ao salvar, se você permitir o acesso.</div>' +
+      '<div class="money-field"><span class="prefix">R$</span><input id="newValor" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0,00"></div>' +
+      '<div id="locHint" class="hint-banner" style="margin-top:16px;">&#128205; A localização será registrada ao salvar, se você permitir — ela aparece como link no recibo.</div>' +
       '<div class="btn-row">' +
         '<button class="btn ghost" onclick="closeModal()">Cancelar</button>' +
         '<button class="btn primary" id="saveEntryBtn" onclick="submitNewEntry()">Salvar</button>' +
@@ -1193,13 +1323,14 @@ function openMonthlyReceipt(){
     '<div class="modal">' +
       '<div class="grabber"></div>' +
       '<h2>Comprovante mensal</h2>' +
+      '<p style="font-size:13px;color:var(--ink-soft);margin:0 0 4px;line-height:1.5;">Gera um PDF com as sessões do mês — de uma paciente ou de todas (resumo geral).</p>' +
       '<label>Paciente</label>' +
       '<select id="monthlyPatient">'+options+'</select>' +
       '<label>Mês de referência</label>' +
-      '<div class="label" style="margin-top:6px;font-size:14px;color:var(--ink);">'+monthLabel(currentMonth)+'</div>' +
+      '<div class="ref-month">&#128197; '+monthLabel(currentMonth)+'</div>' +
       '<div class="btn-row">' +
         '<button class="btn ghost" onclick="closeModal()">Cancelar</button>' +
-        '<button class="btn accent" onclick="submitMonthlyReceipt()">Gerar PDF</button>' +
+        '<button class="btn accent" onclick="submitMonthlyReceipt()">&#128196; Gerar PDF</button>' +
       '</div>' +
     '</div>' +
   '</div>';

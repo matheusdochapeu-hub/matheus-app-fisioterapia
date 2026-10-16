@@ -15,7 +15,7 @@ App para celular (PWA instalável) que controla pacientes atendidas e valores a 
 - **Relatório anual** com faturamento, recebido × a receber, nº de sessões, pacientes, ticket médio, meses trabalhados × ociosos, gráfico de barras por mês, ranking de pacientes e **calendário dos dias trabalhados**
 - **Backup**: exportar todos os dados em `.json` (restaurável) ou `.csv` (abre no Excel) e **restaurar** a partir de um `.json`
 - **Banco de exercícios**: cadastro por nome, tipo (fortalecimento, alongamento, mobilidade…), séries/repetições padrão, observação e **imagem** (escolhida do aparelho, comprimida automaticamente e com moldura na paleta). **Busca por nome e filtro por tipo**.
-- **Rotina por paciente**: montar a lista de exercícios de cada paciente, com séries/repetições específicas e **reordenação** (subir/descer)
+- **Rotinas por paciente**: cada paciente pode ter **várias rotinas** (ex.: "Terça", "Quinta"), com exercícios, séries/repetições específicas e **reordenação** (subir/descer). Dá para criar, renomear e excluir rotinas.
 - **Cartilha em PDF** para impressão, em 3 formatos (cartilha em 2 colunas com imagem, detalhada com imagem grande, ou lista compacta), com **título e paciente** escolhidos na hora, **descrição do exercício**, molduras nas imagens e **marca d'água de outono**
 - Comprovantes mensais com **marca d'água de outono**, tabela com faixas de contraste suave e cabeçalho "Fisioterapeuta Responsável"
 
@@ -81,6 +81,8 @@ Isso recria `icons/icon-192.png`, `icon-512.png` e `icon-maskable-512.png`. Não
 Sempre que o `Code.gs` for alterado, cole a nova versão no Apps Script e publique uma nova versão em **Implantar > Gerenciar implantações > Editar > Nova versão**. O link `/exec` continua o mesmo.
 
 > **Importante (exercícios e rotinas):** a versão atual do `Code.gs` cria duas abas novas — **Exercicios** e **Rotinas**. Para o cadastro de exercícios, as rotinas e a cartilha funcionarem, é preciso **colar o `Code.gs` novo no Apps Script e publicar uma nova versão** (passo acima). As abas são criadas sozinhas na primeira vez. Os dados de atendimentos/pacientes já existentes **não são afetados**.
+
+> **Múltiplas rotinas por paciente:** a aba **Rotinas** ganhou a coluna **`Rotulo`** (nome da rotina, ex.: "Terça"). Itens antigos sem rótulo entram automaticamente na rotina "Rotina principal". Se já havia uma aba Rotinas, **republique o `Code.gs`** para que a coluna seja adicionada.
 
 ## Observações
 

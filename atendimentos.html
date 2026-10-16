@@ -433,6 +433,10 @@
   .rot-item .sr{display:flex;gap:6px;flex-shrink:0;}
   .rot-item .sr input{width:52px;padding:7px 6px;font-size:13px;text-align:center;}
   .rot-item .rm{background:none;border:none;color:var(--danger);font-size:15px;cursor:pointer;flex-shrink:0;}
+  /* seletor de rotina (paciente pode ter várias) */
+  .routine-pick{display:flex;gap:6px;align-items:center;margin-top:6px;}
+  .routine-pick select{flex:1;}
+  .routine-pick .btn.small{flex:none;width:40px;padding:9px 0;text-align:center;}
 
   /* Seletor de formato de cartilha */
   .fmt-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:6px;}
@@ -773,7 +777,7 @@ async function loadData(){
       return { id: String(r.ID), nome: r.Nome, tipo: r.Tipo || '', seriesPadrao: r.SeriesPadrao || '', repsPadrao: r.RepsPadrao || '', observacao: r.Observacao || '', imagem: r.Imagem || '' };
     });
     routines = (data.rotinas || []).map(function(r){
-      return { id: String(r.ID), pacienteId: String(r.PacienteID||''), pacienteNome: r.PacienteNome || '', exercicioId: String(r.ExercicioID||''), ordem: Number(r.Ordem)||0, series: r.Series || '', reps: r.Reps || '', observacao: r.Observacao || '' };
+      return { id: String(r.ID), pacienteId: String(r.PacienteID||''), pacienteNome: r.PacienteNome || '', exercicioId: String(r.ExercicioID||''), ordem: Number(r.Ordem)||0, series: r.Series || '', reps: r.Reps || '', observacao: r.Observacao || '', rotulo: (r.Rotulo || '').trim() || ROTINA_PADRAO };
     });
     populatePatientFilter();
     renderList();
@@ -1864,7 +1868,21 @@ async function deleteExercise(id){
 /* ============================================================
    ROTINAS por paciente
    ============================================================ */
+var ROTINA_PADRAO = 'Rotina principal';
 var routinePatientId = '';
+var routineLabel = ROTINA_PADRAO;   // rotina (rótulo) selecionada no momento
+
+/* Lista os rótulos de rotina existentes para um paciente (ordenados), sempre
+   incluindo a rotina atualmente selecionada mesmo que ainda vazia. */
+function routineLabelsFor(pid){
+  var set = {};
+  routines.forEach(function(r){ if(r.pacienteId===pid) set[r.rotulo||ROTINA_PADRAO] = true; });
+  if(routinePatientId===pid && routineLabel) set[routineLabel] = true;
+  var arr = Object.keys(set);
+  if(arr.length===0) arr = [ROTINA_PADRAO];
+  arr.sort(function(a,b){ return String(a).localeCompare(String(b),'pt-BR'); });
+  return arr;
+}
 
 function openRoutineManager(){
   if(patients.length === 0){ alert('Cadastre uma paciente primeiro.'); openPatientManager(); return; }
@@ -1872,6 +1890,9 @@ function openRoutineManager(){
   if(!routinePatientId || !patients.some(function(p){ return p.id===routinePatientId; })){
     routinePatientId = patients[0].id;
   }
+  // garante um rótulo válido para o paciente atual
+  var labels = routineLabelsFor(routinePatientId);
+  if(labels.indexOf(routineLabel) === -1) routineLabel = labels[0];
   var opts = patients.slice().sort(function(a,b){ return String(a.nome).localeCompare(String(b.nome),'pt-BR'); })
     .map(function(p){ return '<option value="'+p.id+'" '+(p.id===routinePatientId?'selected':'')+'>'+escapeHtml(p.nome)+'</option>'; }).join('');
   var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
@@ -1880,6 +1901,13 @@ function openRoutineManager(){
       '<h2>Rotina de exercícios</h2>' +
       '<label>Paciente</label>' +
       '<select id="routinePatient" onchange="onRoutinePatientChange()">'+opts+'</select>' +
+      '<label>Rotina <span style="font-weight:400;color:var(--ink-soft);">(ex.: Terça, Quinta)</span></label>' +
+      '<div class="routine-pick">' +
+        '<select id="routineLabelSel" onchange="onRoutineLabelChange()"></select>' +
+        '<button class="btn small" onclick="novaRotina()" title="Nova rotina">&#43;</button>' +
+        '<button class="btn small" onclick="renomearRotina()" title="Renomear">&#9998;</button>' +
+        '<button class="btn small" onclick="excluirRotina()" title="Excluir rotina">&#128465;</button>' +
+      '</div>' +
       '<div id="routineBody"></div>' +
       '<div class="btn-row">' +
         '<button class="btn ghost" onclick="closeModal()">Fechar</button>' +
@@ -1888,16 +1916,93 @@ function openRoutineManager(){
     '</div>' +
   '</div>';
   openModal(html);
+  renderRoutineLabelSelect();
   renderRoutineBody();
+}
+
+function renderRoutineLabelSelect(){
+  var sel = document.getElementById('routineLabelSel');
+  if(!sel) return;
+  var labels = routineLabelsFor(routinePatientId);
+  if(labels.indexOf(routineLabel) === -1) routineLabel = labels[0];
+  sel.innerHTML = labels.map(function(l){
+    return '<option value="'+escapeHtml(l)+'" '+(l===routineLabel?'selected':'')+'>'+escapeHtml(l)+'</option>';
+  }).join('');
 }
 
 function onRoutinePatientChange(){
   routinePatientId = document.getElementById('routinePatient').value;
+  var labels = routineLabelsFor(routinePatientId);
+  routineLabel = labels[0];
+  renderRoutineLabelSelect();
   renderRoutineBody();
 }
 
-function routineItemsFor(pid){
-  return routines.filter(function(r){ return r.pacienteId === pid; })
+function onRoutineLabelChange(){
+  routineLabel = document.getElementById('routineLabelSel').value;
+  renderRoutineBody();
+}
+
+function novaRotina(){
+  var nome = (prompt('Nome da nova rotina (ex.: Terça, Quinta, Semana A):','') || '').trim();
+  if(!nome) return;
+  if(routineLabelsFor(routinePatientId).indexOf(nome) > -1){ alert('Já existe uma rotina com esse nome para esta paciente.'); return; }
+  routineLabel = nome;   // passa a existir ao adicionar o 1º exercício
+  renderRoutineLabelSelect();
+  renderRoutineBody();
+  showToast('Rotina "'+nome+'" criada. Adicione exercícios abaixo.', 'ok');
+}
+
+async function renomearRotina(){
+  var atual = routineLabel;
+  var novo = (prompt('Novo nome para a rotina "'+atual+'":', atual) || '').trim();
+  if(!novo || novo === atual) return;
+  if(routineLabelsFor(routinePatientId).indexOf(novo) > -1){ alert('Já existe uma rotina com esse nome.'); return; }
+  var itens = routineItemsFor(routinePatientId, atual);
+  itens.forEach(function(r){ r.rotulo = novo; });   // otimista
+  routineLabel = novo;
+  renderRoutineLabelSelect();
+  renderRoutineBody();
+  clearError();
+  if(itens.length === 0){ return; }  // rotina ainda sem itens: só renomeia local
+  try{
+    await postAction({ action:'rename_routine', pacienteId:routinePatientId, rotuloAntigo:atual, rotulo:novo });
+    showToast('Rotina renomeada.', 'ok');
+  }catch(e){
+    itens.forEach(function(r){ r.rotulo = atual; });
+    routineLabel = atual;
+    renderRoutineLabelSelect(); renderRoutineBody();
+    showError('Não foi possível renomear a rotina.');
+  }
+}
+
+async function excluirRotina(){
+  var alvo = routineLabel;
+  var itens = routineItemsFor(routinePatientId, alvo);
+  if(!confirm('Excluir a rotina "'+alvo+'"'+(itens.length?(' e seus '+itens.length+' exercício(s)'):'')+'? Os exercícios do banco não são apagados.')) return;
+  var removidos = itens.slice();
+  routines = routines.filter(function(r){ return !(r.pacienteId===routinePatientId && (r.rotulo||ROTINA_PADRAO)===alvo); });
+  var labels = routineLabelsFor(routinePatientId);
+  routineLabel = labels[0] || ROTINA_PADRAO;
+  renderRoutineLabelSelect();
+  renderRoutineBody();
+  clearError();
+  if(removidos.length === 0) return;
+  try{
+    await postAction({ action:'clear_routine', pacienteId:routinePatientId, rotulo:alvo });
+    showToast('Rotina excluída.', 'ok');
+  }catch(e){
+    routines = routines.concat(removidos);
+    routineLabel = alvo;
+    renderRoutineLabelSelect(); renderRoutineBody();
+    showError('Não foi possível excluir a rotina.');
+  }
+}
+
+/* Itens de uma rotina específica (paciente + rótulo). Rótulo omitido = o selecionado. */
+function routineItemsFor(pid, rotulo){
+  var lab = (rotulo === undefined) ? routineLabel : rotulo;
+  return routines.filter(function(r){ return r.pacienteId === pid && (r.rotulo||ROTINA_PADRAO) === lab; })
     .sort(function(a,b){ return (a.ordem||0)-(b.ordem||0); });
 }
 
@@ -1944,15 +2049,16 @@ function renderRoutineBody(){
       }).join('');
 
   body.innerHTML =
-    '<div class="field-title">Rotina atual ('+itens.length+')</div>' + listaRotina +
+    '<div class="field-title">Exercícios de "'+escapeHtml(routineLabel)+'" ('+itens.length+')</div>' + listaRotina +
     '<div class="field-title">Adicionar exercícios</div>' + listaDisp +
     (disponiveis.length ? '<button class="btn primary" style="width:100%;margin-top:12px;" onclick="addCheckedToRoutine()">+ Adicionar selecionados</button>' : '');
 }
 
 async function addCheckedToRoutine(){
   var pid = routinePatientId;
+  var lab = routineLabel;
   var pac = patients.find(function(p){ return p.id===pid; });
-  var base = routineItemsFor(pid).length;
+  var base = routineItemsFor(pid, lab).length;
   var escolhidos = exercises.filter(function(e){
     var cb = document.getElementById('pick_'+e.id);
     return cb && cb.checked;
@@ -1962,10 +2068,10 @@ async function addCheckedToRoutine(){
   for(var i=0;i<escolhidos.length;i++){
     var e = escolhidos[i];
     var id = 'r' + Date.now() + '_' + i;
-    var item = { id:id, pacienteId:pid, pacienteNome:pac?pac.nome:'', exercicioId:e.id, ordem:base+i+1, series:e.seriesPadrao||'', reps:e.repsPadrao||'', observacao:'' };
+    var item = { id:id, pacienteId:pid, pacienteNome:pac?pac.nome:'', exercicioId:e.id, ordem:base+i+1, series:e.seriesPadrao||'', reps:e.repsPadrao||'', observacao:'', rotulo:lab };
     routines.push(item);
     try{
-      await postAction({ action:'create_routine_item', id:id, pacienteId:pid, pacienteNome:item.pacienteNome, exercicioId:e.id, ordem:item.ordem, series:item.series, reps:item.reps, observacao:'' });
+      await postAction({ action:'create_routine_item', id:id, pacienteId:pid, pacienteNome:item.pacienteNome, exercicioId:e.id, ordem:item.ordem, series:item.series, reps:item.reps, observacao:'', rotulo:lab });
     }catch(err){
       routines = routines.filter(function(r){ return r.id !== id; });
       showError('Alguns exercícios não foram salvos. Confira a conexão.');
@@ -2027,21 +2133,22 @@ async function moveRoutineItem(id, dir){
    ============================================================ */
 var bookletFmt = '2col';   // 2col | 1col | lista
 
-function openBookletBuilder(preselectPid){
+function openBookletBuilder(preselectPid, preselectLabel){
   if(patients.length === 0){ alert('Cadastre uma paciente primeiro.'); openPatientManager(); return; }
   var pid = preselectPid || routinePatientId || patients[0].id;
   var opts = patients.slice().sort(function(a,b){ return String(a.nome).localeCompare(String(b.nome),'pt-BR'); })
     .map(function(p){ return '<option value="'+p.id+'" '+(p.id===pid?'selected':'')+'>'+escapeHtml(p.nome)+'</option>'; }).join('');
-  var pac = patients.find(function(p){ return p.id===pid; });
-  var tituloSug = 'Rotina de exercícios';
+  bookletPreLabel = preselectLabel || '';   // usado por refreshBookletLabels
   var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
     '<div class="modal">' +
       '<div class="grabber"></div>' +
       '<h2>Montar cartilha</h2>' +
       '<label>Paciente</label>' +
-      '<select id="bkPatient">'+opts+'</select>' +
+      '<select id="bkPatient" onchange="refreshBookletLabels()">'+opts+'</select>' +
+      '<label>Rotina</label>' +
+      '<select id="bkLabel" onchange="onBookletLabelChange()"></select>' +
       '<label>Título da cartilha</label>' +
-      '<input id="bkTitle" value="'+escapeHtml(tituloSug)+'" placeholder="Ex: Segunda-feira · Corpo todo">' +
+      '<input id="bkTitle" placeholder="Ex: Segunda-feira · Corpo todo">' +
       '<label>Subtítulo (opcional)</label>' +
       '<input id="bkSubtitle" placeholder="Ex: Fortalecimento e mobilidade">' +
       '<label>Formato</label>' +
@@ -2050,7 +2157,7 @@ function openBookletBuilder(preselectPid){
         '<div class="fmt-opt" data-fmt="1col" onclick="selectFmt(this)"><span class="ic">&#128444;</span>Detalhada<br>(imagem grande)</div>' +
         '<div class="fmt-opt" data-fmt="lista" onclick="selectFmt(this)"><span class="ic">&#128203;</span>Lista<br>(compacta)</div>' +
       '</div>' +
-      '<div class="hint-banner" style="margin-top:16px;">&#128161; A cartilha usa os exercícios da rotina da paciente. Monte a rotina em "Rotinas" se ainda não fez.</div>' +
+      '<div class="hint-banner" style="margin-top:16px;">&#128161; A cartilha usa os exercícios da rotina escolhida. Monte as rotinas em "Rotinas".</div>' +
       '<div class="btn-row">' +
         '<button class="btn ghost" onclick="closeModal()">Cancelar</button>' +
         '<button class="btn accent" id="bkGenBtn" onclick="generateBooklet()">&#128214; Gerar PDF</button>' +
@@ -2059,6 +2166,37 @@ function openBookletBuilder(preselectPid){
   '</div>';
   openModal(html);
   bookletFmt = '2col';
+  refreshBookletLabels();
+}
+
+var bookletPreLabel = '';
+
+/* Preenche o seletor de rotina conforme o paciente escolhido na cartilha. */
+function refreshBookletLabels(){
+  var pid = document.getElementById('bkPatient').value;
+  var sel = document.getElementById('bkLabel');
+  if(!sel) return;
+  var labels = routineLabelsFor(pid);
+  var escolher = (bookletPreLabel && labels.indexOf(bookletPreLabel) > -1) ? bookletPreLabel : labels[0];
+  bookletPreLabel = '';
+  sel.innerHTML = labels.map(function(l){
+    return '<option value="'+escapeHtml(l)+'" '+(l===escolher?'selected':'')+'>'+escapeHtml(l)+'</option>';
+  }).join('');
+  preencherTituloCartilha();
+}
+
+function onBookletLabelChange(){ preencherTituloCartilha(); }
+
+/* Sugere o título com o nome da rotina (só se o campo estiver vazio ou com sugestão anterior). */
+function preencherTituloCartilha(){
+  var t = document.getElementById('bkTitle');
+  var lab = document.getElementById('bkLabel');
+  if(!t || !lab) return;
+  var sug = lab.value && lab.value !== ROTINA_PADRAO ? lab.value : 'Rotina de exercícios';
+  if(!t.value || t.value === t.getAttribute('data-sug') || t.value === 'Rotina de exercícios'){
+    t.value = sug;
+  }
+  t.setAttribute('data-sug', sug);
 }
 
 function selectFmt(el){
@@ -2069,24 +2207,26 @@ function selectFmt(el){
 }
 
 function bookletFromRoutine(){
-  var pid = routinePatientId;
+  var pid = routinePatientId, lab = routineLabel;
   closeModal();
-  openBookletBuilder(pid);
+  openBookletBuilder(pid, lab);
 }
 
 function generateBooklet(){
   var pid = document.getElementById('bkPatient').value;
+  var labelEl = document.getElementById('bkLabel');
+  var rotulo = labelEl ? labelEl.value : routineLabel;
   var titulo = (document.getElementById('bkTitle').value || 'Rotina de exercícios').trim();
   var subtitulo = (document.getElementById('bkSubtitle').value || '').trim();
   var pac = patients.find(function(p){ return p.id===pid; });
-  var itens = routineItemsFor(pid).map(function(r){
+  var itens = routineItemsFor(pid, rotulo).map(function(r){
     var e = exercises.find(function(x){ return x.id===r.exercicioId; });
     return e ? { nome:e.nome, tipo:e.tipo, imagem:e.imagem, obs:(r.observacao||e.observacao||''),
                  series:r.series||e.seriesPadrao||'', reps:r.reps||e.repsPadrao||'' } : null;
   }).filter(Boolean);
 
   if(itens.length === 0){
-    alert('A paciente ' + (pac?pac.nome:'') + ' ainda não tem exercícios na rotina. Monte a rotina em "Rotinas".');
+    alert('A rotina "' + rotulo + '" de ' + (pac?pac.nome:'') + ' não tem exercícios. Adicione em "Rotinas".');
     return;
   }
   closeModal();
@@ -2404,7 +2544,7 @@ async function importBackup(ev){
   for(var l=0;l<novosR.length;l++){
     var r = novosR[l];
     routines.push(r);
-    try{ await postAction({ action:'create_routine_item', id:r.id, pacienteId:r.pacienteId||'', pacienteNome:r.pacienteNome||'', exercicioId:r.exercicioId||'', ordem:r.ordem||'', series:r.series||'', reps:r.reps||'', observacao:r.observacao||'' }); }catch(err){ falhas++; }
+    try{ await postAction({ action:'create_routine_item', id:r.id, pacienteId:r.pacienteId||'', pacienteNome:r.pacienteNome||'', exercicioId:r.exercicioId||'', ordem:r.ordem||'', series:r.series||'', reps:r.reps||'', observacao:r.observacao||'', rotulo:r.rotulo||'' }); }catch(err){ falhas++; }
   }
   populatePatientFilter();
   renderList();

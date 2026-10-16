@@ -12,7 +12,7 @@ var SHEET_ROT = 'Rotinas';
 var ATEND_HEADERS = ['ID', 'Paciente', 'Data', 'Hora', 'Valor', 'Status', 'DataPagamento', 'Latitude', 'Longitude', 'CriadoEm'];
 var PAC_HEADERS = ['ID', 'Nome', 'Telefone', 'ValorPadrao', 'FormaPagamento', 'CriadoEm'];
 var EXE_HEADERS = ['ID', 'Nome', 'Tipo', 'SeriesPadrao', 'RepsPadrao', 'Observacao', 'Imagem', 'CriadoEm'];
-var ROT_HEADERS = ['ID', 'PacienteID', 'PacienteNome', 'ExercicioID', 'Ordem', 'Series', 'Reps', 'Observacao', 'CriadoEm'];
+var ROT_HEADERS = ['ID', 'PacienteID', 'PacienteNome', 'ExercicioID', 'Ordem', 'Series', 'Reps', 'Observacao', 'CriadoEm', 'Rotulo'];
 
 function ensureHeaders_(sheet, expectedHeaders) {
   var currentHeaders = sheet.getRange(1, 1, 1, expectedHeaders.length).getValues()[0];
@@ -83,6 +83,39 @@ function deleteRowsByField_(sheet, colIndex, value) {
   for (var i = data.length - 1; i >= 1; i--) {
     if (String(data[i][colIndex]) === String(value)) {
       sheet.deleteRow(i + 1);
+    }
+  }
+}
+
+/** Apaga todos os itens de rotina de um paciente num rótulo específico (vazio = "principal"). */
+function deleteRoutineByLabel_(pacienteId, rotulo) {
+  var sheet = getRotSheet_();
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var cPac = headers.indexOf('PacienteID');
+  var cRot = headers.indexOf('Rotulo');
+  var alvo = String(rotulo || '');
+  for (var i = data.length - 1; i >= 1; i--) {
+    var rot = cRot > -1 ? String(data[i][cRot] || '') : '';
+    if (String(data[i][cPac]) === String(pacienteId) && rot === alvo) {
+      sheet.deleteRow(i + 1);
+    }
+  }
+}
+
+/** Renomeia o rótulo de todos os itens de um paciente que estejam no rótulo antigo. */
+function renameRoutineLabel_(pacienteId, rotuloAntigo, rotuloNovo) {
+  var sheet = getRotSheet_();
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var cPac = headers.indexOf('PacienteID');
+  var cRot = headers.indexOf('Rotulo');
+  if (cRot === -1) return;
+  var de = String(rotuloAntigo || '');
+  for (var i = 1; i < data.length; i++) {
+    var rot = String(data[i][cRot] || '');
+    if (String(data[i][cPac]) === String(pacienteId) && rot === de) {
+      sheet.getRange(i + 1, cRot + 1).setValue(rotuloNovo || '');
     }
   }
 }
@@ -159,11 +192,12 @@ function doPost(e) {
     // remove também das rotinas que usavam este exercício
     deleteRowsByField_(getRotSheet_(), 3, body.id); // coluna ExercicioID (0-based = 3)
 
-  /* ---------- Rotinas (itens de rotina por paciente) ---------- */
+  /* ---------- Rotinas (itens de rotina por paciente, agrupados por Rotulo) ---------- */
   } else if (body.action === 'create_routine_item') {
     getRotSheet_().appendRow([
       body.id, body.pacienteId || '', body.pacienteNome || '', body.exercicioId || '',
-      body.ordem || '', body.series || '', body.reps || '', body.observacao || '', new Date().toISOString()
+      body.ordem || '', body.series || '', body.reps || '', body.observacao || '',
+      new Date().toISOString(), body.rotulo || ''
     ]);
 
   } else if (body.action === 'update_routine_item') {
@@ -176,9 +210,13 @@ function doPost(e) {
   } else if (body.action === 'delete_routine_item') {
     deleteRowById_(getRotSheet_(), body.id);
 
+  } else if (body.action === 'rename_routine') {
+    // Renomeia o rótulo de todos os itens de um paciente que estejam no rótulo antigo.
+    renameRoutineLabel_(body.pacienteId, body.rotuloAntigo, body.rotulo);
+
   } else if (body.action === 'clear_routine') {
-    // apaga todos os itens de rotina de um paciente
-    deleteRowsByField_(getRotSheet_(), 1, body.pacienteId); // coluna PacienteID (0-based = 1)
+    // apaga todos os itens de UMA rotina (paciente + rótulo) específica
+    deleteRoutineByLabel_(body.pacienteId, body.rotulo);
 
   } else if (!body.action || body.action === 'create') {
     getAtendSheet_().appendRow([

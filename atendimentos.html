@@ -2574,40 +2574,71 @@ function closeModalBg(ev){
   if(ev.target === ev.currentTarget) closeModal();
 }
 
-/* Marca d'água de outono: folhas espalhadas no fundo, com 20% de opacidade. */
+/* Marca d'água de outono: FLORES e FOLHAS espalhadas no fundo, 20% de opacidade,
+   sempre desenhadas ANTES do conteúdo (ficam atrás de textos e imagens). */
 function marcaDaguaOutono(doc, pageW, pageH){
-  // folha estilizada: duas metades (curvas de Bézier) + nervura central e pecíolo
+  function rgb(c){ doc.setFillColor(c[0], c[1], c[2]); }
+
+  // FLOR: pétalas elípticas ao redor de um miolo
+  function flor(cx, cy, size, rot, petala, miolo){
+    var n = 6, pr = size*0.52;              // raio onde ficam as pétalas
+    for(var k=0;k<n;k++){
+      var a = rot + k*(2*Math.PI/n);
+      var px = cx + Math.cos(a)*pr, py = cy + Math.sin(a)*pr;
+      rgb(petala);
+      // pétala = elipse alongada apontando para fora (aprox. por rotação do eixo via 2 elipses)
+      doc.ellipse(px, py, size*0.42, size*0.24, 'F');
+    }
+    rgb(miolo); doc.circle(cx, cy, size*0.26, 'F');   // miolo
+  }
+
+  // FOLHA: dois lóbulos elípticos espelhados + nervura central
   function folha(cx, cy, size, rot, cor){
-    var cos = Math.cos(rot), sin = Math.sin(rot);
-    function P(x, y){ return [cx + (x*cos - y*sin), cy + (x*sin + y*cos)]; }
-    var L = size, W = size*0.6;
-    // contorno da folha com 4 curvas (ponta de cima -> direita -> base -> esquerda)
-    var tip = P(0, -L), base = P(0, L*0.6);
-    var right = P(W, -L*0.1), left = P(-W, -L*0.1);
-    doc.setFillColor(cor[0], cor[1], cor[2]);
-    // aproxima a folha por um losango arredondado via triângulos (robusto em qualquer jsPDF)
-    doc.triangle(tip[0],tip[1], right[0],right[1], base[0],base[1], 'F');
-    doc.triangle(tip[0],tip[1], left[0],left[1], base[0],base[1], 'F');
-    // nervura central (linha mais escura)
-    doc.setDrawColor(cor[0]-25, cor[1]-25, cor[2]-25); doc.setLineWidth(0.4);
-    doc.line(tip[0],tip[1], base[0],base[1]);
+    var cos=Math.cos(rot), sin=Math.sin(rot);
+    function P(x,y){ return [cx + (x*cos - y*sin), cy + (x*sin + y*cos)]; }
+    rgb(cor);
+    // dois lóbulos (elipses) deslocados para os lados ao longo do eixo da folha
+    var l1=P(0,-size*0.30), l2=P(0,size*0.30);
+    doc.ellipse(l1[0], l1[1], size*0.34, size*0.6, 'F');
+    doc.ellipse(l2[0], l2[1], size*0.34, size*0.6, 'F');
+    // nervura central + pecíolo (linha mais escura)
+    doc.setDrawColor(Math.max(cor[0]-30,0), Math.max(cor[1]-30,0), Math.max(cor[2]-30,0));
+    doc.setLineWidth(0.5);
+    var tip=P(0,-size*0.95), bas=P(0,size*1.15);
+    doc.line(tip[0],tip[1], bas[0],bas[1]);
     doc.setLineWidth(0.2);
   }
-  // tons de outono (terracota, âmbar, oliva, mostarda)
-  var tons = [[196,120,70],[201,138,43],[150,125,60],[181,84,46],[163,112,52]];
-  // posições/tamanhos/rotações espalhados pela página
-  var pts = [
-    [32,55,22,0.4], [170,95,26,-0.6], [55,200,24,1.1], [150,250,20,0.2],
-    [25,135,18,-0.3], [185,175,22,0.8], [100,110,16,2.4], [120,30,15,1.7],
-    [40,270,19,-1.0], [175,245,17,0.5]
+
+  // paleta de outono
+  var terracota=[196,120,70], ambar=[201,138,43], oliva=[150,125,60],
+      vinho=[160,70,52], mostarda=[196,160,70], miolo=[150,96,40];
+
+  // posições espalhadas: [x, y, tamanho, rotação, tipo] (tipo 0=folha, 1=flor)
+  var itens = [
+    [30, 60, 12, 0.5, 0, terracota],
+    [172, 50, 11, -0.4, 1, ambar],
+    [60, 120, 10, 1.2, 1, mostarda],
+    [150, 140, 13, 0.2, 0, oliva],
+    [28, 200, 12, -0.3, 1, terracota],
+    [185, 185, 11, 0.9, 0, vinho],
+    [95, 215, 10, 2.3, 0, ambar],
+    [160, 255, 12, 0.6, 1, oliva],
+    [40, 268, 11, -1.0, 0, mostarda],
+    [110, 285, 10, 1.5, 1, vinho],
+    [120, 80, 9, 1.9, 0, ambar],
+    [78, 165, 9, 0.1, 1, terracota]
   ];
+
   var hasG = typeof doc.GState === 'function' && typeof doc.setGState === 'function';
-  // Sem suporte a transparência, não desenha nada (evita folhas sólidas por cima do conteúdo).
+  // Sem suporte a transparência, não desenha nada (evita manchas sólidas sobre o conteúdo).
   if(!hasG) return;
   doc.setGState(new doc.GState({opacity:0.2}));   // 20% de transparência
-  pts.forEach(function(p, i){ folha(p[0], p[1], p[2], p[3], tons[i % tons.length]); });
+  itens.forEach(function(it){
+    if(it[4] === 1) flor(it[0], it[1], it[2], it[3], it[5], miolo);
+    else folha(it[0], it[1], it[2], it[3], it[5]);
+  });
   doc.setGState(new doc.GState({opacity:1}));     // volta ao normal
-  doc.setDrawColor(0,0,0);
+  doc.setDrawColor(0,0,0); doc.setLineWidth(0.2);
 }
 
 function drawStamp(doc, x, y){

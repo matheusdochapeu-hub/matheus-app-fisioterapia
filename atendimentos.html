@@ -1177,16 +1177,27 @@ function generateGeneralMonthlyReceipt(){
   doc.text(monthLabelCap(currentMonth), 45, 55);
   doc.setFont('helvetica','normal');
 
+  // Colunas (x das colunas numéricas são right-aligned). Espaçadas de ~32mm
+  // entre os valores em R$ para que milhares (ex. "R$ 1.234,56") não encostem.
+  var COL = { pac:19, nameMax:66, ses:94, esp:131, rec:163, pen:195 };
+  // Corta nomes longos com reticência de verdade (antes cortava seco).
+  function cutName(n){
+    var s = String(n);
+    if(doc.getTextWidth(s) <= COL.nameMax) return s;
+    while(s.length > 1 && doc.getTextWidth(s + '…') > COL.nameMax) s = s.slice(0, -1);
+    return s + '…';
+  }
+
   // cabeçalho da tabela com faixa de fundo
   var rowY = 66, rowH = 9;
   doc.setFillColor(181,84,46);
   doc.rect(15, rowY, 180, rowH, 'F');
   doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(9);
-  doc.text('PACIENTE', 19, rowY+6);
-  doc.text('SESSÕES', 100, rowY+6, { align: 'right' });
-  doc.text('ESPERADO', 138, rowY+6, { align: 'right' });
-  doc.text('RECEBIDO', 166, rowY+6, { align: 'right' });
-  doc.text('PENDENTE', 191, rowY+6, { align: 'right' });
+  doc.text('PACIENTE', COL.pac, rowY+6);
+  doc.text('SESSÕES', COL.ses, rowY+6, { align: 'right' });
+  doc.text('ESPERADO', COL.esp, rowY+6, { align: 'right' });
+  doc.text('RECEBIDO', COL.rec, rowY+6, { align: 'right' });
+  doc.text('PENDENTE', COL.pen, rowY+6, { align: 'right' });
   doc.setFont('helvetica','normal');
   rowY += rowH;
 
@@ -1198,12 +1209,12 @@ function generateGeneralMonthlyReceipt(){
     var p = byPatient[n];
     var pendente = p.esperado - p.recebido;
     doc.setTextColor(58,42,32);
-    doc.text(doc.splitTextToSize(String(n), 76)[0], 19, rowY+6);
-    doc.text(String(p.sessoes), 100, rowY+6, { align: 'right' });
-    doc.text(formatMoney(p.esperado), 138, rowY+6, { align: 'right' });
-    doc.setTextColor(94,123,71); doc.text(formatMoney(p.recebido), 166, rowY+6, { align: 'right' });
+    doc.text(cutName(n), COL.pac, rowY+6);
+    doc.text(String(p.sessoes), COL.ses, rowY+6, { align: 'right' });
+    doc.text(formatMoney(p.esperado), COL.esp, rowY+6, { align: 'right' });
+    doc.setTextColor(94,123,71); doc.text(formatMoney(p.recebido), COL.rec, rowY+6, { align: 'right' });
     doc.setTextColor(pendente>0?138:150, pendente>0?90:135, pendente>0?20:120);
-    doc.text(formatMoney(pendente), 191, rowY+6, { align: 'right' });
+    doc.text(formatMoney(pendente), COL.pen, rowY+6, { align: 'right' });
     totalSessoes += p.sessoes;
     totalEsperado += p.esperado;
     totalRecebido += p.recebido;
@@ -1216,11 +1227,11 @@ function generateGeneralMonthlyReceipt(){
   rowY += 8;
   doc.setFontSize(11); doc.setFont('helvetica','bold');
   doc.setTextColor(181,84,46);
-  doc.text('Total', 19, rowY);
-  doc.text(String(totalSessoes), 100, rowY, { align: 'right' });
-  doc.text(formatMoney(totalEsperado), 138, rowY, { align: 'right' });
-  doc.text(formatMoney(totalRecebido), 166, rowY, { align: 'right' });
-  doc.text(formatMoney(totalEsperado - totalRecebido), 191, rowY, { align: 'right' });
+  doc.text('Total', COL.pac, rowY);
+  doc.text(String(totalSessoes), COL.ses, rowY, { align: 'right' });
+  doc.text(formatMoney(totalEsperado), COL.esp, rowY, { align: 'right' });
+  doc.text(formatMoney(totalRecebido), COL.rec, rowY, { align: 'right' });
+  doc.text(formatMoney(totalEsperado - totalRecebido), COL.pen, rowY, { align: 'right' });
   doc.setFont('helvetica','normal');
 
   drawStamp(doc, 175, rowY + 20);
@@ -1551,7 +1562,8 @@ function renderWorkCalendar(){
   });
 
   var dows = ['D','S','T','Q','Q','S','S'];
-  var html = dows.map(function(d){ return '<div class="dow">'+d+'</div>'; }).join('');
+  var dowFull = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+  var html = dows.map(function(d, i){ return '<div class="dow" title="'+dowFull[i]+'" aria-label="'+dowFull[i]+'">'+d+'</div>'; }).join('');
   var firstDow = new Date(y, m, 1).getDay();
   var daysInMonth = new Date(y, m+1, 0).getDate();
   var today = new Date();
@@ -2261,9 +2273,15 @@ function generateBooklet(){
     if(it.imagem){
       try{ doc.addImage(it.imagem, 'JPEG', bx, by, bw, bh); }catch(e){}
     }else{
+      // Placeholder quando não há foto. OBS: a fonte padrão do jsPDF (helvetica)
+      // só renderiza Latin-1 — emoji sai como caixa/vazio no PDF —, por isso o
+      // marcador é um ícone desenhado (moldura + texto simples), não um emoji.
       doc.setFillColor(246,231,218); doc.roundedRect(bx, by, bw, bh, 3, 3, 'F');
-      doc.setTextColor(181,84,46); doc.setFont('helvetica','normal'); doc.setFontSize(16);
-      doc.text('🏃', bx+bw/2, by+bh/2+2, { align:'center' });
+      doc.setDrawColor(181,84,46); doc.setLineWidth(0.4);
+      doc.circle(bx+bw/2, by+bh/2-bh*0.08, Math.min(bw,bh)*0.14, 'S');  // "sol"/figura simples
+      doc.setTextColor(181,84,46); doc.setFont('helvetica','normal'); doc.setFontSize(7);
+      doc.text('sem imagem', bx+bw/2, by+bh/2+bh*0.22, { align:'center' });
+      doc.setLineWidth(0.2);
     }
     doc.setDrawColor(181,84,46); doc.setLineWidth(0.7);
     doc.roundedRect(bx, by, bw, bh, 3, 3, 'S');
@@ -2685,7 +2703,7 @@ function generateReceipt(id){
     y += 9;
   }
   line('Paciente:', e.nome);
-  line('Data da sessão:', formatDateBR(e.data) + (e.hora ? '  as  ' + e.hora : ''));
+  line('Data da sessão:', formatDateBR(e.data) + (e.hora ? '  às  ' + e.hora : ''));
   line('Valor:', formatMoney(e.valor));
   line('Status:', e.status + (e.paymentDate ? ' em ' + formatDateBR(e.paymentDate) : ''));
 

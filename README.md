@@ -55,6 +55,11 @@ Interface **mobile-first** com paleta **terracota e cores de outono** (âmbar/mo
 
 ## Instalação
 
+> ⚠️ **Importante (Segurança da Planilha):**
+> Nunca compartilhe publicamente o link `/exec` da sua implantação do Apps Script.
+> Caso seu link tenha sido exposto, acesse o editor do Apps Script, vá em **Implantar > Gerenciar implantações**,
+> exclua a implantação antiga e crie uma nova (**Nova implantação > App da Web**).
+
 1. Crie uma planilha nova no Google Sheets.
 2. Abra **Extensões > Apps Script**, apague o código padrão e cole o conteúdo de `Code.gs`. Salve.
 3. Clique em **Implantar > Nova implantação**, tipo **App da Web**. Em "Executar como" escolha **Eu** e em "Quem pode acessar" escolha **Qualquer pessoa**. Autorize o acesso quando o Google pedir.

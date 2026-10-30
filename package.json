@@ -1,0 +1,16 @@
+{
+  "name": "matheus-app-fisioterapia",
+  "version": "1.1.0",
+  "private": true,
+  "description": "App de controle de atendimentos de fisioterapia domiciliar.",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "gerar-icones": "node scripts/gerar-icones.js",
+    "sync-github": "node scripts/sync-github.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "author": "Matheus",
+  "license": "MIT"
+}

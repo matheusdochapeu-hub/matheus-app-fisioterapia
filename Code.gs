@@ -40,15 +40,24 @@ function getPacSheet_()   { return getSheet_(SHEET_PAC, PAC_HEADERS); }
 function getExeSheet_()   { return getSheet_(SHEET_EXE, EXE_HEADERS); }
 function getRotSheet_()   { return getSheet_(SHEET_ROT, ROT_HEADERS); }
 
+function getTimeZone_() {
+  try {
+    return SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone() || 'America/Sao_Paulo';
+  } catch(e) {
+    return 'America/Sao_Paulo';
+  }
+}
+
 function formatCellValue_(header, value) {
   if (Object.prototype.toString.call(value) === '[object Date]') {
+    var tz = getTimeZone_();
     if (header === 'Data' || header === 'DataPagamento') {
-      return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+      return Utilities.formatDate(value, tz, 'yyyy-MM-dd');
     }
     if (header === 'Hora') {
-      return Utilities.formatDate(value, Session.getScriptTimeZone(), 'HH:mm');
+      return Utilities.formatDate(value, tz, 'HH:mm');
     }
-    return Utilities.formatDate(value, Session.getScriptTimeZone(), "yyyy-MM-dd'T'HH:mm:ss");
+    return Utilities.formatDate(value, tz, "yyyy-MM-dd'T'HH:mm:ss");
   }
   return value;
 }
@@ -149,95 +158,171 @@ function doGet(e) {
 }
 
 function doPost(e) {
-  var body = JSON.parse(e.postData.contents);
-  var result = { success: true, action: body.action || 'create', handled: true };
+  var lock = LockService.getScriptLock();
+  var lockAcquired = false;
+  var result = { success: true, action: 'unknown', handled: true };
 
-  if (body.action === 'delete') {
-    deleteRowById_(getAtendSheet_(), body.id);
+  try {
+    // Tenta adquirir o lock por até 30 segundos para evitar corrida entre requisições
+    lockAcquired = lock.tryLock(30000);
+    if (!lockAcquired) {
+      result.success = false;
+      result.error = 'O servidor da planilha está ocupado. Tente novamente em instantes.';
+      return ContentService.createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
 
-  } else if (body.action === 'update_status') {
-    updateAtendField_(body.id, 'Status', body.status);
-    updateAtendField_(body.id, 'DataPagamento', body.paymentDate || '');
+    var body = {};
+    try {
+      body = JSON.parse(e.postData.contents || '{}');
+    } catch (parseErr) {
+      result.success = false;
+      result.error = 'Payload JSON inválido: ' + parseErr.message;
+      return ContentService.createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
 
-  } else if (body.action === 'update') {
-    if (body.nome !== undefined) updateAtendField_(body.id, 'Paciente', body.nome);
-    if (body.data !== undefined) updateAtendField_(body.id, 'Data', body.data);
-    if (body.hora !== undefined) updateAtendField_(body.id, 'Hora', body.hora);
-    if (body.valor !== undefined) updateAtendField_(body.id, 'Valor', body.valor);
+    result.action = body.action || 'create';
 
-  } else if (body.action === 'create_patient') {
-    getPacSheet_().appendRow([body.id, body.nome, body.telefone || '', body.valorPadrao || '', body.formaPagamento || '', new Date().toISOString()]);
+    if (body.action === 'delete') {
+      deleteRowById_(getAtendSheet_(), body.id);
 
-  } else if (body.action === 'delete_patient') {
-    deleteRowById_(getPacSheet_(), body.id);
+    } else if (body.action === 'update_status') {
+      updateAtendField_(body.id, 'Status', body.status);
+      updateAtendField_(body.id, 'DataPagamento', body.paymentDate || '');
 
-  /* ---------- Exercícios ---------- */
-  } else if (body.action === 'create_exercise') {
-    getExeSheet_().appendRow([
-      body.id, body.nome, body.tipo || '', body.seriesPadrao || '', body.repsPadrao || '',
-      body.observacao || '', body.imagem || '', new Date().toISOString()
-    ]);
+    } else if (body.action === 'update') {
+      if (body.nome !== undefined) updateAtendField_(body.id, 'Paciente', body.nome);
+      if (body.data !== undefined) updateAtendField_(body.id, 'Data', body.data);
+      if (body.hora !== undefined) updateAtendField_(body.id, 'Hora', body.hora);
+      if (body.valor !== undefined) updateAtendField_(body.id, 'Valor', body.valor);
 
-  } else if (body.action === 'update_exercise') {
-    var exe = getExeSheet_();
-    if (body.nome !== undefined) updateFieldById_(exe, body.id, 'Nome', body.nome);
-    if (body.tipo !== undefined) updateFieldById_(exe, body.id, 'Tipo', body.tipo);
-    if (body.seriesPadrao !== undefined) updateFieldById_(exe, body.id, 'SeriesPadrao', body.seriesPadrao);
-    if (body.repsPadrao !== undefined) updateFieldById_(exe, body.id, 'RepsPadrao', body.repsPadrao);
-    if (body.observacao !== undefined) updateFieldById_(exe, body.id, 'Observacao', body.observacao);
-    if (body.imagem !== undefined) updateFieldById_(exe, body.id, 'Imagem', body.imagem);
+    } else if (body.action === 'create_patient') {
+      getPacSheet_().appendRow([body.id, body.nome, body.telefone || '', body.valorPadrao || '', body.formaPagamento || '', new Date().toISOString()]);
 
-  } else if (body.action === 'delete_exercise') {
-    deleteRowById_(getExeSheet_(), body.id);
-    // remove também das rotinas que usavam este exercício
-    deleteRowsByField_(getRotSheet_(), 3, body.id); // coluna ExercicioID (0-based = 3)
+    } else if (body.action === 'delete_patient') {
+      deleteRowById_(getPacSheet_(), body.id);
+      // Remove em cascata todos os itens de rotinas vinculados a esta paciente (coluna PacienteID = índice 1)
+      deleteRowsByField_(getRotSheet_(), 1, body.id);
 
-  /* ---------- Rotinas (itens de rotina por paciente, agrupados por Rotulo) ---------- */
-  } else if (body.action === 'create_routine_item') {
-    getRotSheet_().appendRow([
-      body.id, body.pacienteId || '', body.pacienteNome || '', body.exercicioId || '',
-      body.ordem || '', body.series || '', body.reps || '', body.observacao || '',
-      new Date().toISOString(), body.rotulo || ''
-    ]);
+    /* ---------- Exercícios ---------- */
+    } else if (body.action === 'create_exercise') {
+      getExeSheet_().appendRow([
+        body.id, body.nome, body.tipo || '', body.seriesPadrao || '', body.repsPadrao || '',
+        body.observacao || '', body.imagem || '', new Date().toISOString()
+      ]);
 
-  } else if (body.action === 'update_routine_item') {
-    var rot = getRotSheet_();
-    if (body.ordem !== undefined) updateFieldById_(rot, body.id, 'Ordem', body.ordem);
-    if (body.series !== undefined) updateFieldById_(rot, body.id, 'Series', body.series);
-    if (body.reps !== undefined) updateFieldById_(rot, body.id, 'Reps', body.reps);
-    if (body.observacao !== undefined) updateFieldById_(rot, body.id, 'Observacao', body.observacao);
+    } else if (body.action === 'update_exercise') {
+      var exe = getExeSheet_();
+      if (body.nome !== undefined) updateFieldById_(exe, body.id, 'Nome', body.nome);
+      if (body.tipo !== undefined) updateFieldById_(exe, body.id, 'Tipo', body.tipo);
+      if (body.seriesPadrao !== undefined) updateFieldById_(exe, body.id, 'SeriesPadrao', body.seriesPadrao);
+      if (body.repsPadrao !== undefined) updateFieldById_(exe, body.id, 'RepsPadrao', body.repsPadrao);
+      if (body.observacao !== undefined) updateFieldById_(exe, body.id, 'Observacao', body.observacao);
+      if (body.imagem !== undefined) updateFieldById_(exe, body.id, 'Imagem', body.imagem);
 
-  } else if (body.action === 'delete_routine_item') {
-    deleteRowById_(getRotSheet_(), body.id);
+    } else if (body.action === 'delete_exercise') {
+      deleteRowById_(getExeSheet_(), body.id);
+      deleteRowsByField_(getRotSheet_(), 3, body.id); // coluna ExercicioID (0-based = 3)
 
-  } else if (body.action === 'rename_routine') {
-    // Renomeia o rótulo de todos os itens de um paciente que estejam no rótulo antigo.
-    renameRoutineLabel_(body.pacienteId, body.rotuloAntigo, body.rotulo);
+    /* ---------- Rotinas ---------- */
+    } else if (body.action === 'create_routine_item') {
+      getRotSheet_().appendRow([
+        body.id, body.pacienteId || '', body.pacienteNome || '', body.exercicioId || '',
+        body.ordem || '', body.series || '', body.reps || '', body.observacao || '',
+        new Date().toISOString(), body.rotulo || ''
+      ]);
 
-  } else if (body.action === 'clear_routine') {
-    // apaga todos os itens de UMA rotina (paciente + rótulo) específica
-    deleteRoutineByLabel_(body.pacienteId, body.rotulo);
+    } else if (body.action === 'update_routine_item') {
+      var rot = getRotSheet_();
+      if (body.ordem !== undefined) updateFieldById_(rot, body.id, 'Ordem', body.ordem);
+      if (body.series !== undefined) updateFieldById_(rot, body.id, 'Series', body.series);
+      if (body.reps !== undefined) updateFieldById_(rot, body.id, 'Reps', body.reps);
+      if (body.observacao !== undefined) updateFieldById_(rot, body.id, 'Observacao', body.observacao);
 
-  } else if (!body.action || body.action === 'create') {
-    getAtendSheet_().appendRow([
-      body.id,
-      body.nome,
-      body.data,
-      body.hora || '',
-      body.valor,
-      body.status || 'Pendente',
-      body.paymentDate || '',
-      body.lat || '',
-      body.lng || '',
-      new Date().toISOString()
-    ]);
+    } else if (body.action === 'delete_routine_item') {
+      deleteRowById_(getRotSheet_(), body.id);
 
-  } else {
-    // Ação desconhecida: NÃO grava nada (evita criar lixo). Sinaliza ao app.
+    } else if (body.action === 'rename_routine') {
+      renameRoutineLabel_(body.pacienteId, body.rotuloAntigo, body.rotulo);
+
+    } else if (body.action === 'clear_routine') {
+      deleteRoutineByLabel_(body.pacienteId, body.rotulo);
+
+    } else if (!body.action || body.action === 'create') {
+      getAtendSheet_().appendRow([
+        body.id,
+        body.nome,
+        body.data,
+        body.hora || '',
+        body.valor,
+        body.status || 'Pendente',
+        body.paymentDate || '',
+        body.lat || '',
+        body.lng || '',
+        new Date().toISOString()
+      ]);
+
+    } else if (body.action === 'bulk_import') {
+      var nowIso = new Date().toISOString();
+
+      // 1. Pacientes
+      if (Array.isArray(body.pacientes) && body.pacientes.length > 0) {
+        var pRows = body.pacientes.map(function(p) {
+          return [p.id, p.nome, p.telefone || '', p.valorPadrao || '', p.formaPagamento || '', p.criadoEm || nowIso];
+        });
+        var sP = getPacSheet_();
+        sP.getRange(sP.getLastRow() + 1, 1, pRows.length, PAC_HEADERS.length).setValues(pRows);
+      }
+
+      // 2. Atendimentos
+      if (Array.isArray(body.atendimentos) && body.atendimentos.length > 0) {
+        var aRows = body.atendimentos.map(function(a) {
+          return [a.id, a.nome, a.data, a.hora || '', a.valor, a.status || 'Pendente', a.paymentDate || '', a.lat || '', a.lng || '', a.criadoEm || nowIso];
+        });
+        var sA = getAtendSheet_();
+        sA.getRange(sA.getLastRow() + 1, 1, aRows.length, ATEND_HEADERS.length).setValues(aRows);
+      }
+
+      // 3. Exercícios
+      if (Array.isArray(body.exercicios) && body.exercicios.length > 0) {
+        var eRows = body.exercicios.map(function(x) {
+          return [x.id, x.nome, x.tipo || '', x.seriesPadrao || '', x.repsPadrao || '', x.observacao || '', x.imagem || '', x.criadoEm || nowIso];
+        });
+        var sE = getExeSheet_();
+        sE.getRange(sE.getLastRow() + 1, 1, eRows.length, EXE_HEADERS.length).setValues(eRows);
+      }
+
+      // 4. Rotinas
+      if (Array.isArray(body.rotinas) && body.rotinas.length > 0) {
+        var rRows = body.rotinas.map(function(r) {
+          return [r.id, r.pacienteId || '', r.pacienteNome || '', r.exercicioId || '', r.ordem || '', r.series || '', r.reps || '', r.observacao || '', r.criadoEm || nowIso, r.rotulo || ''];
+        });
+        var sR = getRotSheet_();
+        sR.getRange(sR.getLastRow() + 1, 1, rRows.length, ROT_HEADERS.length).setValues(rRows);
+      }
+
+      result.importedCounts = {
+        pacientes: (body.pacientes || []).length,
+        atendimentos: (body.atendimentos || []).length,
+        exercicios: (body.exercicios || []).length,
+        rotinas: (body.rotinas || []).length
+      };
+
+    } else {
+      result.success = false;
+      result.handled = false;
+      result.error = 'Ação não reconhecida pelo script: ' + body.action +
+        '. Publique a versão mais recente do Code.gs (Nova versão) no Apps Script.';
+    }
+
+  } catch (err) {
     result.success = false;
-    result.handled = false;
-    result.error = 'Ação não reconhecida pelo script: ' + body.action +
-      '. Publique a versão mais recente do Code.gs (Nova versão) no Apps Script.';
+    result.error = 'Exceção interna no script: ' + (err.message || String(err));
+  } finally {
+    if (lockAcquired) {
+      lock.releaseLock();
+    }
   }
 
   return ContentService.createTextOutput(JSON.stringify(result))

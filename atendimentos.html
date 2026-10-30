@@ -514,6 +514,8 @@
       <input id="providerDocInput" placeholder="Número de registro ou CPF">
       <label>Telefone ou PIX para contato (opcional)</label>
       <input id="providerContactInput" placeholder="Ex: (11) 99999-9999">
+      <label>Link da planilha (Apps Script /exec)</label>
+      <input id="scriptUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
     </div>
 
     <div id="setupError" class="error-banner hidden"></div>
@@ -612,11 +614,11 @@
 
 <script>
 /* ============================================================
-   LINK DA PLANILHA (Google Apps Script) — já embutido no app.
-   Para trocar de planilha, basta substituir a URL abaixo pela
-   nova implantação que termina em /exec.
+   LINK DA PLANILHA (Google Apps Script)
+   Insira o link gerado em "Implantar > App da Web" (/exec).
+   Se vazio, o app solicitará o link na primeira inicialização.
    ============================================================ */
-var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbykxU4Vmk-UfaWW8lAz9PHTY3Fh4ukcgOyWy_d2X2DlQR9occh7bK5Y8UTFcBdArhCC/exec';
+var SCRIPT_URL = '';
 
 var CONFIG_KEY = 'config';
 var config = null;
@@ -693,22 +695,36 @@ function scriptUrl(){
 }
 
 /* Envia uma ação ao Apps Script. Rejeita a Promise em erro de rede
-   (status/resposta não-OK) para permitir rollback no chamador. */
+   ou quando a resposta não é um JSON válido com success !== false. */
 async function postAction(payload){
   var res = await fetch(scriptUrl(), {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(payload)
   });
-  if(!res.ok) throw new Error('HTTP '+res.status);
-  // Confirma que o script reconheceu a ação (evita "salvou" fantasma quando o
-  // Apps Script publicado é antigo e não conhece create_exercise etc.).
-  // Parse tolerante: scripts antigos podem responder texto puro (data fica null).
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+
+  var text = await res.text();
   var data = null;
-  try{ data = await res.clone().json(); }catch(e){ data = null; }
-  if(data && data.handled === false){
+  try {
+    data = JSON.parse(text);
+  } catch(e) {
+    // Apps Script retornou página HTML de erro (crash do script/quota)
+    throw new Error('Resposta inválida do servidor. Verifique a planilha ou a conexão.');
+  }
+
+  if(!data || typeof data !== 'object'){
+    throw new Error('Formato de resposta inesperado do script.');
+  }
+
+  if(data.handled === false){
     throw new Error(data.error || 'Ação não reconhecida pelo script. Publique a versão nova do Code.gs no Apps Script.');
   }
+
+  if(data.success === false){
+    throw new Error(data.error || 'Erro ao processar a solicitação na planilha.');
+  }
+
   return res;
 }
 
@@ -719,10 +735,14 @@ async function init(){
   }catch(e){
     config = null;
   }
-  // Precisa configurar na primeira vez só se ainda não há nome salvo.
-  if(!config || !config.providerName){
+  // Exige configuração inicial se não houver profissional salva ou se não houver URL configurada
+  var hasUrl = (config && config.scriptUrl && config.scriptUrl.indexOf('/exec') > -1) || (SCRIPT_URL && SCRIPT_URL.indexOf('/exec') > -1);
+  if(!config || !config.providerName || !hasUrl){
+    if(document.getElementById('scriptUrlInput')){
+      document.getElementById('scriptUrlInput').value = (config && config.scriptUrl) || SCRIPT_URL || '';
+    }
     document.getElementById('setupScreen').classList.remove('hidden');
-  }else{
+  } else {
     document.getElementById('mainScreen').classList.remove('hidden');
     document.getElementById('fab').classList.remove('hidden');
     document.getElementById('providerNameDisplay').textContent = config.providerName || 'Atendimentos';
@@ -744,9 +764,19 @@ async function saveSetup(){
     return;
   }
 
-  // Preserva um scriptUrl salvo de instalação antiga; caso contrário usa o embutido.
+  var urlInput = document.getElementById('scriptUrlInput');
+  var scriptUrlVal = urlInput ? urlInput.value.trim() : '';
+  if(!scriptUrlVal && config && config.scriptUrl) scriptUrlVal = config.scriptUrl;
+  if(!scriptUrlVal && SCRIPT_URL) scriptUrlVal = SCRIPT_URL;
+
+  if(!scriptUrlVal || scriptUrlVal.indexOf('/exec') === -1){
+    errEl.textContent = 'Informe o link do Apps Script (terminado em /exec).';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
   var newConfig = {
-    scriptUrl: (config && config.scriptUrl) ? config.scriptUrl : '',
+    scriptUrl: scriptUrlVal,
     providerName: name, providerDoc: doc, providerContact: contact
   };
   try{
@@ -775,9 +805,12 @@ function openSettings(){
   document.getElementById('setupCancelBtn').classList.remove('hidden');
   document.getElementById('backupBox').classList.remove('hidden');
   document.getElementById('diagBox').classList.remove('hidden');
-  document.getElementById('providerNameInput').value = config.providerName || '';
-  document.getElementById('providerDocInput').value = config.providerDoc || '';
-  document.getElementById('providerContactInput').value = config.providerContact || '';
+  document.getElementById('providerNameInput').value = (config && config.providerName) || '';
+  document.getElementById('providerDocInput').value = (config && config.providerDoc) || '';
+  document.getElementById('providerContactInput').value = (config && config.providerContact) || '';
+  if(document.getElementById('scriptUrlInput')){
+    document.getElementById('scriptUrlInput').value = (config && config.scriptUrl) || SCRIPT_URL || '';
+  }
   window.scrollTo(0, 0);
 }
 
@@ -2575,33 +2608,61 @@ async function importBackup(ev){
   }
   if(!confirm('Restaurar ' + novosP.length + ' paciente(s), ' + novosE.length + ' atendimento(s), ' + novosX.length + ' exercício(s) e ' + novosR.length + ' item(ns) de rotina? Os dados atuais são mantidos.')) return;
 
+  showToast('Restaurando backup...', 'ok');
+  var useBatch = true;
+  try {
+    await postAction({
+      action: 'bulk_import',
+      pacientes: novosP,
+      atendimentos: novosE,
+      exercicios: novosX,
+      rotinas: novosR
+    });
+  } catch(err) {
+    if(err.message && err.message.indexOf('Ação não reconhecida') > -1) {
+      // Script antigo: fallback para laço sequencial com aviso
+      useBatch = false;
+    } else {
+      showError('Falha ao restaurar backup na planilha: ' + err.message);
+      return;
+    }
+  }
+
+  if(useBatch) {
+    novosP.forEach(function(p){ patients.push(p); });
+    novosE.forEach(function(e){ entries.push(e); });
+    novosX.forEach(function(x){ exercises.push(x); });
+    novosR.forEach(function(r){ routines.push(r); });
+    populatePatientFilter();
+    renderList();
+    showToast('Backup restaurado com sucesso.', 'ok');
+    return;
+  }
+
+  // Fallback para versões legadas do Apps Script
   var falhas = 0;
-  for(var i=0;i<novosP.length;i++){
+  for(var i=0; i<novosP.length; i++){
     var p = novosP[i];
-    patients.push(p);
-    try{ await postAction({ action:'create_patient', id:p.id, nome:p.nome, telefone:p.telefone||'', valorPadrao:p.valorPadrao||'', formaPagamento:p.formaPagamento||'' }); }catch(e){ falhas++; }
+    try{ await postAction({ action:'create_patient', id:p.id, nome:p.nome, telefone:p.telefone||'', valorPadrao:p.valorPadrao||'', formaPagamento:p.formaPagamento||'' }); patients.push(p); }catch(e){ falhas++; }
   }
-  for(var j=0;j<novosE.length;j++){
+  for(var j=0; j<novosE.length; j++){
     var e = novosE[j];
-    entries.push(e);
-    try{ await postAction({ action:'create', id:e.id, nome:e.nome, data:e.data, hora:e.hora||'', valor:e.valor, status:e.status||'Pendente', paymentDate:e.paymentDate||'', lat:e.lat||'', lng:e.lng||'' }); }catch(err){ falhas++; }
+    try{ await postAction({ action:'create', id:e.id, nome:e.nome, data:e.data, hora:e.hora||'', valor:e.valor, status:e.status||'Pendente', paymentDate:e.paymentDate||'', lat:e.lat||'', lng:e.lng||'' }); entries.push(e); }catch(err){ falhas++; }
   }
-  for(var k=0;k<novosX.length;k++){
+  for(var k=0; k<novosX.length; k++){
     var x = novosX[k];
-    exercises.push(x);
-    try{ await postAction({ action:'create_exercise', id:x.id, nome:x.nome, tipo:x.tipo||'', seriesPadrao:x.seriesPadrao||'', repsPadrao:x.repsPadrao||'', observacao:x.observacao||'', imagem:x.imagem||'' }); }catch(err){ falhas++; }
+    try{ await postAction({ action:'create_exercise', id:x.id, nome:x.nome, tipo:x.tipo||'', seriesPadrao:x.seriesPadrao||'', repsPadrao:x.repsPadrao||'', observacao:x.observacao||'', imagem:x.imagem||'' }); exercises.push(x); }catch(err){ falhas++; }
   }
-  for(var l=0;l<novosR.length;l++){
+  for(var l=0; l<novosR.length; l++){
     var r = novosR[l];
-    routines.push(r);
-    try{ await postAction({ action:'create_routine_item', id:r.id, pacienteId:r.pacienteId||'', pacienteNome:r.pacienteNome||'', exercicioId:r.exercicioId||'', ordem:r.ordem||'', series:r.series||'', reps:r.reps||'', observacao:r.observacao||'', rotulo:r.rotulo||'' }); }catch(err){ falhas++; }
+    try{ await postAction({ action:'create_routine_item', id:r.id, pacienteId:r.pacienteId||'', pacienteNome:r.pacienteNome||'', exercicioId:r.exercicioId||'', ordem:r.ordem||'', series:r.series||'', reps:r.reps||'', observacao:r.observacao||'', rotulo:r.rotulo||'' }); routines.push(r); }catch(err){ falhas++; }
   }
   populatePatientFilter();
   renderList();
   if(falhas > 0){
-    showError('Restauração concluída, mas ' + falhas + ' item(ns) não foram para a planilha. Confira a conexão e exporte de novo se precisar.');
-  }else{
-    showToast('Backup restaurado com sucesso.', 'ok');
+    showError('Restauração concluída com ' + falhas + ' falha(s). Atualize o Code.gs para suporte a importação rápida.');
+  } else {
+    showToast('Backup restaurado.', 'ok');
   }
 }
 

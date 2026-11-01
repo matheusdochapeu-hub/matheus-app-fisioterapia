@@ -1,22 +1,24 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `01/11/2026`  
-Versão do Service Worker: `atend-v21` (`sw.js`)
+Versão do Service Worker: `atend-v24` (`sw.js`)
 
 ---
 
-## 1. Estabilidade, Concorrência e Segurança (`Plans 001–005`)
+## 1. Estabilidade, Concorrência, Sincronização e Link da Planilha (`Plans 001–005` + `v21–v24`)
 - **Validação estrita em `postAction` (`atendimentos.html`):** Detecta erros HTTP, páginas HTML de erro do Google Apps Script e respostas `handled: false` ou `success: false`.
 - **Bloqueio de concorrência em `Code.gs`:** Uso de `LockService.getScriptLock()` (timeout de 30s) com `try/catch/finally` e formatação de datas respeitando o fuso horário da planilha (`getTimeZone_()`).
 - **Migração automática de colunas (`ensureColumns_` em `Code.gs`):** Adiciona automaticamente novas colunas (`NomeFantasia`, `OldNome`, `Arquivado`, `Foto`, dados clínicos CREFITO-3) e lê/atualiza células pelo nome do cabeçalho (`readSheet_`, `updateFieldById_`).
 - **Importação em lote (`bulk_import` em `Code.gs`):** Restauração rápida de backups em uma única chamada em lote.
-- **Persistência local resiliente (`saveLocalPatientMeta` / `getLocalPatientMeta` em `atendimentos.html`):** Mantém metadados cadastrais, fotos, nome fantasia e status de arquivamento sincronizados no `localStorage` (`ft_pmeta_<id>`, `ft_archived_<id>`, `ft_avatar_<id>`, `ft_nome_fantasia_<id>`), evitando perda de estado mesmo se a implantação do Apps Script na planilha ainda estiver em versão anterior.
+- **Persistência local resiliente (`saveLocalPatientMeta` / `getLocalPatientMeta` / `saveLocalEvolutions` / `getLocalEvolutions` em `atendimentos.html`):** Mantém metadados cadastrais, fotos, nome fantasia, status de arquivamento e evoluções clínicas sincronizados também no `localStorage` (`ft_pmeta_<id>`, `ft_archived_<id>`, `ft_avatar_<id>`, `ft_nome_fantasia_<id>`, `ft_local_evolutions`), evitando perda de dados ou reversão de estado.
+- **Atualização automática do Link da Planilha (`SCRIPT_URL` e `init()` em `atendimentos.html`):** Configurado o novo link da implantação do Apps Script (`/exec`) com migração automática do `config.scriptUrl` salvo no navegador ao abrir o app.
 
 ---
 
-## 2. Correções Gerais de Usabilidade e Navegação Mobile
+## 2. Correções Gerais de Usabilidade, Layout e Navegação Mobile
 - **Remoção de botões não utilizados:** Removidos os botões *"Rotinas"*, *"Exercícios"* e *"Cartilha"*.
 - **Correção do autopreenchimento `"2026"` em Novo Atendimento:** Endurecida a função `parseValor()` e `loadData()` para ignorar strings de data/timestamp (`^\d{4}-\d{2}-\d{2}`) vindas da coluna `ValorPadrao`.
+- **Correção da sobreposição do prefixo `R$` no campo Valor da Sessão (`v22`):** Ajustada a especificidade CSS em `.modal .money-field input` (`padding-left: 38px !important` no desktop e `34px !important` no celular) para que o `R$` nunca sobreponha o número digitado.
 - **Botão "Voltar" do celular nos Modais e Configurações:**
   - Abrir qualquer modal empilha `{ modalOpen: true }` no `history`; clicar em "Voltar" no aparelho fecha apenas o modal aberto sem sair do aplicativo.
   - Abrir as Configurações (`openSettings`) empilha `{ screen: 'settings' }`; clicar em "Voltar" descarta edições não salvas, mantém as últimas configurações válidas e retorna para a tela inicial (`cancelSetup`).
@@ -44,7 +46,7 @@ Versão do Service Worker: `atend-v21` (`sw.js`)
 
 ### Aba 2 — Evoluções Clínicas (`📋 Evoluções`)
 - **Layout Limpo e Ordenação:** Apenas um botão grande **"+ Nova Evolução"** abaixo do filtro; painel de filtros recolhido por padrão com botão **"▼ Expandir filtros"** e dois botões de ordenação (**"▼ Do mais novo pro mais antigo"** e **"▲ Do mais antigo para o mais novo"**).
-- **Registro Estruturado:** Campos alinhados para Data, Horário, `PA`, `FC`, `Estado Clínico Geral` e `Condutas Fisioterapêuticas`.
+- **Registro Estruturado:** Campos alinhados para Data, Horário, `PA`, `FC`, `Estado Clínico Geral` e `Condutas Fisioterapêuticas`, com gravação na planilha (`Evolucoes`) e persistência local (`ft_local_evolutions`).
 - **Histórico de Evoluções do Paciente (`openPatientEvolutions`):** Sem botão redundante de nova evolução; possui caixas de seleção (**"Selecionar todas"** ou seleção manual uma a uma) para exportar múltiplas evoluções concatenadas em um PDF único (`exportSelectedPatientEvolutionsPDF`).
 
 ### Aba 3 — Financeiro (`💰 Financeiro`)

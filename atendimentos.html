@@ -609,11 +609,23 @@
   .bar-lbl{font-size:10px;color:var(--ink-soft);margin-top:4px;font-weight:600;}
   .top-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);}
   .top-row:last-child{border-bottom:none;}
+  .top-row.clickable{cursor:pointer;padding:10px 8px;margin:0 -8px;border-radius:var(--radius-xs);transition:background .15s ease;}
+  .top-row.clickable:hover{background:var(--bg-tint);}
+  .top-row.clickable.expanded{background:var(--bg-tint);border-bottom-color:transparent;}
   .top-row .rank{width:22px;height:22px;border-radius:50%;background:var(--primary-soft);color:var(--primary-deep);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .top-row .nm{flex:1;min-width:0;font-size:var(--fs-sm);font-weight:600;}
   .top-row .vl{font-family:'IBM Plex Mono',monospace;font-size:var(--fs-sm);font-weight:600;}
   .rep-progress-wrap{background:var(--line);border-radius:999px;height:6px;overflow:hidden;margin-top:4px;}
   .rep-progress-bar{background:linear-gradient(to right,var(--primary),var(--accent));height:100%;border-radius:999px;}
+  .rep-patient-drawer{background:var(--bg);border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;margin:4px 0 10px;animation:fade .15s ease;}
+  .rep-patient-drawer-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding-bottom:8px;margin-bottom:6px;border-bottom:1px dashed var(--line);font-size:11.5px;color:var(--ink-soft);}
+  .rep-entry-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);font-size:12.5px;}
+  .rep-entry-item:last-child{border-bottom:none;padding-bottom:2px;}
+  .rep-entry-actions{display:inline-flex;align-items:center;gap:4px;flex-shrink:0;}
+  .rep-entry-btn{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font-size:11px;font-weight:600;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:3px;}
+  .rep-entry-btn:hover{border-color:var(--primary);color:var(--primary-deep);}
+  .rep-entry-btn.del{color:var(--danger);}
+  .rep-entry-btn.del:hover{border-color:var(--danger);background:var(--danger-soft);}
 
   .toast{
     position:fixed;left:50%;bottom:calc(100px + var(--safe-bottom));transform:translateX(-50%);
@@ -884,6 +896,7 @@ var currentTab = 'pacientes';
 var _modalStatePushed = false;
 var reportYear = currentMonth.getFullYear();
 var repMonthFilter = 'all'; // 'all' ou '0'..'11'
+var repExpandedPatient = null;
 var calMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
 var evoFilterExpanded = false;
 var evoSortOrder = 'desc'; // 'desc' (mais novos) ou 'asc' (mais antigos)
@@ -2410,10 +2423,14 @@ function renderPatientFinancialDetails(patientId){
     var pago = e.status === 'Pago';
     return '<div class="top-row">' +
       '<div class="nm">' +
-        '<div>'+formatDateBR(e.data)+(e.hora ? ' · '+e.hora : '')+'</div>' +
-        '<span class="badge '+(pago?'pago':'pendente')+'" onclick="badgeClick(\''+e.id+'\', \''+patientId+'\');">'+e.status+'</span>' +
+        '<div>'+formatDateBR(e.data)+(e.hora ? ' · '+escapeHtml(e.hora) : '')+'</div>' +
+        '<span class="badge '+(pago?'pago':'pendente')+'" onclick="badgeClick(\''+e.id+'\', \''+patientId+'\');">'+escapeHtml(e.status)+'</span>' +
       '</div>' +
-      '<div class="vl">'+(hidden ? 'R$ •••' : formatMoney(e.valor))+'</div>' +
+      '<div class="vl" style="margin-right:6px;">'+(hidden ? 'R$ •••' : formatMoney(e.valor))+'</div>' +
+      '<div class="rep-entry-actions">' +
+        '<button class="rep-entry-btn" onclick="openEditEntry(\''+e.id+'\', \''+patientId+'\')" title="Editar lançamento">&#9998; Editar</button>' +
+        '<button class="rep-entry-btn del" onclick="deleteEntry(\''+e.id+'\', \''+patientId+'\')" title="Excluir lançamento">&#10005;</button>' +
+      '</div>' +
     '</div>';
   }).join('');
 }
@@ -3142,8 +3159,18 @@ function renderList(){
   }).join('');
 }
 
+function returnFromEntryModal(returnContext){
+  if(returnContext === 'reports'){
+    openReports(true);
+  } else if(returnContext){
+    openPatientFinancial(returnContext, true);
+  } else {
+    closeModal();
+  }
+}
+
 /* Novo atendimento / Check-in */
-function openNewEntry(patientId){
+function openNewEntry(patientId, returnContext){
   if(patients.length === 0){
     alert('Cadastre um paciente antes de lançar atendimentos.');
     openPatientForm();
@@ -3154,6 +3181,9 @@ function openNewEntry(patientId){
     var sel = (patientId && p.id === patientId) ? 'selected' : '';
     return '<option value="'+escapeHtml(p.nome)+'" data-valor="'+escapeHtml(p.valorPadrao||'')+'" '+sel+'>'+escapeHtml(getPatientDisplayName(p))+'</option>';
   }).join('');
+
+  var cancelClick = returnContext ? 'returnFromEntryModal(\''+escapeHtml(returnContext)+'\')' : 'closeModal()';
+  var saveClick = returnContext ? 'submitNewEntry(\''+escapeHtml(returnContext)+'\')' : 'submitNewEntry()';
 
   var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
     '<div class="modal">' +
@@ -3169,8 +3199,8 @@ function openNewEntry(patientId){
       '<div class="money-field"><span class="prefix">R$</span><input id="newValor" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0,00"></div>' +
       '<div id="locHint" class="hint-banner" style="margin-top:14px;">&#128205; A localização será registrada ao salvar, se permitida (link no recibo).</div>' +
       '<div class="btn-row">' +
-        '<button class="btn ghost" onclick="closeModal()">Cancelar</button>' +
-        '<button class="btn primary" id="saveEntryBtn" style="flex:1;" onclick="submitNewEntry()">Salvar Atendimento</button>' +
+        '<button class="btn ghost" onclick="'+cancelClick+'">Cancelar</button>' +
+        '<button class="btn primary" id="saveEntryBtn" style="flex:1;" onclick="'+saveClick+'">Salvar Atendimento</button>' +
       '</div>' +
     '</div>' +
   '</div>';
@@ -3199,7 +3229,7 @@ function getLocation(){
   });
 }
 
-async function submitNewEntry(){
+async function submitNewEntry(returnContext){
   var nome = document.getElementById('newNome').value;
   var data = document.getElementById('newData').value;
   var hora = document.getElementById('newHora').value;
@@ -3227,7 +3257,10 @@ async function submitNewEntry(){
   };
 
   entries.unshift(newEntry);
-  closeModal();
+  if(returnContext === 'reports'){
+    repExpandedPatient = getEntryDisplayName(newEntry);
+  }
+  returnFromEntryModal(returnContext);
   renderList();
   showToast('Atendimento salvo!', 'ok');
 
@@ -3246,11 +3279,12 @@ async function submitNewEntry(){
   }catch(err){
     entries = entries.filter(function(x){ return x.id !== id; });
     renderList();
+    if(document.getElementById('repBody')) renderReportBody();
     showError('Falha ao salvar atendimento na planilha: ' + err.message);
   }
 }
 
-function openEditEntry(id){
+function openEditEntry(id, returnContext){
   var e = entries.find(function(x){ return x.id === id; });
   if(!e) return;
 
@@ -3259,61 +3293,109 @@ function openEditEntry(id){
     return '<option value="'+escapeHtml(p.nome)+'" '+sel+'>'+escapeHtml(getPatientDisplayName(p))+'</option>';
   }).join('');
 
+  var isPago = e.status === 'Pago';
+  var cancelClick = returnContext ? 'returnFromEntryModal(\''+escapeHtml(returnContext)+'\')' : 'closeModal()';
+  var saveClick = returnContext ? 'submitEditEntry(\''+e.id+'\', \''+escapeHtml(returnContext)+'\')' : 'submitEditEntry(\''+e.id+'\')';
+
   var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
     '<div class="modal">' +
       '<div class="grabber"></div>' +
       '<h2>Editar atendimento</h2>' +
       '<label>Paciente</label>' +
       '<select id="editNome">'+options+'</select>' +
-      '<label style="margin-top:8px;display:block;">Data da sessão</label>' +
-      '<input id="editData" type="date" value="'+escapeHtml(e.data)+'">' +
-      '<label style="margin-top:8px;display:block;">Horário</label>' +
-      '<input id="editHora" type="time" value="'+escapeHtml(e.hora)+'">' +
-      '<label style="margin-top:8px;display:block;">Valor da sessão</label>' +
-      '<div class="money-field"><span class="prefix">R$</span><input id="editValor" type="number" inputmode="decimal" step="0.01" min="0" value="'+e.valor+'"></div>' +
+      '<div class="form-grid-2" style="margin-top:8px;">' +
+        '<div>' +
+          '<label>Data da sessão</label>' +
+          '<input id="editData" type="date" value="'+escapeHtml(e.data)+'">' +
+        '</div>' +
+        '<div>' +
+          '<label>Horário</label>' +
+          '<input id="editHora" type="time" value="'+escapeHtml(e.hora)+'">' +
+        '</div>' +
+      '</div>' +
+      '<div class="form-grid-2" style="margin-top:8px;">' +
+        '<div>' +
+          '<label>Valor da sessão</label>' +
+          '<div class="money-field"><span class="prefix">R$</span><input id="editValor" type="number" inputmode="decimal" step="0.01" min="0" value="'+e.valor+'"></div>' +
+        '</div>' +
+        '<div>' +
+          '<label>Status</label>' +
+          '<select id="editStatus" onchange="document.getElementById(\'editPayDateWrap\').style.display=(this.value===\'Pago\'?\'block\':\'none\')">' +
+            '<option value="Pendente" '+(!isPago?'selected':'')+'>Pendente</option>' +
+            '<option value="Pago" '+(isPago?'selected':'')+'>Pago</option>' +
+          '</select>' +
+        '</div>' +
+      '</div>' +
+      '<div id="editPayDateWrap" style="margin-top:8px;display:'+(isPago?'block':'none')+';">' +
+        '<label>Data do pagamento</label>' +
+        '<input id="editPayDate" type="date" value="'+escapeHtml(e.paymentDate || isoDate(new Date()))+'">' +
+      '</div>' +
       '<div class="btn-row">' +
-        '<button class="btn ghost" onclick="closeModal()">Cancelar</button>' +
-        '<button class="btn primary" id="saveEditBtn" style="flex:1;" onclick="submitEditEntry(\''+e.id+'\')">Salvar</button>' +
+        '<button class="btn ghost" onclick="'+cancelClick+'">Cancelar</button>' +
+        '<button class="btn primary" id="saveEditBtn" style="flex:1;" onclick="'+saveClick+'">Salvar</button>' +
       '</div>' +
     '</div>' +
   '</div>';
   openModal(html);
 }
 
-async function submitEditEntry(id){
+async function submitEditEntry(id, returnContext){
   var e = entries.find(function(x){ return x.id === id; });
   if(!e) return;
   var nome = document.getElementById('editNome').value;
   var data = document.getElementById('editData').value;
   var hora = document.getElementById('editHora').value;
   var valor = parseFloat(document.getElementById('editValor').value);
+  var statusEl = document.getElementById('editStatus');
+  var payDateEl = document.getElementById('editPayDate');
+  var status = statusEl ? statusEl.value : e.status;
+  var paymentDate = status === 'Pago' ? ((payDateEl && payDateEl.value) ? payDateEl.value : (e.paymentDate || isoDate(new Date()))) : '';
+
   if(!nome || !data || isNaN(valor)){
     alert('Preencha paciente, data e valor válido.');
     return;
   }
 
   var old = Object.assign({}, e);
+  var statusChanged = (e.status !== status) || ((e.paymentDate || '') !== paymentDate);
   e.nome = nome; e.data = data; e.hora = hora; e.valor = valor;
-  closeModal();
+  e.status = status; e.paymentDate = paymentDate;
+
+  if(returnContext === 'reports'){
+    repExpandedPatient = getEntryDisplayName(e);
+  }
+  returnFromEntryModal(returnContext);
   renderList();
   showToast('Atendimento atualizado.', 'ok');
 
   try{
-    await postAction({ action: 'update', id: id, nome: nome, data: data, hora: hora, valor: valor });
+    await postAction({ action: 'update', id: id, nome: nome, data: data, hora: hora, valor: valor, status: status, paymentDate: paymentDate });
+    if(statusChanged){
+      await postAction({ action: 'update_status', id: id, status: status, paymentDate: paymentDate });
+    }
   }catch(err){
     Object.assign(e, old);
     renderList();
+    if(document.getElementById('repBody')) renderReportBody();
+    if(returnContext && returnContext !== 'reports' && document.getElementById('pFinSessionsList')){
+      renderPatientFinancialDetails(returnContext);
+    }
     showError('Falha ao atualizar atendimento na planilha.');
   }
 }
 
-async function deleteEntry(id){
+async function deleteEntry(id, returnContext){
   if(!confirm('Excluir este atendimento?')) return;
   var idx = entries.findIndex(function(x){ return x.id === id; });
   if(idx === -1) return;
   var removed = entries[idx];
   entries.splice(idx, 1);
   renderList();
+  if(returnContext === 'reports' && document.getElementById('repBody')){
+    renderReportBody();
+  } else if(returnContext && document.getElementById('pFinSessionsList')){
+    renderPatientFinancialDetails(returnContext);
+  }
   showToast('Atendimento excluído.', 'ok');
 
   try{
@@ -3321,15 +3403,20 @@ async function deleteEntry(id){
   }catch(err){
     entries.splice(idx, 0, removed);
     renderList();
+    if(returnContext === 'reports' && document.getElementById('repBody')){
+      renderReportBody();
+    } else if(returnContext && document.getElementById('pFinSessionsList')){
+      renderPatientFinancialDetails(returnContext);
+    }
     showError('Não foi possível excluir da planilha.');
   }
 }
 
-function openPaymentModal(id, returnToPatientId){
+function openPaymentModal(id, returnToContext){
   var e = entries.find(function(x){ return x.id === id; });
   if(!e) return;
-  var cancelAction = returnToPatientId ? 'openPatientFinancial(\''+returnToPatientId+'\', true)' : 'closeModal()';
-  var confirmAction = returnToPatientId ? 'submitPayment(\''+e.id+'\', \''+returnToPatientId+'\')' : 'submitPayment(\''+e.id+'\')';
+  var cancelAction = returnToContext ? 'returnFromEntryModal(\''+escapeHtml(returnToContext)+'\')' : 'closeModal()';
+  var confirmAction = returnToContext ? 'submitPayment(\''+e.id+'\', \''+escapeHtml(returnToContext)+'\')' : 'submitPayment(\''+e.id+'\')';
   var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
     '<div class="modal">' +
       '<div class="grabber"></div>' +
@@ -3346,7 +3433,7 @@ function openPaymentModal(id, returnToPatientId){
   openModal(html);
 }
 
-async function submitPayment(id, returnToPatientId){
+async function submitPayment(id, returnToContext){
   var e = entries.find(function(x){ return x.id === id; });
   if(!e) return;
   var payDate = document.getElementById('payDate').value || isoDate(new Date());
@@ -3354,11 +3441,7 @@ async function submitPayment(id, returnToPatientId){
   var oldStatus = e.status, oldDate = e.paymentDate;
   e.status = 'Pago';
   e.paymentDate = payDate;
-  if(returnToPatientId){
-    openPatientFinancial(returnToPatientId, true);
-  } else {
-    closeModal();
-  }
+  returnFromEntryModal(returnToContext);
   renderList();
   showToast('Pagamento registrado.', 'ok');
 
@@ -3367,22 +3450,26 @@ async function submitPayment(id, returnToPatientId){
   }catch(err){
     e.status = oldStatus; e.paymentDate = oldDate;
     renderList();
-    if(returnToPatientId && document.getElementById('pFinSessionsList')){
-      renderPatientFinancialDetails(returnToPatientId);
+    if(returnToContext === 'reports' && document.getElementById('repBody')){
+      renderReportBody();
+    } else if(returnToContext && document.getElementById('pFinSessionsList')){
+      renderPatientFinancialDetails(returnToContext);
     }
     showError('Falha ao registrar pagamento na planilha.');
   }
 }
 
-async function unpayEntry(id, returnToPatientId){
+async function unpayEntry(id, returnToContext){
   var e = entries.find(function(x){ return x.id === id; });
   if(!e) return;
   if(!confirm('Voltar o status desta sessão para "Pendente"?')) return;
 
   var oldStatus = e.status, oldDate = e.paymentDate;
   e.status = 'Pendente'; e.paymentDate = '';
-  if(returnToPatientId){
-    renderPatientFinancialDetails(returnToPatientId);
+  if(returnToContext === 'reports'){
+    if(document.getElementById('repBody')) renderReportBody();
+  } else if(returnToContext){
+    renderPatientFinancialDetails(returnToContext);
   } else {
     closeModal();
   }
@@ -3394,20 +3481,22 @@ async function unpayEntry(id, returnToPatientId){
   }catch(err){
     e.status = oldStatus; e.paymentDate = oldDate;
     renderList();
-    if(returnToPatientId && document.getElementById('pFinSessionsList')){
-      renderPatientFinancialDetails(returnToPatientId);
+    if(returnToContext === 'reports' && document.getElementById('repBody')){
+      renderReportBody();
+    } else if(returnToContext && document.getElementById('pFinSessionsList')){
+      renderPatientFinancialDetails(returnToContext);
     }
     showError('Falha ao atualizar status na planilha.');
   }
 }
 
-function badgeClick(id, returnToPatientId){
+function badgeClick(id, returnToContext){
   var e = entries.find(function(x){ return x.id === id; });
   if(!e) return;
   if(e.status === 'Pago'){
-    unpayEntry(id, returnToPatientId);
+    unpayEntry(id, returnToContext);
   } else {
-    openPaymentModal(id, returnToPatientId);
+    openPaymentModal(id, returnToContext);
   }
 }
 
@@ -3662,15 +3751,19 @@ function entriesOfYear(y){
   });
 }
 
-function openReports(){
-  reportYear = currentMonth.getFullYear();
-  repMonthFilter = 'all';
-  calMonth = new Date(reportYear, currentMonth.getMonth(), 1);
+function openReports(keepState){
+  if(!keepState){
+    reportYear = currentMonth.getFullYear();
+    repMonthFilter = 'all';
+    repExpandedPatient = null;
+    calMonth = new Date(reportYear, currentMonth.getMonth(), 1);
+  }
 
   var mesesLongos = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-  var mOpts = '<option value="all">Ano Completo (' + reportYear + ')</option>' +
+  var mOpts = '<option value="all" '+(repMonthFilter==='all'?'selected':'')+'>Ano Completo (' + reportYear + ')</option>' +
     mesesLongos.map(function(m, i){
-      return '<option value="'+i+'">'+m+'</option>';
+      var sel = String(repMonthFilter) === String(i) ? 'selected' : '';
+      return '<option value="'+i+'" '+sel+'>'+m+'</option>';
     }).join('');
 
   var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
@@ -3700,6 +3793,12 @@ function openReports(){
     '</div>' +
   '</div>';
   openModal(html);
+  renderReportBody();
+}
+
+function toggleReportPatient(dispName){
+  if(!dispName) return;
+  repExpandedPatient = (repExpandedPatient === dispName) ? null : dispName;
   renderReportBody();
 }
 
@@ -3742,17 +3841,47 @@ function renderReportBody(){
   list.forEach(function(e){
     total += e.valor;
     if(e.status === 'Pago') recebido += e.valor; else pendente += e.valor;
+    var pObj = findPatientByName(e.nome);
     var dispName = getEntryDisplayName(e);
     pacientesSet[dispName] = true;
-    if(!porPaciente[dispName]) porPaciente[dispName] = { sessoes:0, valor:0 };
+    if(!porPaciente[dispName]){
+      porPaciente[dispName] = {
+        sessoes: 0,
+        valor: 0,
+        recebido: 0,
+        pendente: 0,
+        entries: [],
+        patientId: pObj ? pObj.id : ''
+      };
+    }
     porPaciente[dispName].sessoes += 1;
     porPaciente[dispName].valor += e.valor;
+    if(e.status === 'Pago') porPaciente[dispName].recebido += e.valor;
+    else porPaciente[dispName].pendente += e.valor;
+    porPaciente[dispName].entries.push(e);
 
-    var pObj = findPatientByName(e.nome);
     var metodo = (pObj && pObj.formaPagamento) ? pObj.formaPagamento : 'Não informado';
     if(!porMetodo[metodo]) porMetodo[metodo] = { count: 0, total: 0 };
     porMetodo[metodo].count += 1;
     porMetodo[metodo].total += e.valor;
+  });
+
+  // Garante que todos os pacientes ativos cadastrados também apareçam na lista
+  patients.forEach(function(p){
+    if(p.arquivado === 'Sim') return;
+    var dispName = getPatientDisplayName(p);
+    if(!porPaciente[dispName]){
+      porPaciente[dispName] = {
+        sessoes: 0,
+        valor: 0,
+        recebido: 0,
+        pendente: 0,
+        entries: [],
+        patientId: p.id
+      };
+    } else if(!porPaciente[dispName].patientId){
+      porPaciente[dispName].patientId = p.id;
+    }
   });
 
   var nPacientes = Object.keys(pacientesSet).length;
@@ -3767,7 +3896,7 @@ function renderReportBody(){
   var bodyEl = document.getElementById('repBody');
   if(!bodyEl) return;
 
-  if(sessoes === 0){
+  if(sessoes === 0 && Object.keys(porPaciente).length === 0){
     var descEmpty = repMonthFilter !== 'all' ? mesesLongos[parseInt(repMonthFilter,10)] + ' de ' + reportYear : reportYear;
     bodyEl.innerHTML = '<div class="empty" style="padding:24px 10px;"><span class="leaf">&#128202;</span>Nenhum atendimento registrado em '+descEmpty+'.</div>';
     return;
@@ -3817,20 +3946,80 @@ function renderReportBody(){
       '</div>';
   }
 
-  // Ranking de Pacientes
-  var topNames = Object.keys(porPaciente).sort(function(a,b){ return porPaciente[b].valor - porPaciente[a].valor; });
-  var top = '<div class="rep-section-title">Ranking de Pacientes (' + (repMonthFilter !== 'all' ? mesesLongos[parseInt(repMonthFilter,10)] : 'Ano') + ')</div>';
-  topNames.slice(0, 6).forEach(function(n, idx){
+  // Ranking de Pacientes (todos os pacientes, clicáveis para exibir e editar lançamentos)
+  var topNames = Object.keys(porPaciente).sort(function(a,b){
+    if(porPaciente[b].valor !== porPaciente[a].valor) return porPaciente[b].valor - porPaciente[a].valor;
+    if(porPaciente[b].sessoes !== porPaciente[a].sessoes) return porPaciente[b].sessoes - porPaciente[a].sessoes;
+    return a.localeCompare(b, 'pt-BR');
+  });
+  var top = '<div class="rep-section-title" style="display:flex;align-items:center;justify-content:space-between;">' +
+    '<span>Ranking de Pacientes (' + (repMonthFilter !== 'all' ? mesesLongos[parseInt(repMonthFilter,10)] : 'Ano') + ')</span>' +
+    '<span style="font-size:10.5px;font-weight:500;text-transform:none;color:var(--ink-soft);">Toque no paciente para ver lançamentos</span>' +
+  '</div>';
+
+  topNames.forEach(function(n, idx){
     var pData = porPaciente[n];
-    var pct = total > 0 ? ((pData.valor / total) * 100).toFixed(1) : 0;
-    top += '<div class="top-row">' +
+    var pct = total > 0 ? ((pData.valor / total) * 100).toFixed(1) : '0.0';
+    var isExp = repExpandedPatient === n;
+    var chevron = isExp ? '&#9652;' : '&#9662;';
+
+    top += '<div class="top-row clickable'+(isExp?' expanded':'')+'" data-pname="'+escapeHtml(n)+'" onclick="toggleReportPatient(this.getAttribute(\'data-pname\'))">' +
       '<div class="rank">'+(idx+1)+'</div>' +
       '<div class="nm">' +
-        '<div>'+escapeHtml(n)+' <span style="font-weight:400;color:var(--ink-soft);font-size:11px;">('+pData.sessoes+' sessões · '+pct+'%)</span></div>' +
+        '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
+          '<span>'+escapeHtml(n)+'</span>' +
+          '<span style="font-weight:400;color:var(--ink-soft);font-size:11px;">('+pData.sessoes+' '+(pData.sessoes===1?'sessão':'sessões')+' · '+pct+'%)</span>' +
+          '<span style="font-size:11px;color:var(--primary);font-weight:700;">'+chevron+'</span>' +
+        '</div>' +
         '<div class="rep-progress-wrap"><div class="rep-progress-bar" style="width:'+pct+'%;"></div></div>' +
       '</div>' +
       '<div class="vl">'+(hidden ? maskTxt : formatMoney(pData.valor))+'</div>' +
     '</div>';
+
+    if(isExp){
+      var sortedEntries = pData.entries.slice().sort(function(a,b){
+        var dtA = (a.data || '') + ' ' + (a.hora || '');
+        var dtB = (b.data || '') + ' ' + (b.hora || '');
+        return dtB.localeCompare(dtA);
+      });
+
+      var newBtnHtml = pData.patientId
+        ? '<button class="rep-entry-btn" onclick="openNewEntry(\''+escapeHtml(pData.patientId)+'\', \'reports\')">+ Lançar sessão</button>'
+        : '';
+
+      top += '<div class="rep-patient-drawer">' +
+        '<div class="rep-patient-drawer-head">' +
+          '<div>' +
+            '<span style="color:var(--success-ink);font-weight:600;">Recebido: '+(hidden ? 'R$ •••' : formatMoney(pData.recebido))+'</span>' +
+            ' &middot; ' +
+            '<span style="color:var(--accent-ink);font-weight:600;">A receber: '+(hidden ? 'R$ •••' : formatMoney(pData.pendente))+'</span>' +
+          '</div>' +
+          newBtnHtml +
+        '</div>';
+
+      if(sortedEntries.length === 0){
+        top += '<p class="empty-mini" style="padding:10px 4px;">Nenhum lançamento registrado para este paciente neste período.</p>';
+      } else {
+        top += sortedEntries.map(function(e){
+          var pago = e.status === 'Pago';
+          var paidInfo = (pago && e.paymentDate) ? '<div style="font-size:10.5px;color:var(--success-ink);">&#10003; Pago em '+formatDateBR(e.paymentDate)+'</div>' : '';
+          return '<div class="rep-entry-item">' +
+            '<div style="min-width:0;flex:1;">' +
+              '<div style="font-weight:600;color:var(--ink);">'+formatDateBR(e.data)+(e.hora ? ' &middot; '+escapeHtml(e.hora) : '')+'</div>' +
+              paidInfo +
+            '</div>' +
+            '<span class="badge '+(pago?'pago':'pendente')+'" style="cursor:pointer;" title="Clique para alterar status" onclick="badgeClick(\''+e.id+'\', \'reports\')">'+escapeHtml(e.status)+'</span>' +
+            '<div style="font-family:\'IBM Plex Mono\',monospace;font-weight:600;font-size:12px;min-width:74px;text-align:right;">'+(hidden ? 'R$ •••' : formatMoney(e.valor))+'</div>' +
+            '<div class="rep-entry-actions">' +
+              '<button class="rep-entry-btn" onclick="openEditEntry(\''+e.id+'\', \'reports\')" title="Editar lançamento">&#9998; Editar</button>' +
+              '<button class="rep-entry-btn del" onclick="deleteEntry(\''+e.id+'\', \'reports\')" title="Excluir lançamento">&#10005;</button>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+      }
+
+      top += '</div>';
+    }
   });
 
   // Meios de Pagamento

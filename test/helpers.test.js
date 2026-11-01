@@ -139,6 +139,12 @@ const calcFuelMetrics = extractFnWithScope('calcFuelMetrics', {
   getGasPrice: () => 6.10
 });
 const buildGoogleMapsDirUrl = extractFn('buildGoogleMapsDirUrl');
+const formatDistanceKm = extractFn('formatDistanceKm');
+const parseTimeMinutes = extractFn('parseTimeMinutes');
+const formatTimeMinutes = extractFnWithScope('formatTimeMinutes', { minToTimeStr });
+const formatDurationHuman = extractFnWithScope('formatDurationHuman', { formatDurationFriendly });
+const calcFuelCost = extractFnWithScope('calcFuelCost', { calcFuelMetrics });
+const buildGoogleMapsDirectionsUrl = extractFnWithScope('buildGoogleMapsDirectionsUrl', { buildGoogleMapsDirUrl });
 
 describe('Route and Fuel Assistant helpers', () => {
   test('timeStrToMin converts HH:MM to total minutes correctly', () => {
@@ -195,6 +201,29 @@ describe('Route and Fuel Assistant helpers', () => {
 
     const urlWaypoint = buildGoogleMapsDirUrl('Rua Maracaju, 88', 'Rua B', 'Rua A');
     assert.match(urlWaypoint, /waypoints=Rua%20A/);
+
+    const urlAlias = buildGoogleMapsDirectionsUrl('Rua Maracaju, 88', ['Rua B']);
+    assert.match(urlAlias, /destination=Rua%20B/);
+  });
+
+  test('formatDistanceKm formats km with comma decimal', () => {
+    assert.equal(formatDistanceKm(4.5), '4,5 km');
+    assert.equal(formatDistanceKm(12), '12,0 km');
+    assert.equal(formatDistanceKm(0), '0,0 km');
+  });
+
+  test('parseTimeMinutes and formatTimeMinutes roundtrip correctly', () => {
+    assert.equal(parseTimeMinutes('14:30'), 870);
+    assert.equal(parseTimeMinutes(''), null);
+    assert.equal(parseTimeMinutes(null), null);
+    assert.equal(formatTimeMinutes(870), '14:30');
+    assert.equal(formatDurationHuman(75), '1h 15min');
+  });
+
+  test('calcFuelCost delegates to calcFuelMetrics', () => {
+    const f = calcFuelCost(28);
+    assert.equal(f.liters, 2.0);
+    assert.equal(f.cost, 12.20);
   });
 });
 

@@ -91,7 +91,7 @@ async function main() {
     }
 
     const body = {
-      message: `feat: atualizar ${relPath} (selecao individual/todas de evolucoes para PDF unico e remocao de botao)`,
+      message: `feat: adicionar Nome Fantasia (interno) e Nome Completo (documentos externos) em ${relPath}`,
       content: contentBase64,
       branch: BRANCH
     };

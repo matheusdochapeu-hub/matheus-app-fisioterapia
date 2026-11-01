@@ -5746,6 +5746,38 @@ function buildGoogleMapsDirUrl(origin, dest, waypoint){
   return url;
 }
 
+function formatDistanceKm(km){
+  var n = Number(km) || 0;
+  return (Math.round(n * 10) / 10).toFixed(1).replace('.', ',') + ' km';
+}
+
+function parseTimeMinutes(hhmm){
+  if(!hhmm) return null;
+  var parts = String(hhmm).split(':');
+  if(parts.length < 2) return null;
+  var h = parseInt(parts[0], 10);
+  var m = parseInt(parts[1], 10);
+  if(isNaN(h) || isNaN(m)) return null;
+  return h * 60 + m;
+}
+
+function formatTimeMinutes(totalMin){
+  return minToTimeStr(totalMin);
+}
+
+function formatDurationHuman(mins){
+  return formatDurationFriendly(mins);
+}
+
+function calcFuelCost(distanceKm){
+  return calcFuelMetrics(distanceKm);
+}
+
+function buildGoogleMapsDirectionsUrl(origin, dest, waypoint){
+  var d = Array.isArray(dest) ? dest[0] : dest;
+  return buildGoogleMapsDirUrl(origin, d, waypoint);
+}
+
 function renderDepartureFromHomeCard(firstSc, routePairsToLoad){
   var pObj = getSchedulePatientObj(firstSc);
   var dispName = getSchedulePatientDisplayName(firstSc);
@@ -5968,7 +6000,9 @@ async function cancelScheduleStatus(id){
   var dispName = getSchedulePatientDisplayName(sc);
   if(!confirm('Marcar o atendimento de ' + dispName + ' em ' + formatDateBR(sc.data) + (sc.hora ? ' às ' + sc.hora : '') + ' como CANCELADO?\n\nO evento será removido do Google Agenda e o aplicativo recalculará automaticamente a rota e a janela entre os outros pacientes do dia.')) return;
 
+  var prevEventId = sc.calendarEventId || '';
   sc.status = 'Cancelado';
+  sc.calendarEventId = '';
   saveLocalSchedules();
   renderAgendaTab();
   renderList();
@@ -5981,7 +6015,8 @@ async function cancelScheduleStatus(id){
       action: 'update_schedule',
       pacienteDisplay: dispName,
       telefone: pObj ? (pObj.telefone || '') : '',
-      endereco: getPatientFullAddress(pObj)
+      endereco: getPatientFullAddress(pObj),
+      calendarEventId: prevEventId
     }, sc));
   }catch(e){
     console.warn('Aviso ao sincronizar cancelamento na planilha:', e);
@@ -7609,6 +7644,7 @@ function exportSchedulesICS(){
     }
     lines.push('BEGIN:VEVENT');
     lines.push('UID:' + sc.id + '@fisioterapia.app');
+    lines.push('DTSTAMP:' + fmtIcs(new Date()));
     lines.push('DTSTART:' + fmtIcs(startDt));
     lines.push('DTEND:' + fmtIcs(endDt));
     lines.push('SUMMARY:Fisioterapia - ' + dispName);
@@ -7889,14 +7925,19 @@ async function init(){
     try{ localStorage.setItem(CONFIG_KEY, JSON.stringify(config)); }catch(e){}
   }
 
-  // Garante o e-mail padrão do Google Agenda caso ainda não tenha sido configurado
-  if(config && !config.calendarId && DEFAULT_CALENDAR_ID){
+  // Garante o e-mail padrão do Google Agenda caso ainda não tenha sido configurado ou estivesse como 'primary'
+  if(config && (!config.calendarId || config.calendarId === 'primary') && DEFAULT_CALENDAR_ID){
     config.calendarId = DEFAULT_CALENDAR_ID;
     try{
       localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
-      if(!localStorage.getItem('ft_calendar_id')) localStorage.setItem('ft_calendar_id', DEFAULT_CALENDAR_ID);
     }catch(e){}
   }
+  try{
+    var savedCal = localStorage.getItem('ft_calendar_id');
+    if(!savedCal || savedCal === 'primary'){
+      localStorage.setItem('ft_calendar_id', DEFAULT_CALENDAR_ID);
+    }
+  }catch(e){}
 
   var savedTab = 'pacientes';
   try{ savedTab = localStorage.getItem('active_tab') || 'pacientes'; }catch(e){}

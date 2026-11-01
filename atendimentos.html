@@ -48,6 +48,14 @@
     --bg-glow:#F3E0CC;        /* brilho do fundo */
     --success-soft2:#EEF3E4;  /* 2º tom do gradiente da métrica verde */
     --accent-soft2:#FBF1DC;   /* 2º tom do gradiente da métrica âmbar */
+    --ok:var(--success);
+    --ok-bg:var(--success-soft);
+    --err:var(--danger);
+    --danger-bg:var(--danger-soft);
+    --primary-dark:var(--primary-deep);
+    --bg-deep:var(--bg-tint);
+    --ink-faint:var(--ink-soft);
+    --line-strong:#D8C3AE;
 
     /* escala tipográfica */
     --fs-xs:11px;
@@ -1386,6 +1394,7 @@ function toggleHideFinancials(){
   localStorage.setItem('hide_financials', hidden ? 'false' : 'true');
   updateEyeButtonUI();
   renderList();
+  renderAgendaTab();
   if(document.getElementById('repBody')) renderReportBody();
   if(document.getElementById('pFinSessionsList') && pFinActivePatientId){
     renderPatientFinancialDetails(pFinActivePatientId);
@@ -2115,6 +2124,7 @@ function openPatientForm(patientId){
 
       '<div class="btn-row">' +
         (isEdit && p.arquivado === 'Sim' ? '<button class="btn danger small" onclick="deletePatient(\''+p.id+'\')">Excluir Definitivamente</button>' : '') +
+        (isEdit ? '<button class="btn ghost small" type="button" onclick="exportPatientFichaPDF(\''+p.id+'\')" title="Exportar Ficha Cadastral e Prontuário CREFITO-3 em PDF">📄 Exportar Ficha (PDF)</button>' : '') +
         '<button class="btn ghost" style="flex:1;" onclick="closeModal()">Cancelar</button>' +
         '<button class="btn primary" id="savePatientFormBtn" style="flex:2;" onclick="submitPatientForm(\''+(p?p.id:'')+'\')">Salvar Paciente</button>' +
       '</div>' +
@@ -2134,6 +2144,71 @@ function openPatientForm(patientId){
   }
   if(fantasiaInp) fantasiaInp.addEventListener('input', updatePhotoInitialsPreview);
   if(nameInp) nameInp.addEventListener('input', updatePhotoInitialsPreview);
+}
+
+function exportPatientFichaPDF(patientId){
+  var p = patients.find(function(x){ return x.id === patientId; });
+  if(!p){ showError('Paciente não encontrado.'); return; }
+  if(!window.jspdf || !window.jspdf.jsPDF){
+    showError('Biblioteca de PDF ainda carregando. Tente novamente em instantes.');
+    return;
+  }
+  var doc = new window.jspdf.jsPDF();
+  var legalName = getPatientLegalName(p);
+  var profName = (config && config.providerName) ? config.providerName : 'Fisioterapeuta Responsável';
+
+  doc.setFontSize(16);
+  doc.setTextColor(181, 84, 46);
+  doc.text('FICHA CADASTRAL E PRONTUÁRIO FISIOTERAPÊUTICO', 14, 18);
+
+  doc.setFontSize(10);
+  doc.setTextColor(90, 90, 90);
+  doc.text('Profissional: ' + profName + '   |   Emissão: ' + formatDateBR(isoDate(new Date())), 14, 25);
+  doc.setDrawColor(220, 200, 185);
+  doc.line(14, 28, 196, 28);
+
+  var y = 36;
+  function addField(label, val){
+    if(y > 272){ doc.addPage(); y = 20; }
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(58, 42, 32);
+    doc.text(label + ':', 14, y);
+    doc.setFont('helvetica', 'normal');
+    var textVal = String(val || 'Não informado');
+    var lines = doc.splitTextToSize(textVal, 130);
+    doc.text(lines, 62, y);
+    y += Math.max(7, lines.length * 5 + 2);
+  }
+
+  addField('Nome Completo', legalName);
+  addField('CPF / RG', p.documento || 'Não informado');
+  addField('Data de Nascimento', p.dataNascimento ? formatDateBR(p.dataNascimento) : 'Não informada');
+  addField('Telefone / WhatsApp', p.telefone || 'Não informado');
+  addField('2º Contato / Familiar', p.contato02 || 'Não informado');
+  addField('Endereço', [p.endereco, p.bairro, p.cidade].filter(Boolean).join(' - ') || 'Não informado');
+  addField('Frequência Semanal', (p.frequenciaSemanal || '1') + 'x por semana');
+  addField('TCLE Assinado', p.tcle || 'Não');
+  addField('Contrato Assinado', p.contrato || 'Não');
+
+  y += 4;
+  doc.setDrawColor(220, 200, 185);
+  doc.line(14, y, 196, y);
+  y += 8;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.setTextColor(181, 84, 46);
+  doc.text('Avaliação e Prontuário Clínico (CREFITO-3)', 14, y);
+  y += 8;
+
+  addField('Diagnóstico Clínico / CID', p.diagClinico || 'Não informado');
+  addField('Diagnóstico Funcional', p.diagFuncional || 'Não informado');
+  addField('Objetivos Terapêuticos', p.objetivos || 'Não informado');
+
+  var safeName = legalName.replace(/[^a-zA-Z0-9_-]/g, '_');
+  doc.save('ficha_prontuario_' + safeName + '.pdf');
+  showToast('Ficha exportada em PDF!', 'ok');
 }
 
 function handlePatientPhotoSelect(event){
@@ -2197,6 +2272,22 @@ async function submitPatientForm(existingId){
       if(oldData.nome && oldData.nome !== nome){
         patients[idx].oldNome = oldData.nome;
         try{ localStorage.setItem('ft_old_nome_' + existingId, oldData.nome); }catch(e){}
+        // Propaga o novo nome oficial em memória para sessões, evoluções e agendamentos vinculados
+        entries.forEach(function(en){
+          if(entryMatchesPatient(en, oldData)) en.nome = nome;
+        });
+        evolutions.forEach(function(ev){
+          if(ev.pacienteId === existingId || String(ev.pacienteNome || '').trim().toLowerCase() === String(oldData.nome).trim().toLowerCase()){
+            ev.pacienteNome = nome;
+          }
+        });
+        schedules.forEach(function(sc){
+          if(sc.pacienteId === existingId || String(sc.pacienteNome || '').trim().toLowerCase() === String(oldData.nome).trim().toLowerCase()){
+            sc.pacienteNome = nome;
+          }
+        });
+        saveLocalEvolutions();
+        saveLocalSchedules();
       }
       patients[idx].nome = nome;
       patients[idx].nomeFantasia = nomeFantasia;
@@ -2245,6 +2336,7 @@ async function submitPatientForm(existingId){
           id: existingId,
           nome: nome,
           nomeFantasia: nomeFantasia,
+          oldNome: patients[idx].oldNome || '',
           documento: doc,
           dataNascimento: dataNasc,
           telefone: tel,
@@ -5873,9 +5965,19 @@ async function submitSchedule(){
   }
   showToast(toastMsg, 'ok');
 
+  var patDisp = getPatientDisplayName(p);
+  var patTel = p.telefone || '';
+  var patEnd = [p.endereco, p.bairro, p.cidade].filter(Boolean).join(', ');
+
   try{
     if(createdItems.length === 1){
-      var resp = await postAction(Object.assign({ action: 'create_schedule' }, createdItems[0]));
+      var singlePayload = Object.assign({
+        action: 'create_schedule',
+        pacienteDisplay: patDisp,
+        telefone: patTel,
+        endereco: patEnd
+      }, createdItems[0]);
+      var resp = await postAction(singlePayload);
       if(resp && resp.calendarEventId){
         createdItems[0].calendarEventId = resp.calendarEventId;
         saveLocalSchedules();
@@ -5883,14 +5985,22 @@ async function submitSchedule(){
         showToast('Sincronizado com o Google Agenda!', 'ok');
       }
     } else {
+      var batchItems = createdItems.map(function(it){
+        return Object.assign({}, it, {
+          pacienteDisplay: patDisp,
+          telefone: patTel,
+          endereco: patEnd
+        });
+      });
       var respB = await postAction({
         action: 'create_schedules_batch',
         calendarId: calId,
-        items: createdItems
+        items: batchItems
       });
-      if(respB && respB.eventMap){
+      var evMap = (respB && (respB.eventMap || respB.eventIds)) || null;
+      if(evMap){
         createdItems.forEach(function(it){
-          if(respB.eventMap[it.id]) it.calendarEventId = respB.eventMap[it.id];
+          if(evMap[it.id]) it.calendarEventId = evMap[it.id];
         });
         saveLocalSchedules();
         renderAgendaTab();
@@ -5980,6 +6090,11 @@ async function submitEditSchedule(id){
   sc.observacao = novaObs;
   if(!sc.calendarId) sc.calendarId = getUserCalendarId();
 
+  var pObj = getSchedulePatientObj(sc);
+  var patDisp = getSchedulePatientDisplayName(sc);
+  var patTel = pObj ? (pObj.telefone || '') : '';
+  var patEnd = pObj ? [pObj.endereco, pObj.bairro, pObj.cidade].filter(Boolean).join(', ') : '';
+
   saveLocalSchedules();
   closeModal();
   renderAgendaTab();
@@ -5988,7 +6103,12 @@ async function submitEditSchedule(id){
   showToast('Agendamento atualizado!', 'ok');
 
   try{
-    var resp = await postAction(Object.assign({ action: 'update_schedule' }, sc));
+    var resp = await postAction(Object.assign({
+      action: 'update_schedule',
+      pacienteDisplay: patDisp,
+      telefone: patTel,
+      endereco: patEnd
+    }, sc));
     if(resp && resp.calendarEventId){
       sc.calendarEventId = resp.calendarEventId;
       saveLocalSchedules();
@@ -6037,6 +6157,8 @@ async function completeScheduleCheckin(id, silentToast){
   var pObj = getSchedulePatientObj(sc);
   var legalName = pObj ? pObj.nome : (sc.pacienteNome || 'Paciente');
   var dispName = getSchedulePatientDisplayName(sc);
+  var patTel = pObj ? (pObj.telefone || '') : '';
+  var patEnd = pObj ? [pObj.endereco, pObj.bairro, pObj.cidade].filter(Boolean).join(', ') : '';
   var valorSessao = getScheduleEffectiveValor(sc);
 
   // Verifica se já existe um atendimento lançado manualmente nesta mesma data sem vínculo com outro agendamento
@@ -6059,13 +6181,18 @@ async function completeScheduleCheckin(id, silentToast){
     renderAgendaTab();
     renderPatientsTab();
     renderList();
-    if(document.getElementById('reportBody')) renderReportBody();
-    if(document.getElementById('pFinSummary') && pObj) renderPatientFinancialDetails(pObj.id);
+    if(document.getElementById('repBody')) renderReportBody();
+    if(document.getElementById('pFinSessionsList') && pObj) renderPatientFinancialDetails(pObj.id);
     if(!silentToast){
       showToast('✓ Check-in vinculado ao atendimento de ' + dispName + ' já lançado em ' + formatDateBR(sc.data) + '!', 'ok');
     }
     try{
-      await postAction(Object.assign({ action: 'update_schedule' }, sc));
+      await postAction(Object.assign({
+        action: 'update_schedule',
+        pacienteDisplay: dispName,
+        telefone: patTel,
+        endereco: patEnd
+      }, sc));
     }catch(err){
       console.warn('Aviso ao sincronizar vínculo de check-in na planilha:', err);
     }
@@ -6095,15 +6222,20 @@ async function completeScheduleCheckin(id, silentToast){
   renderAgendaTab();
   renderPatientsTab();
   renderList();
-  if(document.getElementById('reportBody')) renderReportBody();
-  if(document.getElementById('pFinSummary') && pObj) renderPatientFinancialDetails(pObj.id);
+  if(document.getElementById('repBody')) renderReportBody();
+  if(document.getElementById('pFinSessionsList') && pObj) renderPatientFinancialDetails(pObj.id);
   if(!silentToast){
     showToast('✓ Check-in confirmado! Sessão de ' + dispName + ' lançada no financeiro.', 'ok');
   }
 
   try{
     await postAction(Object.assign({ action: 'create' }, newEntry));
-    await postAction(Object.assign({ action: 'update_schedule' }, sc));
+    await postAction(Object.assign({
+      action: 'update_schedule',
+      pacienteDisplay: dispName,
+      telefone: patTel,
+      endereco: patEnd
+    }, sc));
   }catch(err){
     console.warn('Aviso ao sincronizar check-in na planilha:', err);
   }
@@ -6418,7 +6550,8 @@ async function importBackup(ev){
         action: 'bulk_import',
         pacientes: impPac,
         atendimentos: impAtend,
-        evolucoes: impEvo
+        evolucoes: impEvo,
+        agendamentos: impAgend
       });
 
       await loadData();

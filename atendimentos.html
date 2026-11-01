@@ -2691,7 +2691,7 @@ function renderReportBody(){
     var mPct = total > 0 ? ((mInfo.total / total) * 100).toFixed(1) : 0;
     metodosHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);font-size:12px;">' +
       '<div><b>'+escapeHtml(mKey)+'</b> <span style="color:var(--ink-soft);">('+mInfo.count+' sessões)</span></div>' +
-      '<div style="font-family:'IBM Plex Mono',monospace;font-weight:600;">'+formatMoney(mInfo.total)+' ('+mPct+'%)</div>' +
+      '<div style="font-family:\'IBM Plex Mono\',monospace;font-weight:600;">'+formatMoney(mInfo.total)+' ('+mPct+'%)</div>' +
     '</div>';
   });
   metodosHtml += '</div>';

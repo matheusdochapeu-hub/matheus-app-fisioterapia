@@ -15,7 +15,7 @@ var PAC_HEADERS = [
   'ID', 'Nome', 'Telefone', 'ValorPadrao', 'FormaPagamento', 'CriadoEm',
   'Endereco', 'Bairro', 'Cidade', 'DataNascimento', 'Contato02',
   'Documento', 'TCLE', 'Contrato', 'FrequenciaSemanal',
-  'DiagClinico', 'DiagFuncional', 'Objetivos', 'Arquivado', 'Foto'
+  'DiagClinico', 'DiagFuncional', 'Objetivos', 'Arquivado', 'Foto', 'NomeFantasia'
 ];
 var EVO_HEADERS = ['ID', 'PacienteID', 'PacienteNome', 'Data', 'Hora', 'PA', 'FC', 'EstadoClinico', 'Condutas', 'CriadoEm'];
 var EXE_HEADERS = ['ID', 'Nome', 'Tipo', 'SeriesPadrao', 'RepsPadrao', 'Observacao', 'Imagem', 'CriadoEm'];
@@ -229,12 +229,14 @@ function doPost(e) {
         body.diagFuncional || '',
         body.objetivos || '',
         body.arquivado || 'Não',
-        body.foto || ''
+        body.foto || '',
+        body.nomeFantasia || ''
       ]);
 
     } else if (body.action === 'update_patient') {
       var pacSheet = getPacSheet_();
       if (body.nome !== undefined) updateFieldById_(pacSheet, body.id, 'Nome', body.nome);
+      if (body.nomeFantasia !== undefined) updateFieldById_(pacSheet, body.id, 'NomeFantasia', body.nomeFantasia);
       if (body.telefone !== undefined) updateFieldById_(pacSheet, body.id, 'Telefone', body.telefone);
       if (body.valorPadrao !== undefined) updateFieldById_(pacSheet, body.id, 'ValorPadrao', body.valorPadrao);
       if (body.formaPagamento !== undefined) updateFieldById_(pacSheet, body.id, 'FormaPagamento', body.formaPagamento);
@@ -370,7 +372,8 @@ function doPost(e) {
             p.diagFuncional || '',
             p.objetivos || '',
             p.arquivado || 'Não',
-            p.foto || ''
+            p.foto || '',
+            p.nomeFantasia || ''
           ];
         });
         var sP = getPacSheet_();

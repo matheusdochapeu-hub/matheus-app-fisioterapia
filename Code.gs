@@ -1,16 +1,23 @@
 /**
  * Conector entre o app de controle de atendimentos e esta planilha.
- * Cria automaticamente as abas "Atendimentos", "Pacientes",
- * "Exercicios" e "Rotinas".
+ * Cria e gerencia automaticamente as abas "Atendimentos", "Pacientes",
+ * "Evolucoes", "Exercicios" e "Rotinas".
  */
 
 var SHEET_ATEND = 'Atendimentos';
 var SHEET_PAC = 'Pacientes';
+var SHEET_EVO = 'Evolucoes';
 var SHEET_EXE = 'Exercicios';
 var SHEET_ROT = 'Rotinas';
 
 var ATEND_HEADERS = ['ID', 'Paciente', 'Data', 'Hora', 'Valor', 'Status', 'DataPagamento', 'Latitude', 'Longitude', 'CriadoEm'];
-var PAC_HEADERS = ['ID', 'Nome', 'Telefone', 'ValorPadrao', 'FormaPagamento', 'CriadoEm'];
+var PAC_HEADERS = [
+  'ID', 'Nome', 'Telefone', 'ValorPadrao', 'FormaPagamento', 'CriadoEm',
+  'Endereco', 'Bairro', 'Cidade', 'DataNascimento', 'Contato02',
+  'Documento', 'TCLE', 'Contrato', 'FrequenciaSemanal',
+  'DiagClinico', 'DiagFuncional', 'Objetivos'
+];
+var EVO_HEADERS = ['ID', 'PacienteID', 'PacienteNome', 'Data', 'Hora', 'PA', 'FC', 'EstadoClinico', 'Condutas', 'CriadoEm'];
 var EXE_HEADERS = ['ID', 'Nome', 'Tipo', 'SeriesPadrao', 'RepsPadrao', 'Observacao', 'Imagem', 'CriadoEm'];
 var ROT_HEADERS = ['ID', 'PacienteID', 'PacienteNome', 'ExercicioID', 'Ordem', 'Series', 'Reps', 'Observacao', 'CriadoEm', 'Rotulo'];
 
@@ -37,6 +44,7 @@ function getSheet_(name, headers) {
 
 function getAtendSheet_() { return getSheet_(SHEET_ATEND, ATEND_HEADERS); }
 function getPacSheet_()   { return getSheet_(SHEET_PAC, PAC_HEADERS); }
+function getEvoSheet_()   { return getSheet_(SHEET_EVO, EVO_HEADERS); }
 function getExeSheet_()   { return getSheet_(SHEET_EXE, EXE_HEADERS); }
 function getRotSheet_()   { return getSheet_(SHEET_ROT, ROT_HEADERS); }
 
@@ -51,7 +59,7 @@ function getTimeZone_() {
 function formatCellValue_(header, value) {
   if (Object.prototype.toString.call(value) === '[object Date]') {
     var tz = getTimeZone_();
-    if (header === 'Data' || header === 'DataPagamento') {
+    if (header === 'Data' || header === 'DataPagamento' || header === 'DataNascimento') {
       return Utilities.formatDate(value, tz, 'yyyy-MM-dd');
     }
     if (header === 'Hora') {
@@ -150,6 +158,7 @@ function doGet(e) {
   var result = {
     atendimentos: sheetToObjects_(getAtendSheet_()),
     pacientes: sheetToObjects_(getPacSheet_()),
+    evolucoes: sheetToObjects_(getEvoSheet_()),
     exercicios: sheetToObjects_(getExeSheet_()),
     rotinas: sheetToObjects_(getRotSheet_())
   };
@@ -163,7 +172,7 @@ function doPost(e) {
   var result = { success: true, action: 'unknown', handled: true };
 
   try {
-    // Tenta adquirir o lock por até 30 segundos para evitar corrida entre requisições
+    // Tenta adquirir o lock por até 30 segundos para evitar concorrência
     lockAcquired = lock.tryLock(30000);
     if (!lockAcquired) {
       result.success = false;
@@ -184,6 +193,7 @@ function doPost(e) {
 
     result.action = body.action || 'create';
 
+    /* ---------- Atendimentos ---------- */
     if (body.action === 'delete') {
       deleteRowById_(getAtendSheet_(), body.id);
 
@@ -197,13 +207,80 @@ function doPost(e) {
       if (body.hora !== undefined) updateAtendField_(body.id, 'Hora', body.hora);
       if (body.valor !== undefined) updateAtendField_(body.id, 'Valor', body.valor);
 
+    /* ---------- Pacientes ---------- */
     } else if (body.action === 'create_patient') {
-      getPacSheet_().appendRow([body.id, body.nome, body.telefone || '', body.valorPadrao || '', body.formaPagamento || '', new Date().toISOString()]);
+      getPacSheet_().appendRow([
+        body.id,
+        body.nome,
+        body.telefone || '',
+        body.valorPadrao || '',
+        body.formaPagamento || '',
+        new Date().toISOString(),
+        body.endereco || '',
+        body.bairro || '',
+        body.cidade || '',
+        body.dataNascimento || '',
+        body.contato02 || '',
+        body.documento || '',
+        body.tcle || '',
+        body.contrato || '',
+        body.frequenciaSemanal || '',
+        body.diagClinico || '',
+        body.diagFuncional || '',
+        body.objetivos || ''
+      ]);
+
+    } else if (body.action === 'update_patient') {
+      var pacSheet = getPacSheet_();
+      if (body.nome !== undefined) updateFieldById_(pacSheet, body.id, 'Nome', body.nome);
+      if (body.telefone !== undefined) updateFieldById_(pacSheet, body.id, 'Telefone', body.telefone);
+      if (body.valorPadrao !== undefined) updateFieldById_(pacSheet, body.id, 'ValorPadrao', body.valorPadrao);
+      if (body.formaPagamento !== undefined) updateFieldById_(pacSheet, body.id, 'FormaPagamento', body.formaPagamento);
+      if (body.endereco !== undefined) updateFieldById_(pacSheet, body.id, 'Endereco', body.endereco);
+      if (body.bairro !== undefined) updateFieldById_(pacSheet, body.id, 'Bairro', body.bairro);
+      if (body.cidade !== undefined) updateFieldById_(pacSheet, body.id, 'Cidade', body.cidade);
+      if (body.dataNascimento !== undefined) updateFieldById_(pacSheet, body.id, 'DataNascimento', body.dataNascimento);
+      if (body.contato02 !== undefined) updateFieldById_(pacSheet, body.id, 'Contato02', body.contato02);
+      if (body.documento !== undefined) updateFieldById_(pacSheet, body.id, 'Documento', body.documento);
+      if (body.tcle !== undefined) updateFieldById_(pacSheet, body.id, 'TCLE', body.tcle);
+      if (body.contrato !== undefined) updateFieldById_(pacSheet, body.id, 'Contrato', body.contrato);
+      if (body.frequenciaSemanal !== undefined) updateFieldById_(pacSheet, body.id, 'FrequenciaSemanal', body.frequenciaSemanal);
+      if (body.diagClinico !== undefined) updateFieldById_(pacSheet, body.id, 'DiagClinico', body.diagClinico);
+      if (body.diagFuncional !== undefined) updateFieldById_(pacSheet, body.id, 'DiagFuncional', body.diagFuncional);
+      if (body.objetivos !== undefined) updateFieldById_(pacSheet, body.id, 'Objetivos', body.objetivos);
 
     } else if (body.action === 'delete_patient') {
       deleteRowById_(getPacSheet_(), body.id);
-      // Remove em cascata todos os itens de rotinas vinculados a esta paciente (coluna PacienteID = índice 1)
+      // Remove em cascata rotinas e evoluções vinculadas à paciente (coluna PacienteID = índice 1)
       deleteRowsByField_(getRotSheet_(), 1, body.id);
+      deleteRowsByField_(getEvoSheet_(), 1, body.id);
+
+    /* ---------- Evoluções Clínicas ---------- */
+    } else if (body.action === 'create_evolution') {
+      getEvoSheet_().appendRow([
+        body.id,
+        body.pacienteId || '',
+        body.pacienteNome || '',
+        body.data || '',
+        body.hora || '',
+        body.pa || '',
+        body.fc || '',
+        body.estadoClinico || '',
+        body.condutas || '',
+        new Date().toISOString()
+      ]);
+
+    } else if (body.action === 'update_evolution') {
+      var sEvo = getEvoSheet_();
+      if (body.data !== undefined) updateFieldById_(sEvo, body.id, 'Data', body.data);
+      if (body.hora !== undefined) updateFieldById_(sEvo, body.id, 'Hora', body.hora);
+      if (body.pa !== undefined) updateFieldById_(sEvo, body.id, 'PA', body.pa);
+      if (body.fc !== undefined) updateFieldById_(sEvo, body.id, 'FC', body.fc);
+      if (body.estadoClinico !== undefined) updateFieldById_(sEvo, body.id, 'EstadoClinico', body.estadoClinico);
+      if (body.condutas !== undefined) updateFieldById_(sEvo, body.id, 'Condutas', body.condutas);
+
+    } else if (body.action === 'delete_evolution') {
+      deleteRowById_(getEvoSheet_(), body.id);
 
     /* ---------- Exercícios ---------- */
     } else if (body.action === 'create_exercise') {
@@ -269,7 +346,26 @@ function doPost(e) {
       // 1. Pacientes
       if (Array.isArray(body.pacientes) && body.pacientes.length > 0) {
         var pRows = body.pacientes.map(function(p) {
-          return [p.id, p.nome, p.telefone || '', p.valorPadrao || '', p.formaPagamento || '', p.criadoEm || nowIso];
+          return [
+            p.id,
+            p.nome,
+            p.telefone || '',
+            p.valorPadrao || '',
+            p.formaPagamento || '',
+            p.criadoEm || nowIso,
+            p.endereco || '',
+            p.bairro || '',
+            p.cidade || '',
+            p.dataNascimento || '',
+            p.contato02 || '',
+            p.documento || '',
+            p.tcle || '',
+            p.contrato || '',
+            p.frequenciaSemanal || '',
+            p.diagClinico || '',
+            p.diagFuncional || '',
+            p.objetivos || ''
+          ];
         });
         var sP = getPacSheet_();
         sP.getRange(sP.getLastRow() + 1, 1, pRows.length, PAC_HEADERS.length).setValues(pRows);
@@ -284,7 +380,27 @@ function doPost(e) {
         sA.getRange(sA.getLastRow() + 1, 1, aRows.length, ATEND_HEADERS.length).setValues(aRows);
       }
 
-      // 3. Exercícios
+      // 3. Evoluções
+      if (Array.isArray(body.evolucoes) && body.evolucoes.length > 0) {
+        var evoRows = body.evolucoes.map(function(ev) {
+          return [
+            ev.id,
+            ev.pacienteId || '',
+            ev.pacienteNome || '',
+            ev.data || '',
+            ev.hora || '',
+            ev.pa || '',
+            ev.fc || '',
+            ev.estadoClinico || '',
+            ev.condutas || '',
+            ev.criadoEm || nowIso
+          ];
+        });
+        var sEvoSheet = getEvoSheet_();
+        sEvoSheet.getRange(sEvoSheet.getLastRow() + 1, 1, evoRows.length, EVO_HEADERS.length).setValues(evoRows);
+      }
+
+      // 4. Exercícios
       if (Array.isArray(body.exercicios) && body.exercicios.length > 0) {
         var eRows = body.exercicios.map(function(x) {
           return [x.id, x.nome, x.tipo || '', x.seriesPadrao || '', x.repsPadrao || '', x.observacao || '', x.imagem || '', x.criadoEm || nowIso];
@@ -293,7 +409,7 @@ function doPost(e) {
         sE.getRange(sE.getLastRow() + 1, 1, eRows.length, EXE_HEADERS.length).setValues(eRows);
       }
 
-      // 4. Rotinas
+      // 5. Rotinas
       if (Array.isArray(body.rotinas) && body.rotinas.length > 0) {
         var rRows = body.rotinas.map(function(r) {
           return [r.id, r.pacienteId || '', r.pacienteNome || '', r.exercicioId || '', r.ordem || '', r.series || '', r.reps || '', r.observacao || '', r.criadoEm || nowIso, r.rotulo || ''];
@@ -305,6 +421,7 @@ function doPost(e) {
       result.importedCounts = {
         pacientes: (body.pacientes || []).length,
         atendimentos: (body.atendimentos || []).length,
+        evolucoes: (body.evolucoes || []).length,
         exercicios: (body.exercicios || []).length,
         rotinas: (body.rotinas || []).length
       };

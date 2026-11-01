@@ -1737,7 +1737,7 @@ async function submitPatientForm(existingId){
     var idx = patients.findIndex(function(x){ return x.id === existingId; });
     if(idx > -1){
       var oldData = Object.assign({}, patients[idx]);
-      if(oldData.nome && oldData.nome !== nome && !patients[idx].oldNome){
+      if(oldData.nome && oldData.nome !== nome){
         patients[idx].oldNome = oldData.nome;
         try{ localStorage.setItem('ft_old_nome_' + existingId, oldData.nome); }catch(e){}
       }
@@ -1883,13 +1883,16 @@ async function deletePatient(id){
 
   var idx = patients.findIndex(function(x){ return x.id === id; });
   var removed = patients[idx];
+  var oldEvolutions = evolutions.slice();
   patients.splice(idx, 1);
+  evolutions = evolutions.filter(function(ev){ return ev.pacienteId !== id; });
   try{ localStorage.removeItem('ft_avatar_' + id); }catch(e){}
   try{ localStorage.removeItem('ft_nome_fantasia_' + id); }catch(e){}
   try{ localStorage.removeItem('ft_old_nome_' + id); }catch(e){}
   renderPatientsTab();
   populatePatientFilter();
   populateEvolutionsFilters();
+  renderEvolutionsTab();
   renderList();
   closeModal();
   showToast('Paciente excluído.', 'ok');
@@ -1898,7 +1901,11 @@ async function deletePatient(id){
     await postAction({ action: 'delete_patient', id: id });
   }catch(err){
     patients.splice(idx, 0, removed);
+    evolutions = oldEvolutions;
     renderPatientsTab();
+    populatePatientFilter();
+    populateEvolutionsFilters();
+    renderEvolutionsTab();
     showError('Não foi possível excluir o paciente na planilha.');
   }
 }
@@ -2082,15 +2089,17 @@ var pFinSelectedMonth = new Date().getMonth();
 var pFinMultiMonths = {};
 var pFinActivePatientId = null;
 
-function openPatientFinancial(patientId){
+function openPatientFinancial(patientId, keepFilters){
   var p = patients.find(function(x){ return x.id === patientId; });
   if(!p) return;
 
   pFinActivePatientId = patientId;
-  pFinPeriodMode = 'all';
-  pFinSelectedYear = currentMonth.getFullYear();
-  pFinSelectedMonth = currentMonth.getMonth();
-  pFinMultiMonths = {};
+  if(!keepFilters){
+    pFinPeriodMode = 'all';
+    pFinSelectedYear = currentMonth.getFullYear();
+    pFinSelectedMonth = currentMonth.getMonth();
+    pFinMultiMonths = {};
+  }
 
   var hidden = isFinancialsHidden();
   var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
@@ -2112,10 +2121,10 @@ function openPatientFinancial(patientId){
 
       '<!-- Seletor de Tipo de Período -->' +
       '<div class="period-tabs">' +
-        '<button class="period-tab active" id="pftab_all" onclick="setPatientFinMode(\''+p.id+'\', \'all\')">Tudo</button>' +
-        '<button class="period-tab" id="pftab_month" onclick="setPatientFinMode(\''+p.id+'\', \'month\')">Por Mês</button>' +
-        '<button class="period-tab" id="pftab_year" onclick="setPatientFinMode(\''+p.id+'\', \'year\')">Por Ano</button>' +
-        '<button class="period-tab" id="pftab_multi" onclick="setPatientFinMode(\''+p.id+'\', \'multi\')">Vários Meses</button>' +
+        '<button class="period-tab '+(pFinPeriodMode==='all'?'active':'')+'" id="pftab_all" onclick="setPatientFinMode(\''+p.id+'\', \'all\')">Tudo</button>' +
+        '<button class="period-tab '+(pFinPeriodMode==='month'?'active':'')+'" id="pftab_month" onclick="setPatientFinMode(\''+p.id+'\', \'month\')">Por Mês</button>' +
+        '<button class="period-tab '+(pFinPeriodMode==='year'?'active':'')+'" id="pftab_year" onclick="setPatientFinMode(\''+p.id+'\', \'year\')">Por Ano</button>' +
+        '<button class="period-tab '+(pFinPeriodMode==='multi'?'active':'')+'" id="pftab_multi" onclick="setPatientFinMode(\''+p.id+'\', \'multi\')">Vários Meses</button>' +
       '</div>' +
 
       '<div id="pFinFilterControls" style="margin-bottom:12px;"></div>' +
@@ -2262,7 +2271,7 @@ function renderPatientFinancialDetails(patientId){
     return '<div class="top-row">' +
       '<div class="nm">' +
         '<div>'+formatDateBR(e.data)+(e.hora ? ' · '+e.hora : '')+'</div>' +
-        '<span class="badge '+(pago?'pago':'pendente')+'" onclick="badgeClick(\''+e.id+'\'); renderPatientFinancialDetails(\''+patientId+'\');">'+e.status+'</span>' +
+        '<span class="badge '+(pago?'pago':'pendente')+'" onclick="badgeClick(\''+e.id+'\', \''+patientId+'\');">'+e.status+'</span>' +
       '</div>' +
       '<div class="vl">'+(hidden ? 'R$ •••' : formatMoney(e.valor))+'</div>' +
     '</div>';
@@ -2690,7 +2699,9 @@ function openPatientEvolutions(patientId){
   var p = patients.find(function(x){ return x.id === patientId; });
   if(!p) return;
 
-  var pEvos = evolutions.filter(function(x){ return x.pacienteId === patientId; })
+  var pEvos = evolutions.filter(function(x){
+      return x.pacienteId === patientId || (!x.pacienteId && findPatientForEvolution(x) === p);
+    })
     .sort(function(a,b){
       var dtA = (a.data||'') + ' ' + (a.hora||'');
       var dtB = (b.data||'') + ' ' + (b.hora||'');
@@ -2800,7 +2811,7 @@ function exportSelectedPatientEvolutionsPDF(patientId){
   }
 
   var selectedList = evolutions.filter(function(x){
-    return x.pacienteId === patientId && selectedIds.indexOf(x.id) > -1;
+    return (x.pacienteId === patientId || (!x.pacienteId && findPatientForEvolution(x) === p)) && selectedIds.indexOf(x.id) > -1;
   }).sort(function(a,b){
     return (a.data || '').localeCompare(b.data || '');
   });
@@ -3177,9 +3188,11 @@ async function deleteEntry(id){
   }
 }
 
-function openPaymentModal(id){
+function openPaymentModal(id, returnToPatientId){
   var e = entries.find(function(x){ return x.id === id; });
   if(!e) return;
+  var cancelAction = returnToPatientId ? 'openPatientFinancial(\''+returnToPatientId+'\', true)' : 'closeModal()';
+  var confirmAction = returnToPatientId ? 'submitPayment(\''+e.id+'\', \''+returnToPatientId+'\')' : 'submitPayment(\''+e.id+'\')';
   var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
     '<div class="modal">' +
       '<div class="grabber"></div>' +
@@ -3188,15 +3201,15 @@ function openPaymentModal(id){
       '<label>Data do pagamento</label>' +
       '<input id="payDate" type="date" value="'+isoDate(new Date())+'">' +
       '<div class="btn-row">' +
-        '<button class="btn ghost" onclick="closeModal()">Cancelar</button>' +
-        '<button class="btn primary" style="flex:1;" onclick="submitPayment(\''+e.id+'\')">Confirmar Pagamento</button>' +
+        '<button class="btn ghost" onclick="'+cancelAction+'">Cancelar</button>' +
+        '<button class="btn primary" style="flex:1;" onclick="'+confirmAction+'">Confirmar Pagamento</button>' +
       '</div>' +
     '</div>' +
   '</div>';
   openModal(html);
 }
 
-async function submitPayment(id){
+async function submitPayment(id, returnToPatientId){
   var e = entries.find(function(x){ return x.id === id; });
   if(!e) return;
   var payDate = document.getElementById('payDate').value || isoDate(new Date());
@@ -3204,7 +3217,11 @@ async function submitPayment(id){
   var oldStatus = e.status, oldDate = e.paymentDate;
   e.status = 'Pago';
   e.paymentDate = payDate;
-  closeModal();
+  if(returnToPatientId){
+    openPatientFinancial(returnToPatientId, true);
+  } else {
+    closeModal();
+  }
   renderList();
   showToast('Pagamento registrado.', 'ok');
 
@@ -3213,18 +3230,25 @@ async function submitPayment(id){
   }catch(err){
     e.status = oldStatus; e.paymentDate = oldDate;
     renderList();
+    if(returnToPatientId && document.getElementById('pFinSessionsList')){
+      renderPatientFinancialDetails(returnToPatientId);
+    }
     showError('Falha ao registrar pagamento na planilha.');
   }
 }
 
-async function unpayEntry(id){
+async function unpayEntry(id, returnToPatientId){
   var e = entries.find(function(x){ return x.id === id; });
   if(!e) return;
   if(!confirm('Voltar o status desta sessão para "Pendente"?')) return;
 
   var oldStatus = e.status, oldDate = e.paymentDate;
   e.status = 'Pendente'; e.paymentDate = '';
-  closeModal();
+  if(returnToPatientId){
+    renderPatientFinancialDetails(returnToPatientId);
+  } else {
+    closeModal();
+  }
   renderList();
   showToast('Status alterado para Pendente.', 'ok');
 
@@ -3233,17 +3257,20 @@ async function unpayEntry(id){
   }catch(err){
     e.status = oldStatus; e.paymentDate = oldDate;
     renderList();
+    if(returnToPatientId && document.getElementById('pFinSessionsList')){
+      renderPatientFinancialDetails(returnToPatientId);
+    }
     showError('Falha ao atualizar status na planilha.');
   }
 }
 
-function badgeClick(id){
+function badgeClick(id, returnToPatientId){
   var e = entries.find(function(x){ return x.id === id; });
   if(!e) return;
   if(e.status === 'Pago'){
-    unpayEntry(id);
+    unpayEntry(id, returnToPatientId);
   } else {
-    openPaymentModal(id);
+    openPaymentModal(id, returnToPatientId);
   }
 }
 

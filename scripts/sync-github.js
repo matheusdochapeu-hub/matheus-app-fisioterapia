@@ -91,7 +91,7 @@ async function main() {
     }
 
     const body = {
-      message: `feat: atualizar ${relPath} (voltar das configuracoes e foto de perfil do paciente)`,
+      message: `feat: atualizar ${relPath} (selecao individual/todas de evolucoes para PDF unico e remocao de botao)`,
       content: contentBase64,
       branch: BRANCH
     };

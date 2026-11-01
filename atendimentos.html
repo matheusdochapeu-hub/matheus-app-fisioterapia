@@ -919,12 +919,91 @@ function formatFileSize(bytes){
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
+/* Retorna o Nome Fantasia (identificação interna no app). Se vazio, usa o Nome completo. */
+function getPatientDisplayName(p, fallback){
+  if(p){
+    var nf = String(p.nomeFantasia || '').trim();
+    if(nf) return nf;
+    var nm = String(p.nome || '').trim();
+    if(nm) return nm;
+  }
+  return String(fallback || '').trim();
+}
+
+/* Retorna o Nome Completo (exclusivo para documentos externos e exportações). */
+function getPatientLegalName(p, fallback){
+  if(p){
+    var nm = String(p.nome || '').trim();
+    if(nm) return nm;
+    var nf = String(p.nomeFantasia || '').trim();
+    if(nf) return nf;
+  }
+  return String(fallback || '').trim();
+}
+
+function normName(s){
+  return String(s || '').trim().toLowerCase();
+}
+
+function entryMatchesPatient(e, p){
+  if(!e || !p) return false;
+  var en = normName(e.nome);
+  if(!en) return false;
+  if(p.nome && normName(p.nome) === en) return true;
+  if(p.nomeFantasia && normName(p.nomeFantasia) === en) return true;
+  if(p.oldNome && normName(p.oldNome) === en) return true;
+  return false;
+}
+
+function findPatientByName(rawName){
+  var n = normName(rawName);
+  if(!n) return null;
+  return patients.find(function(p){
+    return (p.nome && normName(p.nome) === n) ||
+           (p.nomeFantasia && normName(p.nomeFantasia) === n) ||
+           (p.oldNome && normName(p.oldNome) === n);
+  }) || null;
+}
+
+function findPatientForEvolution(ev){
+  if(!ev) return null;
+  if(ev.pacienteId){
+    var byId = patients.find(function(p){ return p.id === ev.pacienteId; });
+    if(byId) return byId;
+  }
+  return findPatientByName(ev.pacienteNome);
+}
+
+function getEntryDisplayName(e){
+  if(!e) return '';
+  var p = findPatientByName(e.nome);
+  return getPatientDisplayName(p, e.nome);
+}
+
+function getEntryLegalName(e){
+  if(!e) return '';
+  var p = findPatientByName(e.nome);
+  return getPatientLegalName(p, e.nome);
+}
+
+function getEvolutionDisplayName(ev){
+  if(!ev) return 'Paciente';
+  var p = findPatientForEvolution(ev);
+  return getPatientDisplayName(p, ev.pacienteNome || 'Paciente');
+}
+
+function getEvolutionLegalName(ev){
+  if(!ev) return 'Paciente';
+  var p = findPatientForEvolution(ev);
+  return getPatientLegalName(p, ev.pacienteNome || 'Paciente');
+}
+
 /* Renderiza avatar com foto ou iniciais */
 function renderPatientAvatar(p, fallbackName){
   if(p && p.foto){
     return '<div class="avatar has-photo"><img src="'+escapeHtml(p.foto)+'" class="avatar-img" alt="Foto"></div>';
   }
-  var nm = (p && p.nome) || fallbackName || '';
+  var nm = (p && (p.nomeFantasia || p.nome)) || fallbackName || '';
   return '<div class="avatar">'+initials(nm)+'</div>';
 }
 
@@ -1223,6 +1302,8 @@ async function loadData(){
       return {
         id: String(r.ID),
         nome: r.Nome || '',
+        nomeFantasia: r.NomeFantasia || localStorage.getItem('ft_nome_fantasia_' + r.ID) || '',
+        oldNome: localStorage.getItem('ft_old_nome_' + r.ID) || '',
         telefone: r.Telefone || '',
         valorPadrao: valPadrao,
         formaPagamento: r.FormaPagamento || '',
@@ -1289,14 +1370,17 @@ function renderPatientsTab(){
 
   // Separa pacientes ativos e arquivados para enviar os arquivados ao final da fila
   var activeList = patients.filter(function(p){ return p.arquivado !== 'Sim'; })
-    .sort(function(a,b){ return String(a.nome).localeCompare(String(b.nome), 'pt-BR'); });
+    .sort(function(a,b){ return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b), 'pt-BR'); });
   var archivedList = patients.filter(function(p){ return p.arquivado === 'Sim'; })
-    .sort(function(a,b){ return String(a.nome).localeCompare(String(b.nome), 'pt-BR'); });
+    .sort(function(a,b){ return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b), 'pt-BR'); });
   var list = activeList.concat(archivedList);
 
   if(query){
     list = list.filter(function(p){
-      return (p.nome && p.nome.toLowerCase().indexOf(query) > -1) ||
+      var disp = getPatientDisplayName(p).toLowerCase();
+      return disp.indexOf(query) > -1 ||
+             (p.nome && p.nome.toLowerCase().indexOf(query) > -1) ||
+             (p.nomeFantasia && p.nomeFantasia.toLowerCase().indexOf(query) > -1) ||
              (p.telefone && p.telefone.indexOf(query) > -1) ||
              (p.documento && p.documento.toLowerCase().indexOf(query) > -1) ||
              (p.bairro && p.bairro.toLowerCase().indexOf(query) > -1);
@@ -1334,7 +1418,7 @@ function renderPatientsTab(){
         renderPatientAvatar(p) +
         '<div class="p-meta">' +
           '<div class="p-name-row">' +
-            '<div class="p-card-name">'+escapeHtml(p.nome)+'</div>' +
+            '<div class="p-card-name">'+escapeHtml(getPatientDisplayName(p))+'</div>' +
             '<span class="cascade-chevron '+(isOpen?'open':'')+'">&#9660;</span>' +
           '</div>' +
           '<div class="p-tags-row">' + archTag + priceTag + freqTag + tcleTag + docTag + '</div>' +
@@ -1399,9 +1483,10 @@ async function toggleArchivePatient(id){
   var p = patients.find(function(x){ return x.id === id; });
   if(!p) return;
   var isArchived = p.arquivado === 'Sim';
+  var dispName = getPatientDisplayName(p);
   var msg = isArchived
-    ? 'Reativar o paciente "' + p.nome + '"? Ele voltará para o topo da lista de pacientes ativos.'
-    : 'Finalizar o tratamento e arquivar o paciente "' + p.nome + '"?\n\nEle irá para o fim da fila e constará como finalizado no controle financeiro.';
+    ? 'Reativar o paciente "' + dispName + '"? Ele voltará para o topo da lista de pacientes ativos.'
+    : 'Finalizar o tratamento e arquivar o paciente "' + dispName + '"?\n\nEle irá para o fim da fila e constará como finalizado no controle financeiro.';
 
   if(!confirm(msg)) return;
 
@@ -1431,7 +1516,7 @@ function openPatientForm(patientId){
   var currentPhoto = (p && p.foto) || '';
   var photoPreviewHtml = currentPhoto
     ? '<img src="' + escapeHtml(currentPhoto) + '" class="avatar-img" id="pFormPhotoImg" alt="Foto">'
-    : '<span id="pFormPhotoInitials" style="font-size:18px;">' + initials(p ? p.nome : '?') + '</span>';
+    : '<span id="pFormPhotoInitials" style="font-size:18px;">' + initials(getPatientDisplayName(p, '?')) + '</span>';
 
   var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
     '<div class="modal">' +
@@ -1463,7 +1548,10 @@ function openPatientForm(patientId){
       '</div>' +
 
       '<div class="form-section-title">Identificação Básica</div>' +
-      '<label>Nome completo *</label>' +
+      '<label>Nome Fantasia (identificação no app)</label>' +
+      '<input id="pFormNomeFantasia" value="'+escapeHtml(p?(p.nomeFantasia||''):'')+'" placeholder="Ex: Dona Diva, Seu Sebastião">' +
+
+      '<label style="margin-top:8px;display:block;">Nome completo (para documentos) *</label>' +
       '<input id="pFormNome" value="'+escapeHtml(p?p.nome:'')+'" placeholder="Ex: Maria das Graças Silva">' +
 
       '<div class="form-grid-2" style="margin-top:8px;">' +
@@ -1570,16 +1658,18 @@ function openPatientForm(patientId){
   '</div>';
   openModal(html);
 
+  var fantasiaInp = document.getElementById('pFormNomeFantasia');
   var nameInp = document.getElementById('pFormNome');
-  if(nameInp){
-    nameInp.addEventListener('input', function(){
-      var photoData = document.getElementById('pFormPhotoData');
-      if(!photoData || !photoData.value){
-        var initialsEl = document.getElementById('pFormPhotoInitials');
-        if(initialsEl) initialsEl.textContent = initials(this.value);
-      }
-    });
+  function updatePhotoInitialsPreview(){
+    var photoData = document.getElementById('pFormPhotoData');
+    if(!photoData || !photoData.value){
+      var initialsEl = document.getElementById('pFormPhotoInitials');
+      var disp = (fantasiaInp && fantasiaInp.value.trim()) || (nameInp && nameInp.value.trim()) || '?';
+      if(initialsEl) initialsEl.textContent = initials(disp);
+    }
   }
+  if(fantasiaInp) fantasiaInp.addEventListener('input', updatePhotoInitialsPreview);
+  if(nameInp) nameInp.addEventListener('input', updatePhotoInitialsPreview);
 }
 
 function handlePatientPhotoSelect(event){
@@ -1601,17 +1691,20 @@ function removePatientPhotoPreview(){
   var hiddenInput = document.getElementById('pFormPhotoData');
   var preview = document.getElementById('pFormPhotoPreview');
   var removeBtn = document.getElementById('pFormPhotoRemoveBtn');
+  var fantasiaInput = document.getElementById('pFormNomeFantasia');
   var nameInput = document.getElementById('pFormNome');
   if(hiddenInput) hiddenInput.value = '';
-  var nm = nameInput ? nameInput.value.trim() : '';
+  var nm = (fantasiaInput && fantasiaInput.value.trim()) || (nameInput && nameInput.value.trim()) || '';
   if(preview) preview.innerHTML = '<span id="pFormPhotoInitials" style="font-size:18px;">' + initials(nm) + '</span>';
   if(removeBtn) removeBtn.classList.add('hidden');
   showToast('Foto removida.', 'ok');
 }
 
 async function submitPatientForm(existingId){
+  var nomeFantasia = (document.getElementById('pFormNomeFantasia') ? document.getElementById('pFormNomeFantasia').value : '').trim();
   var nome = document.getElementById('pFormNome').value.trim();
-  if(!nome){ alert('Por favor, informe o nome completo do paciente.'); return; }
+  if(!nome && !nomeFantasia){ alert('Por favor, informe o nome do paciente.'); return; }
+  if(!nome) nome = nomeFantasia;
 
   var doc = document.getElementById('pFormDoc').value.trim();
   var dataNasc = document.getElementById('pFormDataNasc').value;
@@ -1637,7 +1730,12 @@ async function submitPatientForm(existingId){
     var idx = patients.findIndex(function(x){ return x.id === existingId; });
     if(idx > -1){
       var oldData = Object.assign({}, patients[idx]);
+      if(oldData.nome && oldData.nome !== nome && !patients[idx].oldNome){
+        patients[idx].oldNome = oldData.nome;
+        try{ localStorage.setItem('ft_old_nome_' + existingId, oldData.nome); }catch(e){}
+      }
       patients[idx].nome = nome;
+      patients[idx].nomeFantasia = nomeFantasia;
       patients[idx].documento = doc;
       patients[idx].dataNascimento = dataNasc;
       patients[idx].telefone = tel;
@@ -1655,6 +1753,11 @@ async function submitPatientForm(existingId){
       patients[idx].objetivos = objetivos;
       patients[idx].foto = foto;
 
+      if(nomeFantasia){
+        try{ localStorage.setItem('ft_nome_fantasia_' + existingId, nomeFantasia); }catch(e){}
+      } else {
+        try{ localStorage.removeItem('ft_nome_fantasia_' + existingId); }catch(e){}
+      }
       if(foto){
         try{ localStorage.setItem('ft_avatar_' + existingId, foto); }catch(e){}
       } else {
@@ -1664,6 +1767,7 @@ async function submitPatientForm(existingId){
       renderPatientsTab();
       populatePatientFilter();
       populateEvolutionsFilters();
+      renderEvolutionsTab();
       renderList();
       closeModal();
       showToast('Dados atualizados com sucesso.', 'ok');
@@ -1673,6 +1777,7 @@ async function submitPatientForm(existingId){
           action: 'update_patient',
           id: existingId,
           nome: nome,
+          nomeFantasia: nomeFantasia,
           documento: doc,
           dataNascimento: dataNasc,
           telefone: tel,
@@ -1693,6 +1798,11 @@ async function submitPatientForm(existingId){
         });
       }catch(err){
         patients[idx] = oldData;
+        if(oldData.nomeFantasia){
+          try{ localStorage.setItem('ft_nome_fantasia_' + existingId, oldData.nomeFantasia); }catch(e){}
+        } else {
+          try{ localStorage.removeItem('ft_nome_fantasia_' + existingId); }catch(e){}
+        }
         if(oldData.foto){
           try{ localStorage.setItem('ft_avatar_' + existingId, oldData.foto); }catch(e){}
         } else {
@@ -1700,6 +1810,7 @@ async function submitPatientForm(existingId){
         }
         renderPatientsTab();
         populatePatientFilter();
+        renderEvolutionsTab();
         renderList();
         showError('Falha ao atualizar paciente na planilha: ' + err.message);
       }
@@ -1709,6 +1820,8 @@ async function submitPatientForm(existingId){
     var newPatient = {
       id: newId,
       nome: nome,
+      nomeFantasia: nomeFantasia,
+      oldNome: '',
       documento: doc,
       dataNascimento: dataNasc,
       telefone: tel,
@@ -1728,6 +1841,9 @@ async function submitPatientForm(existingId){
       foto: foto,
       criadoEm: new Date().toISOString()
     };
+    if(nomeFantasia){
+      try{ localStorage.setItem('ft_nome_fantasia_' + newId, nomeFantasia); }catch(e){}
+    }
     if(foto){
       try{ localStorage.setItem('ft_avatar_' + newId, foto); }catch(e){}
     }
@@ -1735,6 +1851,7 @@ async function submitPatientForm(existingId){
     renderPatientsTab();
     populatePatientFilter();
     populateEvolutionsFilters();
+    renderEvolutionsTab();
     renderList();
     closeModal();
     showToast('Paciente cadastrado com sucesso!', 'ok');
@@ -1743,6 +1860,7 @@ async function submitPatientForm(existingId){
       await postAction(Object.assign({ action: 'create_patient' }, newPatient));
     }catch(err){
       patients = patients.filter(function(x){ return x.id !== newId; });
+      try{ localStorage.removeItem('ft_nome_fantasia_' + newId); }catch(e){}
       try{ localStorage.removeItem('ft_avatar_' + newId); }catch(e){}
       renderPatientsTab();
       renderList();
@@ -1754,12 +1872,14 @@ async function submitPatientForm(existingId){
 async function deletePatient(id){
   var p = patients.find(function(x){ return x.id === id; });
   if(!p) return;
-  if(!confirm('Excluir permanentemente o paciente "' + p.nome + '"?\n\nAtenção: isso também removerá em cascata suas evoluções.')) return;
+  if(!confirm('Excluir permanentemente o paciente "' + getPatientDisplayName(p) + '"?\n\nAtenção: isso também removerá em cascata suas evoluções.')) return;
 
   var idx = patients.findIndex(function(x){ return x.id === id; });
   var removed = patients[idx];
   patients.splice(idx, 1);
   try{ localStorage.removeItem('ft_avatar_' + id); }catch(e){}
+  try{ localStorage.removeItem('ft_nome_fantasia_' + id); }catch(e){}
+  try{ localStorage.removeItem('ft_old_nome_' + id); }catch(e){}
   renderPatientsTab();
   populatePatientFilter();
   populateEvolutionsFilters();
@@ -1792,7 +1912,7 @@ async function openPatientFilesModal(patientId, tipo){
   var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
     '<div class="modal">' +
       '<div class="grabber"></div>' +
-      '<h2>' + escapeHtml(title + p.nome) + '</h2>' +
+      '<h2>' + escapeHtml(title + getPatientDisplayName(p)) + '</h2>' +
       '<p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 12px;">' + desc + '</p>' +
 
       '<div class="btn-row" style="margin-top:0;margin-bottom:14px;">' +
@@ -1969,7 +2089,7 @@ function openPatientFinancial(patientId){
       '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">' +
         '<div style="width:46px;height:46px;border-radius:14px;overflow:hidden;flex-shrink:0;">' + renderPatientAvatar(p) + '</div>' +
         '<div style="min-width:0;">' +
-          '<h2 style="margin:0 0 2px;font-size:18px;">Financeiro · ' + escapeHtml(p.nome) + '</h2>' +
+          '<h2 style="margin:0 0 2px;font-size:18px;">Financeiro · ' + escapeHtml(getPatientDisplayName(p)) + '</h2>' +
           '<p style="font-size:12px;color:var(--ink-soft);margin:0;">Filtre o período das sessões para consultar ou gerar extrato.</p>' +
         '</div>' +
       '</div>' +
@@ -2013,9 +2133,11 @@ function setPatientFinMode(patientId, mode){
   renderPatientFinancialDetails(patientId);
 }
 
-function getPatientFilteredSessions(patientName){
-  var pEntries = entries.filter(function(e){ return e.nome === patientName; })
-    .sort(function(a,b){ return String(b.data).localeCompare(String(a.data)); });
+function getPatientFilteredSessions(patientOrName){
+  var pObj = (patientOrName && typeof patientOrName === 'object') ? patientOrName : findPatientByName(patientOrName);
+  var pEntries = entries.filter(function(e){
+    return pObj ? entryMatchesPatient(e, pObj) : (e.nome === patientOrName);
+  }).sort(function(a,b){ return String(b.data).localeCompare(String(a.data)); });
 
   if(pFinPeriodMode === 'all') return pEntries;
 
@@ -2040,7 +2162,7 @@ function renderPatientFinancialDetails(patientId){
   var p = patients.find(function(x){ return x.id === patientId; });
   if(!p) return;
 
-  var pEntriesAll = entries.filter(function(e){ return e.nome === p.nome; });
+  var pEntriesAll = entries.filter(function(e){ return entryMatchesPatient(e, p); });
   var ctrl = document.getElementById('pFinFilterControls');
 
   // Coleta anos e meses com sessões deste paciente
@@ -2096,7 +2218,7 @@ function renderPatientFinancialDetails(patientId){
     }
   }
 
-  var list = getPatientFilteredSessions(p.nome);
+  var list = getPatientFilteredSessions(p);
   var total = 0, recebido = 0, pendente = 0;
   list.forEach(function(e){
     total += e.valor;
@@ -2135,7 +2257,7 @@ function generatePatientStatementPDF(patientId){
   var p = patients.find(function(x){ return x.id === patientId; });
   if(!p) return;
 
-  var pEntries = getPatientFilteredSessions(p.nome);
+  var pEntries = getPatientFilteredSessions(p);
   if(pEntries.length === 0){ alert('Nenhuma sessão no período selecionado para exportar.'); return; }
 
   var doc = new jspdf.jsPDF();
@@ -2146,8 +2268,9 @@ function generatePatientStatementPDF(patientId){
   if(pFinPeriodMode === 'month') periodDesc = 'Período: ' + monthLabelCap(new Date(pFinSelectedYear, pFinSelectedMonth, 1));
   if(pFinPeriodMode === 'multi') periodDesc = 'Período: Meses selecionados';
 
+  var legalName = getPatientLegalName(p);
   doc.setFontSize(10.5); doc.setTextColor(138,111,94);
-  doc.text('Paciente: ' + p.nome + (p.documento ? ' (' + p.documento + ')' : ''), 15, 54);
+  doc.text('Paciente: ' + legalName + (p.documento ? ' (' + p.documento + ')' : ''), 15, 54);
   doc.text(periodDesc, 15, 62);
 
   var rowY = 74, rowH = 9;
@@ -2196,7 +2319,7 @@ function generatePatientStatementPDF(patientId){
   doc.setFontSize(8.5); doc.setTextColor(138,111,94); doc.setFont('helvetica','normal');
   doc.text('Emitido em ' + formatDateBR(isoDate(new Date())), 15, 280);
 
-  doc.save('extrato_' + p.nome.replace(/\s+/g,'_') + '.pdf');
+  doc.save('extrato_' + legalName.replace(/\s+/g,'_') + '.pdf');
 }
 
 /* ============================================================
@@ -2231,8 +2354,8 @@ function populateEvolutionsFilters(){
   if(pSel){
     var cur = pSel.value;
     pSel.innerHTML = '<option value="">Todos os pacientes</option>' +
-      patients.slice().sort(function(a,b){ return String(a.nome).localeCompare(String(b.nome),'pt-BR'); }).map(function(p){
-        return '<option value="'+p.id+'">'+escapeHtml(p.nome)+'</option>';
+      patients.slice().sort(function(a,b){ return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b),'pt-BR'); }).map(function(p){
+        return '<option value="'+p.id+'">'+escapeHtml(getPatientDisplayName(p))+'</option>';
       }).join('');
     pSel.value = cur;
   }
@@ -2270,7 +2393,9 @@ function getFilteredEvolutions(){
     if(dtFrom && ev.data < dtFrom) return false;
     if(dtTo && ev.data > dtTo) return false;
     if(q){
-      var match = (ev.pacienteNome && ev.pacienteNome.toLowerCase().indexOf(q) > -1) ||
+      var disp = getEvolutionDisplayName(ev).toLowerCase();
+      var match = disp.indexOf(q) > -1 ||
+                  (ev.pacienteNome && ev.pacienteNome.toLowerCase().indexOf(q) > -1) ||
                   (ev.pa && ev.pa.toLowerCase().indexOf(q) > -1) ||
                   (ev.fc && ev.fc.toLowerCase().indexOf(q) > -1) ||
                   (ev.estadoClinico && ev.estadoClinico.toLowerCase().indexOf(q) > -1) ||
@@ -2303,7 +2428,7 @@ function renderEvolutionsTab(){
     return '<div class="evo-card">' +
       '<div class="evo-card-head">' +
         '<div>' +
-          '<div class="evo-card-name">'+escapeHtml(ev.pacienteNome || 'Paciente')+'</div>' +
+          '<div class="evo-card-name">'+escapeHtml(getEvolutionDisplayName(ev))+'</div>' +
           '<div class="evo-card-datetime">&#128197; '+formatDateBR(ev.data)+(ev.hora ? ' às '+escapeHtml(ev.hora) : '')+'</div>' +
         '</div>' +
         '<div class="vitals-row">' +
@@ -2330,9 +2455,9 @@ function openNewEvolution(preSelectPatientId){
   }
 
   var now = new Date();
-  var options = patients.slice().sort(function(a,b){ return String(a.nome).localeCompare(String(b.nome),'pt-BR'); }).map(function(p){
+  var options = patients.slice().sort(function(a,b){ return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b),'pt-BR'); }).map(function(p){
     var sel = (preSelectPatientId && p.id === preSelectPatientId) ? 'selected' : '';
-    return '<option value="'+p.id+'" '+sel+'>'+escapeHtml(p.nome)+'</option>';
+    return '<option value="'+p.id+'" '+sel+'>'+escapeHtml(getPatientDisplayName(p))+'</option>';
   }).join('');
 
   var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
@@ -2444,7 +2569,7 @@ function openEditEvolution(id){
     '<div class="modal">' +
       '<div class="grabber"></div>' +
       '<h2>Editar Evolução</h2>' +
-      '<p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 12px;">Paciente: <b>'+escapeHtml(ev.pacienteNome)+'</b></p>' +
+      '<p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 12px;">Paciente: <b>'+escapeHtml(getEvolutionDisplayName(ev))+'</b></p>' +
 
       '<div class="form-grid-2">' +
         '<div>' +
@@ -2593,7 +2718,7 @@ function openPatientEvolutions(patientId){
       '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">' +
         '<div style="width:46px;height:46px;border-radius:14px;overflow:hidden;flex-shrink:0;">' + renderPatientAvatar(p) + '</div>' +
         '<div style="min-width:0;">' +
-          '<h2 style="margin:0 0 2px;font-size:18px;">Prontuário · ' + escapeHtml(p.nome) + '</h2>' +
+          '<h2 style="margin:0 0 2px;font-size:18px;">Prontuário · ' + escapeHtml(getPatientDisplayName(p)) + '</h2>' +
           '<p style="font-size:12px;color:var(--ink-soft);margin:0;">Histórico de evoluções clínicas do paciente (' + pEvos.length + ').</p>' +
         '</div>' +
       '</div>' +
@@ -2664,13 +2789,13 @@ function exportSelectedPatientEvolutionsPDF(patientId){
     return (a.data || '').localeCompare(b.data || '');
   });
 
-  renderEvolutionsToPDF(selectedList, 'Prontuário Fisioterapêutico · Evoluções', 'Paciente: ' + p.nome);
+  renderEvolutionsToPDF(selectedList, 'Prontuário Fisioterapêutico · Evoluções', 'Paciente: ' + getPatientLegalName(p));
 }
 
 function generateSingleEvolutionPDF(evoId){
   var ev = evolutions.find(function(x){ return x.id === evoId; });
   if(!ev) return;
-  renderEvolutionsToPDF([ev], 'Registro de Evolução Clínica', 'Paciente: ' + ev.pacienteNome);
+  renderEvolutionsToPDF([ev], 'Registro de Evolução Clínica', 'Paciente: ' + getEvolutionLegalName(ev));
 }
 
 function generatePatientEvolutionsPDF(patientId){
@@ -2695,7 +2820,7 @@ function renderEvolutionsToPDF(list, mainTitle, subtitle){
     doc.setFillColor(248, 236, 224);
     doc.rect(15, y, 180, 8, 'F');
     doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(181, 84, 46);
-    doc.text((ev.pacienteNome || 'Paciente') + '  -  ' + formatDateBR(ev.data) + (ev.hora ? ' às ' + ev.hora : ''), 18, y + 5.5);
+    doc.text(getEvolutionLegalName(ev) + '  -  ' + formatDateBR(ev.data) + (ev.hora ? ' às ' + ev.hora : ''), 18, y + 5.5);
 
     var vitalsTxt = [ev.pa ? 'PA: ' + ev.pa : '', ev.fc ? 'FC: ' + ev.fc : ''].filter(Boolean).join('  |  ');
     if(vitalsTxt){
@@ -2733,7 +2858,7 @@ function renderEvolutionsToPDF(list, mainTitle, subtitle){
   doc.setFontSize(8.5); doc.setTextColor(138,111,94); doc.setFont('helvetica','normal');
   doc.text('Emitido em ' + formatDateBR(isoDate(new Date())), 15, 285);
 
-  var cleanName = (list[0] && list[0].pacienteNome) ? list[0].pacienteNome.replace(/\s+/g, '_') + '_' : '';
+  var cleanName = list[0] ? getEvolutionLegalName(list[0]).replace(/\s+/g, '_') + '_' : '';
   doc.save('prontuario_evolucoes_' + cleanName + isoDate(new Date()) + '.pdf');
 }
 
@@ -2745,12 +2870,12 @@ function populatePatientFilter(){
   if(!sel) return;
   var current = sel.value;
   var sortedPatients = patients.slice().sort(function(a,b){
-    return String(a.nome).localeCompare(String(b.nome),'pt-BR');
+    return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b),'pt-BR');
   });
 
   sel.innerHTML = '<option value="">Todas as pacientes</option>' + sortedPatients.map(function(p){
-    var label = escapeHtml(p.nome) + (p.arquivado === 'Sim' ? ' (Finalizado)' : '');
-    return '<option value="'+escapeHtml(p.nome)+'">'+label+'</option>';
+    var label = escapeHtml(getPatientDisplayName(p)) + (p.arquivado === 'Sim' ? ' (Finalizado)' : '');
+    return '<option value="'+escapeHtml(p.id)+'">'+label+'</option>';
   }).join('');
   sel.value = current;
 }
@@ -2758,11 +2883,12 @@ function populatePatientFilter(){
 function entriesForMonth(){
   var y = currentMonth.getFullYear(), m = currentMonth.getMonth();
   var pFilter = document.getElementById('patientFilter') ? document.getElementById('patientFilter').value : '';
+  var pFilterObj = pFilter ? (patients.find(function(x){ return x.id === pFilter; }) || findPatientByName(pFilter)) : null;
   return entries.filter(function(e){
     var d = new Date(e.data + 'T00:00:00');
     if(isNaN(d.getTime())) return false;
     var match = d.getFullYear() === y && d.getMonth() === m;
-    if(pFilter) match = match && e.nome === pFilter;
+    if(pFilter) match = match && (pFilterObj ? entryMatchesPatient(e, pFilterObj) : (e.nome === pFilter));
     return match;
   }).sort(function(a,b){ return String(b.data).localeCompare(String(a.data)); });
 }
@@ -2790,7 +2916,7 @@ function renderList(){
   list.forEach(function(e){
     total += e.valor;
     if(e.status === 'Pago') recebido += e.valor; else pendente += e.valor;
-    pacientesSet[e.nome] = true;
+    pacientesSet[getEntryDisplayName(e)] = true;
   });
 
   var hidden = isFinancialsHidden();
@@ -2817,8 +2943,9 @@ function renderList(){
 
   container.innerHTML = list.map(function(e){
     var pago = e.status === 'Pago';
-    var pObj = patients.find(function(x){ return x.nome === e.nome; });
+    var pObj = findPatientByName(e.nome);
     var isArchived = pObj && pObj.arquivado === 'Sim';
+    var dispName = getPatientDisplayName(pObj, e.nome);
 
     var paidNote = pago && e.paymentDate ? '<div class="paid-note">&#10003; Pago em '+formatDateBR(e.paymentDate)+'</div>' : '';
     var payBtn = !pago ? '<button class="pay" onclick="openPaymentModal(\''+e.id+'\')">&#128176; Pagar</button>' : '';
@@ -2829,7 +2956,7 @@ function renderList(){
         '<div class="entry-top">' +
           renderPatientAvatar(pObj, e.nome) +
           '<div class="info">' +
-            '<div class="name">'+escapeHtml(e.nome)+archBadge+'</div>' +
+            '<div class="name">'+escapeHtml(dispName)+archBadge+'</div>' +
             '<div class="date">'+formatDateBR(e.data)+(e.hora ? ' &middot; '+escapeHtml(e.hora) : '')+'</div>' +
             paidNote +
           '</div>' +
@@ -2859,9 +2986,9 @@ function openNewEntry(patientId){
     return;
   }
   var now = new Date();
-  var options = patients.slice().sort(function(a,b){ return String(a.nome).localeCompare(String(b.nome),'pt-BR'); }).map(function(p){
+  var options = patients.slice().sort(function(a,b){ return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b),'pt-BR'); }).map(function(p){
     var sel = (patientId && p.id === patientId) ? 'selected' : '';
-    return '<option value="'+escapeHtml(p.nome)+'" data-valor="'+escapeHtml(p.valorPadrao||'')+'" '+sel+'>'+escapeHtml(p.nome)+'</option>';
+    return '<option value="'+escapeHtml(p.nome)+'" data-valor="'+escapeHtml(p.valorPadrao||'')+'" '+sel+'>'+escapeHtml(getPatientDisplayName(p))+'</option>';
   }).join('');
 
   var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
@@ -2963,9 +3090,9 @@ function openEditEntry(id){
   var e = entries.find(function(x){ return x.id === id; });
   if(!e) return;
 
-  var options = patients.map(function(p){
-    var sel = p.nome === e.nome ? 'selected' : '';
-    return '<option value="'+escapeHtml(p.nome)+'" '+sel+'>'+escapeHtml(p.nome)+'</option>';
+  var options = patients.slice().sort(function(a,b){ return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b),'pt-BR'); }).map(function(p){
+    var sel = entryMatchesPatient(e, p) ? 'selected' : '';
+    return '<option value="'+escapeHtml(p.nome)+'" '+sel+'>'+escapeHtml(getPatientDisplayName(p))+'</option>';
   }).join('');
 
   var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
@@ -3041,7 +3168,7 @@ function openPaymentModal(id){
     '<div class="modal">' +
       '<div class="grabber"></div>' +
       '<h2>Registrar pagamento</h2>' +
-      '<p style="font-size:13px;color:var(--ink-soft);margin:0 0 12px;">Sessão de <b>'+escapeHtml(e.nome)+'</b> &middot; '+(isFinancialsHidden()?'R$ •••':formatMoney(e.valor))+'</p>' +
+      '<p style="font-size:13px;color:var(--ink-soft);margin:0 0 12px;">Sessão de <b>'+escapeHtml(getEntryDisplayName(e))+'</b> &middot; '+(isFinancialsHidden()?'R$ •••':formatMoney(e.valor))+'</p>' +
       '<label>Data do pagamento</label>' +
       '<input id="payDate" type="date" value="'+isoDate(new Date())+'">' +
       '<div class="btn-row">' +
@@ -3114,19 +3241,19 @@ function openMonthlyReceipt(){
   }
 
   var y = currentMonth.getFullYear(), m = currentMonth.getMonth();
-  var sortedPatients = patients.slice().sort(function(a,b){ return String(a.nome).localeCompare(String(b.nome),'pt-BR'); });
+  var sortedPatients = patients.slice().sort(function(a,b){ return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b),'pt-BR'); });
 
   var rowsHtml = sortedPatients.map(function(p){
     var sCount = entries.filter(function(e){
       var d = new Date(e.data + 'T00:00:00');
-      return !isNaN(d.getTime()) && e.nome === p.nome && d.getFullYear() === y && d.getMonth() === m;
+      return !isNaN(d.getTime()) && entryMatchesPatient(e, p) && d.getFullYear() === y && d.getMonth() === m;
     }).length;
 
     var sBadge = sCount > 0 ? '<span class="patient-chk-count">(' + sCount + ' sessões)</span>' : '<span style="color:var(--ink-soft);font-size:11px;">(0 sessões)</span>';
 
     return '<label class="patient-chk-row">' +
-      '<input type="checkbox" class="rec-patient-chk" value="'+escapeHtml(p.nome)+'" '+(sCount>0?'checked':'')+'>' +
-      '<span class="patient-chk-info"><b>'+escapeHtml(p.nome)+'</b></span>' +
+      '<input type="checkbox" class="rec-patient-chk" value="'+escapeHtml(p.id)+'" '+(sCount>0?'checked':'')+'>' +
+      '<span class="patient-chk-info"><b>'+escapeHtml(getPatientDisplayName(p))+'</b></span>' +
       sBadge +
     '</label>';
   }).join('');
@@ -3162,9 +3289,9 @@ function toggleSelectAllRec(master){
 
 function submitMonthlyReceipt(){
   var chks = document.querySelectorAll('.rec-patient-chk:checked');
-  var selectedNames = Array.from(chks).map(function(c){ return c.value; });
+  var selectedIds = Array.from(chks).map(function(c){ return c.value; });
 
-  if(selectedNames.length === 0){
+  if(selectedIds.length === 0){
     alert('Selecione pelo menos um paciente para gerar o comprovante.');
     return;
   }
@@ -3172,14 +3299,16 @@ function submitMonthlyReceipt(){
   var y = currentMonth.getFullYear(), m = currentMonth.getMonth();
   var patientsWithSessions = [];
 
-  selectedNames.forEach(function(pName){
+  selectedIds.forEach(function(pId){
+    var pObj = patients.find(function(x){ return x.id === pId; }) || findPatientByName(pId);
+    if(!pObj) return;
     var sList = entries.filter(function(e){
       var d = new Date(e.data + 'T00:00:00');
-      return !isNaN(d.getTime()) && e.nome === pName && d.getFullYear() === y && d.getMonth() === m;
+      return !isNaN(d.getTime()) && entryMatchesPatient(e, pObj) && d.getFullYear() === y && d.getMonth() === m;
     }).sort(function(a,b){ return String(a.data).localeCompare(String(b.data)); });
 
     if(sList.length > 0){
-      patientsWithSessions.push({ name: pName, sessions: sList });
+      patientsWithSessions.push({ name: getPatientLegalName(pObj), sessions: sList });
     }
   });
 
@@ -3310,6 +3439,7 @@ function generateReceipt(id){
   var doc = new jspdf.jsPDF();
   receiptHeader(doc, 'Recibo de Sessão');
 
+  var legalName = getEntryLegalName(e);
   doc.setFontSize(11);
   var y = 58;
   function line(label, value){
@@ -3317,7 +3447,7 @@ function generateReceipt(id){
     doc.setTextColor(58,42,32); doc.text(String(value), 60, y);
     y += 9;
   }
-  line('Paciente:', e.nome);
+  line('Paciente:', legalName);
   line('Data da sessão:', formatDateBR(e.data) + (e.hora ? ' às ' + e.hora : ''));
   line('Valor:', formatMoney(e.valor));
   line('Status:', e.status + (e.paymentDate ? ' em ' + formatDateBR(e.paymentDate) : ''));
@@ -3339,7 +3469,7 @@ function generateReceipt(id){
   doc.setFontSize(8.5); doc.setTextColor(138,111,94);
   doc.text('Emitido em ' + formatDateBR(isoDate(new Date())), 15, 280);
 
-  doc.save('recibo_' + String(e.nome).replace(/\s+/g,'_') + '_' + e.data + '.pdf');
+  doc.save('recibo_' + String(legalName).replace(/\s+/g,'_') + '_' + e.data + '.pdf');
 }
 
 /* ============================================================
@@ -3432,12 +3562,13 @@ function renderReportBody(){
   list.forEach(function(e){
     total += e.valor;
     if(e.status === 'Pago') recebido += e.valor; else pendente += e.valor;
-    pacientesSet[e.nome] = true;
-    if(!porPaciente[e.nome]) porPaciente[e.nome] = { sessoes:0, valor:0 };
-    porPaciente[e.nome].sessoes += 1;
-    porPaciente[e.nome].valor += e.valor;
+    var dispName = getEntryDisplayName(e);
+    pacientesSet[dispName] = true;
+    if(!porPaciente[dispName]) porPaciente[dispName] = { sessoes:0, valor:0 };
+    porPaciente[dispName].sessoes += 1;
+    porPaciente[dispName].valor += e.valor;
 
-    var pObj = patients.find(function(p){ return p.nome === e.nome; });
+    var pObj = findPatientByName(e.nome);
     var metodo = (pObj && pObj.formaPagamento) ? pObj.formaPagamento : 'Não informado';
     if(!porMetodo[metodo]) porMetodo[metodo] = { count: 0, total: 0 };
     porMetodo[metodo].count += 1;
@@ -3639,7 +3770,7 @@ function exportAnnualFinancialPDF(){
       if(idx % 2 === 0){ doc.setFillColor(248,236,224); doc.rect(15, rowY, 180, rowH, 'F'); }
       doc.setTextColor(58,42,32); doc.setFontSize(9);
       doc.text(formatDateBR(s.data), 19, rowY+5.5);
-      doc.text(s.nome, 65, rowY+5.5);
+      doc.text(getEntryLegalName(s), 65, rowY+5.5);
       var pago = s.status === 'Pago';
       doc.setTextColor(pago?94:138, pago?123:90, pago?71:20);
       doc.text(s.status, 115, rowY+5.5);
@@ -3897,7 +4028,7 @@ function exportBackup(fmt){
   if(fmt === 'csv'){
     var csvRows = ['ID;Paciente;Data;Hora;Valor;Status;DataPagamento;Latitude;Longitude'];
     entries.forEach(function(e){
-      csvRows.push([e.id, e.nome, e.data, e.hora, e.valor, e.status, e.paymentDate, e.lat, e.lng].join(';'));
+      csvRows.push([e.id, getEntryLegalName(e), e.data, e.hora, e.valor, e.status, e.paymentDate, e.lat, e.lng].join(';'));
     });
     var blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
     var a = document.createElement('a');

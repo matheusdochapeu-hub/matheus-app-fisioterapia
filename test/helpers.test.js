@@ -26,6 +26,8 @@ const parseValor = extractFn('parseValor');
 const formatDateBR = extractFn('formatDateBR');
 const initials = extractFn('initials');
 const escapeHtml = extractFn('escapeHtml');
+const getPatientDisplayName = extractFn('getPatientDisplayName');
+const getPatientLegalName = extractFn('getPatientLegalName');
 const renderPatientAvatar = extractFnWithScope('renderPatientAvatar', { escapeHtml, initials });
 
 describe('parseValor', () => {
@@ -68,16 +70,30 @@ describe('escapeHtml', () => {
   });
 });
 
+describe('getPatientDisplayName and getPatientLegalName', () => {
+  test('prefers nomeFantasia for internal display and nome for external documents', () => {
+    const p = { nome: 'Diva Ferreira dos Santos', nomeFantasia: 'Dona Diva' };
+    assert.equal(getPatientDisplayName(p), 'Dona Diva');
+    assert.equal(getPatientLegalName(p), 'Diva Ferreira dos Santos');
+  });
+
+  test('falls back to nome when nomeFantasia is empty', () => {
+    const p = { nome: 'Maria das Graças Silva', nomeFantasia: '' };
+    assert.equal(getPatientDisplayName(p), 'Maria das Graças Silva');
+    assert.equal(getPatientLegalName(p), 'Maria das Graças Silva');
+  });
+});
+
 describe('renderPatientAvatar', () => {
   test('renders image tag when patient has photo', () => {
-    const p = { nome: 'Dona Diva', foto: 'data:image/jpeg;base64,abc123xyz' };
+    const p = { nome: 'Diva Ferreira', nomeFantasia: 'Dona Diva', foto: 'data:image/jpeg;base64,abc123xyz' };
     const res = renderPatientAvatar(p);
     assert.match(res, /<img src="data:image\/jpeg;base64,abc123xyz"/);
     assert.match(res, /class="avatar-img"/);
   });
 
-  test('falls back to initials when patient has no photo', () => {
-    const p = { nome: 'Dona Diva', foto: '' };
+  test('falls back to initials using nomeFantasia when patient has no photo', () => {
+    const p = { nome: 'Diva Ferreira dos Santos', nomeFantasia: 'Dona Diva', foto: '' };
     const res = renderPatientAvatar(p);
     assert.equal(res, '<div class="avatar">DD</div>');
   });
@@ -87,4 +103,5 @@ describe('renderPatientAvatar', () => {
     assert.equal(res, '<div class="avatar">CS</div>');
   });
 });
+
 

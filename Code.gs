@@ -206,6 +206,8 @@ function doPost(e) {
       if (body.data !== undefined) updateAtendField_(body.id, 'Data', body.data);
       if (body.hora !== undefined) updateAtendField_(body.id, 'Hora', body.hora);
       if (body.valor !== undefined) updateAtendField_(body.id, 'Valor', body.valor);
+      if (body.status !== undefined) updateAtendField_(body.id, 'Status', body.status);
+      if (body.paymentDate !== undefined) updateAtendField_(body.id, 'DataPagamento', body.paymentDate);
 
     /* ---------- Pacientes ---------- */
     } else if (body.action === 'create_patient') {

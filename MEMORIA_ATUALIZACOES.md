@@ -114,5 +114,18 @@ Versão do Service Worker: `atend-v31` (`sw.js`)
     - **No Agendamento de Sessões / Escala (`openScheduleModal`):** Painel dinâmico que analisa em tempo real o paciente e o horário escolhido em relação à casa da Scarlet e a atendimentos adjacentes do mesmo dia, alertando sobre a regra de 8–9 min ou recomendação de casa/rua antes mesmo de salvar.
     - **Simulador Geral de Rotas (`openRouteSimulatorModal`):** Botão **🚗 Rotas & Distâncias** na aba Agenda para simular trajetos entre quaisquer pacientes ou a partir de casa, testar cenários rápidos e ver a matriz de proximidade completa.
   - **Motor Híbrido de Rotas (Google Maps + Fallback Local):** `Code.gs` com handler `calc_routes_batch` usando `Maps.newDirectionFinder()` do Google Apps Script (direções de trânsito reais sem necessidade de chave externa de API); fallback inteligente no navegador com OSRM/Nominatim e coordenadas dos bairros de Ribeirão Preto (`RP_COORDS_REF`), com cache persistido em `localStorage` (`ft_route_cache_v1`).
+- **`atend-v33`:** Verificação Aprofundada do Google Agenda (`scarletsantos7@gmail.com`) e Auditoria Geral de Incongruências:
+  - **Verificação do Vínculo com o Google Agenda da Scarlet:**
+    - **Proteção Contra Erro de Auto-Convite (`resolveUserCalendar_` em `Code.gs`):** O `Code.gs` agora identifica se a conta do Apps Script executando a operação pertence à própria Scarlet (`scarletsantos7@gmail.com`). Nesse caso, `guestEmail` fica nulo e a gravação ocorre diretamente na agenda padrão, evitando a exceção do Google Agenda ao tentar convidar o próprio criador do evento. Se executado por outra conta, adiciona Scarlet como convidada para inserção automática na agenda dela.
+    - **Correção de Timezone Explícito (`parseScheduleDates_` em `Code.gs`):** As datas/horas agora são processadas com `Utilities.parseDate(...)` considerando o fuso da planilha (`SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone()`) ou `America/Sao_Paulo`, prevenindo deslocamentos indevidos de horário no celular da usuária caso o script esteja em fuso GMT ou Nova York.
+    - **Exclusão Real de Eventos Cancelados no Google Agenda:** Em `updateCalendarEventForSchedule_` (`Code.gs`) e `cancelScheduleStatus` (`atendimentos.html`), ao cancelar uma sessão o evento é removido do Google Agenda e a chave `CalendarEventId` é limpa na planilha, liberando a agenda da Scarlet. Ao reativar a sessão, um novo evento é criado e o novo ID é gravado.
+    - **Migração Automática do E-mail Padrão no Front-End:** Garante que contas antigas que continham `'primary'` no `localStorage` passem a usar `scarletsantos7@gmail.com` por padrão.
+    - **Mensagem Amigável no Teste de Conexão (`test_calendar`):** Retorna no modal se os eventos estão sendo gravados diretamente ou vinculados via convite para Scarlet.
+  - **Correção de Incongruências no Front-End (`atendimentos.html`):**
+    - **Correção de Nomes de Funções (`buildGoogleMapsDirectionsUrl` vs `buildGoogleMapsDirUrl`):** Corrigida a chamada no simulador de rotas e criados aliases de compatibilidade para evitar `ReferenceError`.
+    - **Criação de Aliases de Rotas e Combustível:** Implementadas as funções `formatDistanceKm`, `parseTimeMinutes`, `formatTimeMinutes`, `formatDurationHuman` e `calcFuelCost`, garantindo interoperabilidade entre modais.
+    - **Conformidade RFC 5545 em Arquivos `.ics` (`exportSchedulesICS`):** Adicionada a propriedade obrigatória `DTSTAMP`, permitindo importação limpa sem avisos em qualquer calendário (iOS, Google, macOS, Windows).
+  - **Testes Unitários:** 24 testes unitários automatizados passando com 100% de sucesso.
+
 
 

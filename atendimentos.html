@@ -898,6 +898,7 @@ var reportYear = currentMonth.getFullYear();
 var repMonthFilter = 'all'; // 'all' ou '0'..'11'
 var repExpandedPatient = null;
 var calMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+var calSelectedDay = null;
 var evoFilterExpanded = false;
 var evoSortOrder = 'desc'; // 'desc' (mais novos) ou 'asc' (mais antigos)
 
@@ -3756,6 +3757,7 @@ function openReports(keepState){
     reportYear = currentMonth.getFullYear();
     repMonthFilter = 'all';
     repExpandedPatient = null;
+    calSelectedDay = null;
     calMonth = new Date(reportYear, currentMonth.getMonth(), 1);
   }
 
@@ -3777,7 +3779,7 @@ function openReports(keepState){
       '</div>' +
 
       '<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">' +
-        '<select id="repMonthSelect" onchange="repMonthFilter=this.value; renderReportBody();" style="flex:1;padding:8px 10px;font-size:13px;">' +
+        '<select id="repMonthSelect" onchange="repMonthFilter=this.value; if(this.value!==\'all\'){ calMonth=new Date(reportYear, parseInt(this.value,10), 1); calSelectedDay=null; } renderReportBody();" style="flex:1;padding:8px 10px;font-size:13px;">' +
           mOpts +
         '</select>' +
         '<button class="eye-toggle-btn" onclick="toggleHideFinancials();" title="Ocultar ou exibir valores">' +
@@ -3805,6 +3807,7 @@ function toggleReportPatient(dispName){
 function shiftReportYear(delta){
   reportYear += delta;
   calMonth = new Date(reportYear, 0, 1);
+  calSelectedDay = null;
   var el = document.getElementById('repYear');
   if(el) el.textContent = reportYear;
 
@@ -4035,13 +4038,17 @@ function renderReportBody(){
   metodosHtml += '</div>';
 
   // Calendário de dias trabalhados
-  var cal = '<div class="rep-section-title">Dias Trabalhados</div>' +
+  var cal = '<div class="rep-section-title" style="display:flex;align-items:center;justify-content:space-between;">' +
+      '<span>Dias Trabalhados</span>' +
+      '<span style="font-size:10.5px;font-weight:500;text-transform:none;color:var(--ink-soft);">Toque no dia com &#10003; para ver os pacientes</span>' +
+    '</div>' +
     '<div class="month-nav" style="margin-bottom:8px;">' +
       '<button onclick="shiftCalMonth(-1)" aria-label="Mês anterior">&lsaquo;</button>' +
       '<div class="label" id="calMonthLabel"></div>' +
       '<button onclick="shiftCalMonth(1)" aria-label="Próximo mês">&rsaquo;</button>' +
     '</div>' +
-    '<div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-size:11px;"></div>';
+    '<div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-size:11px;"></div>' +
+    '<div id="calDayDetails" style="margin-top:8px;"></div>';
 
   bodyEl.innerHTML = kpis + barsHtml + top + metodosHtml + cal;
   renderWorkCalendar();
@@ -4049,12 +4056,19 @@ function renderReportBody(){
 
 function shiftCalMonth(delta){
   calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + delta, 1);
+  calSelectedDay = null;
+  renderWorkCalendar();
+}
+
+function toggleCalDay(dayIso){
+  calSelectedDay = (calSelectedDay === dayIso) ? null : dayIso;
   renderWorkCalendar();
 }
 
 function renderWorkCalendar(){
   var label = document.getElementById('calMonthLabel');
   var grid = document.getElementById('calGrid');
+  var detailsEl = document.getElementById('calDayDetails');
   if(!label || !grid) return;
   var y = calMonth.getFullYear(), m = calMonth.getMonth();
   label.textContent = monthLabel(calMonth);
@@ -4063,7 +4077,9 @@ function renderWorkCalendar(){
   entries.forEach(function(e){
     var d = new Date(e.data+'T00:00:00');
     if(!isNaN(d.getTime()) && d.getFullYear() === y && d.getMonth() === m){
-      byDay[d.getDate()] = (byDay[d.getDate()] || 0) + 1;
+      var dayNum = d.getDate();
+      if(!byDay[dayNum]) byDay[dayNum] = [];
+      byDay[dayNum].push(e);
     }
   });
 
@@ -4075,16 +4091,70 @@ function renderWorkCalendar(){
 
   for(var i=0; i<firstDow; i++) html += '<div></div>';
   for(var dia=1; dia<=daysInMonth; dia++){
-    var work = byDay[dia] > 0;
+    var dayEntries = byDay[dia] || [];
+    var work = dayEntries.length > 0;
+    var dayIso = y + '-' + pad(m + 1) + '-' + pad(dia);
+    var isSelected = calSelectedDay === dayIso;
     var isToday = today.getFullYear()===y && today.getMonth()===m && today.getDate()===dia;
-    var bg = work ? 'var(--primary-soft)' : 'var(--bg)';
-    var col = work ? 'var(--primary-deep)' : 'var(--ink-soft)';
-    var border = isToday ? '1px solid var(--primary)' : '1px solid var(--line)';
-    html += '<div style="padding:6px 0;background:'+bg+';color:'+col+';border:'+border+';border-radius:var(--radius-xs);font-weight:'+(work?700:500)+';">' +
-      dia + (work ? '<br><span style="font-size:9px;">&#10003;</span>' : '') +
+    var bg = isSelected ? 'var(--primary)' : (work ? 'var(--primary-soft)' : 'var(--bg)');
+    var col = isSelected ? '#fff' : (work ? 'var(--primary-deep)' : 'var(--ink-soft)');
+    var border = isSelected ? '1px solid var(--primary-deep)' : (isToday ? '1px solid var(--primary)' : '1px solid var(--line)');
+    var cursor = work ? 'cursor:pointer;' : '';
+    var clickAttr = work ? ' onclick="toggleCalDay(\''+dayIso+'\')" title="Ver '+dayEntries.length+' atendimento(s) neste dia"' : '';
+
+    html += '<div'+clickAttr+' style="'+cursor+'padding:6px 0;background:'+bg+';color:'+col+';border:'+border+';border-radius:var(--radius-xs);font-weight:'+(work?700:500)+';transition:all .12s ease;">' +
+      dia + (work ? '<br><span style="font-size:9px;">&#10003;'+(dayEntries.length > 1 ? ' '+dayEntries.length : '')+'</span>' : '') +
     '</div>';
   }
   grid.innerHTML = html;
+
+  if(!detailsEl) return;
+  if(!calSelectedDay){
+    detailsEl.innerHTML = '';
+    return;
+  }
+
+  var selEntries = entries.filter(function(e){ return e.data === calSelectedDay; }).sort(function(a,b){
+    return String(a.hora || '').localeCompare(String(b.hora || ''));
+  });
+
+  if(selEntries.length === 0){
+    detailsEl.innerHTML = '';
+    return;
+  }
+
+  var hidden = isFinancialsHidden();
+  var dayTotal = 0;
+  selEntries.forEach(function(e){ dayTotal += e.valor; });
+
+  var itemsHtml = selEntries.map(function(e){
+    var pago = e.status === 'Pago';
+    var dispName = getEntryDisplayName(e);
+    var paidInfo = (pago && e.paymentDate) ? ' &middot; <span style="color:var(--success-ink);">Pago em '+formatDateBR(e.paymentDate)+'</span>' : '';
+    return '<div class="rep-entry-item">' +
+      '<div style="min-width:0;flex:1;">' +
+        '<div style="font-weight:700;color:var(--ink);">'+escapeHtml(dispName)+'</div>' +
+        '<div style="font-size:11px;color:var(--ink-soft);">'+(e.hora ? '&#128336; '+escapeHtml(e.hora) : 'Horário não informado')+paidInfo+'</div>' +
+      '</div>' +
+      '<span class="badge '+(pago?'pago':'pendente')+'" style="cursor:pointer;" title="Clique para alterar status" onclick="badgeClick(\''+e.id+'\', \'reports\')">'+escapeHtml(e.status)+'</span>' +
+      '<div style="font-family:\'IBM Plex Mono\',monospace;font-weight:600;font-size:12px;min-width:74px;text-align:right;">'+(hidden ? 'R$ •••' : formatMoney(e.valor))+'</div>' +
+      '<div class="rep-entry-actions">' +
+        '<button class="rep-entry-btn" onclick="openEditEntry(\''+e.id+'\', \'reports\')" title="Editar lançamento">&#9998; Editar</button>' +
+        '<button class="rep-entry-btn del" onclick="deleteEntry(\''+e.id+'\', \'reports\')" title="Excluir lançamento">&#10005;</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  detailsEl.innerHTML = '<div class="rep-patient-drawer">' +
+    '<div class="rep-patient-drawer-head">' +
+      '<div>' +
+        '<b style="color:var(--primary-deep);">&#128197; '+formatDateBR(calSelectedDay)+'</b>' +
+        ' <span>('+selEntries.length+' '+(selEntries.length===1?'paciente atendido':'pacientes atendidos')+' &middot; Total: '+(hidden ? 'R$ •••' : formatMoney(dayTotal))+')</span>' +
+      '</div>' +
+      '<button class="rep-entry-btn" onclick="toggleCalDay(null)" title="Fechar detalhes do dia">&#10005; Fechar</button>' +
+    '</div>' +
+    itemsHtml +
+  '</div>';
 }
 
 function exportAnnualFinancialPDF(){

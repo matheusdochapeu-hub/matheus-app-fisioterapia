@@ -288,6 +288,10 @@
     transition:border-color .15s ease,box-shadow .15s ease;
   }
   .patient-card:hover{border-color:var(--primary-soft);}
+  .patient-card.archived{
+    opacity:.80;background:#faf5f0;border-style:dashed;border-color:#d4c4b5;
+  }
+  .patient-card.archived .p-card-name{color:var(--ink-soft);}
   .p-card-main{
     display:flex;align-items:center;gap:12px;padding:12px 14px;cursor:pointer;user-select:none;
   }
@@ -305,6 +309,7 @@
   .p-tag.freq{background:var(--primary-soft);border-color:var(--primary);color:var(--primary-deep);}
   .p-tag.ok{background:var(--success-soft);border-color:var(--success-line);color:var(--success-ink);}
   .p-tag.warn{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent-ink);}
+  .p-tag.archived{background:#e8e1da;color:#7a6254;border-color:#d4c4b5;}
   .p-sub-row{display:flex;align-items:center;gap:8px;margin-top:5px;font-size:var(--fs-xs);color:var(--ink-soft);}
   .wa-chip{
     display:inline-flex;align-items:center;gap:3px;background:#e9f7ef;color:#1ea860;
@@ -334,9 +339,7 @@
   }
 
   /* Evoluções Clínicas (Aba 2) */
-  .evo-top-actions{display:flex;gap:8px;margin-bottom:12px;}
-  .evo-top-actions .btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;}
-  .evo-filter-card{padding:12px;margin-bottom:14px;}
+  .evo-filter-card{padding:12px;margin-bottom:12px;}
   .filter-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
   .evo-card{
     background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
@@ -376,7 +379,7 @@
   .form-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
   .form-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;}
 
-  /* Checkbox list para seleção múltipla de comprovantes */
+  /* Checkbox list para seleção múltipla */
   .patient-chk-list{
     max-height:220px;overflow-y:auto;border:1px solid var(--line);border-radius:var(--radius-sm);
     padding:4px;background:var(--bg);margin:8px 0;
@@ -390,6 +393,33 @@
   .patient-chk-row input[type="checkbox"]{width:18px;height:18px;accent-color:var(--primary);margin:0;}
   .patient-chk-info{flex:1;min-width:0;font-size:var(--fs-sm);color:var(--ink);}
   .patient-chk-count{font-size:var(--fs-xs);color:var(--ink-soft);font-weight:600;}
+
+  /* Exames e Documentos (Arquivos) */
+  .file-item{
+    display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);
+    border-radius:var(--radius-sm);background:var(--surface);margin-bottom:8px;
+    box-shadow:var(--shadow-soft);
+  }
+  .file-icon{font-size:24px;flex-shrink:0;}
+  .file-info{flex:1;min-width:0;}
+  .file-name{font-size:var(--fs-sm);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink);}
+  .file-meta{font-size:var(--fs-xs);color:var(--ink-soft);margin-top:2px;}
+  .file-actions{display:flex;gap:6px;flex-shrink:0;}
+  .file-actions button{
+    padding:5px 8px;font-size:var(--fs-xs);border-radius:var(--radius-xs);
+    border:1px solid var(--line);background:var(--surface);cursor:pointer;
+  }
+
+  /* Abas de Período Financeiro */
+  .period-tabs{
+    display:flex;gap:4px;background:var(--bg);border:1px solid var(--line);
+    border-radius:var(--radius-sm);padding:3px;margin-bottom:10px;
+  }
+  .period-tab{
+    flex:1;font-size:11px;font-weight:600;padding:6px 4px;border:none;background:transparent;
+    border-radius:var(--radius-xs);color:var(--ink-soft);cursor:pointer;text-align:center;
+  }
+  .period-tab.active{background:var(--primary);color:#fff;}
 
   /* Botão Flutuante FAB */
   .fab{
@@ -431,7 +461,7 @@
 
   /* Relatórios */
   .year-nav{
-    display:flex;align-items:center;justify-content:space-between;margin:12px 0 16px;
+    display:flex;align-items:center;justify-content:space-between;margin:8px 0 12px;
     background:var(--bg);border:1px solid var(--line);border-radius:var(--radius-sm);padding:4px;
   }
   .year-nav button{background:none;border:none;font-size:20px;color:var(--primary);cursor:pointer;padding:4px 12px;}
@@ -568,7 +598,7 @@
       </div>
 
       <div class="patients-header-info">
-        <span id="patientListCount">0 pacientes cadastrados</span>
+        <span id="patientListCount">0 pacientes</span>
       </div>
 
       <div id="patientsContainer" class="patients-list"></div>
@@ -581,51 +611,65 @@
 
     <!-- ABA 2: EVOLUÇÕES CLÍNICAS (PRONTUÁRIOS) -->
     <div id="tabEvolucoesView" class="tab-view hidden">
-      <div class="evo-top-actions">
-        <button class="btn primary small" onclick="openNewEvolution()">
-          <svg style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Nova Evolução
-        </button>
-        <button class="btn accent small" onclick="exportEvolutionsPDF()">
-          <svg style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-          Exportar PDF
-        </button>
-        <button class="btn ghost small" onclick="exportEvolutionsBackup()">
-          <svg style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Backup
-        </button>
+      <!-- Filtro recolhido por padrão com botão expansor -->
+      <div class="card evo-filter-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;" onclick="toggleEvoFilter()">
+          <div style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--primary-deep);">
+            <svg style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <span>Filtros & Ordenação</span>
+          </div>
+          <span id="evoFilterChevron" style="font-size:11px;color:var(--ink-soft);transition:transform .2s ease;">&#9660;</span>
+        </div>
+
+        <div id="evoFilterBody" class="hidden" style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px;">
+          <div class="filter-grid-2">
+            <div>
+              <label class="filter-label" for="evoFilterPatient">Paciente</label>
+              <select id="evoFilterPatient" onchange="renderEvolutionsTab()">
+                <option value="">Todos os pacientes</option>
+              </select>
+            </div>
+            <div>
+              <label class="filter-label" for="evoFilterMonth">Mês / Ano</label>
+              <select id="evoFilterMonth" onchange="renderEvolutionsTab()">
+                <option value="">Todos os meses</option>
+              </select>
+            </div>
+          </div>
+          <div class="filter-grid-2" style="margin-top:8px;">
+            <div>
+              <label class="filter-label" for="evoFilterDateFrom">De (início)</label>
+              <input id="evoFilterDateFrom" type="date" onchange="renderEvolutionsTab()">
+            </div>
+            <div>
+              <label class="filter-label" for="evoFilterDateTo">Até (fim)</label>
+              <input id="evoFilterDateTo" type="date" onchange="renderEvolutionsTab()">
+            </div>
+          </div>
+          <div style="margin-top:8px;">
+            <label class="filter-label" for="evoFilterSearch">Busca textual</label>
+            <input id="evoFilterSearch" type="search" placeholder="Buscar por queixa, conduta, PA..." oninput="renderEvolutionsTab()">
+          </div>
+
+          <div style="margin-top:10px;">
+            <label class="filter-label">Ordenação temporal</label>
+            <div style="display:flex;gap:6px;margin-top:4px;">
+              <button id="btnOrderDesc" class="btn small primary" style="flex:1;" onclick="setEvoOrder('desc')">
+                ▼ Do mais novo pro mais antigo
+              </button>
+              <button id="btnOrderAsc" class="btn small ghost" style="flex:1;" onclick="setEvoOrder('asc')">
+                ▲ Do mais antigo para o mais novo
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div class="card evo-filter-card">
-        <div class="filter-grid-2">
-          <div>
-            <label class="filter-label" for="evoFilterPatient">Paciente</label>
-            <select id="evoFilterPatient" onchange="renderEvolutionsTab()">
-              <option value="">Todos os pacientes</option>
-            </select>
-          </div>
-          <div>
-            <label class="filter-label" for="evoFilterMonth">Mês / Ano</label>
-            <select id="evoFilterMonth" onchange="renderEvolutionsTab()">
-              <option value="">Todos os meses</option>
-            </select>
-          </div>
-        </div>
-        <div class="filter-grid-2" style="margin-top:8px;">
-          <div>
-            <label class="filter-label" for="evoFilterDateFrom">De (início)</label>
-            <input id="evoFilterDateFrom" type="date" onchange="renderEvolutionsTab()">
-          </div>
-          <div>
-            <label class="filter-label" for="evoFilterDateTo">Até (fim)</label>
-            <input id="evoFilterDateTo" type="date" onchange="renderEvolutionsTab()">
-          </div>
-        </div>
-        <div style="margin-top:8px;">
-          <label class="filter-label" for="evoFilterSearch">Busca textual</label>
-          <input id="evoFilterSearch" type="search" placeholder="Buscar por queixa, conduta, PA..." oninput="renderEvolutionsTab()">
-        </div>
-      </div>
+      <!-- ÚNICO BOTÃO GRANDE DE NOVA EVOLUÇÃO ABAIXO DO FILTRO -->
+      <button class="btn primary add-patient-bar-btn" style="margin:0 0 16px;" onclick="openNewEvolution()">
+        <svg style="width:18px;height:18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        + Nova Evolução
+      </button>
 
       <div id="evosFeedContainer" class="evos-feed"></div>
     </div>
@@ -640,26 +684,26 @@
 
       <div class="fin-privacy-bar">
         <button id="eyeToggleBtn" class="eye-toggle-btn" onclick="toggleHideFinancials()" title="Ocultar ou exibir valores">
-          <span id="eyeIcon">👁️</span>
-          <span id="eyeText">Ocultar valores</span>
+          <span id="eyeIcon">🙈</span>
+          <span id="eyeText">Exibir valores</span>
         </button>
       </div>
 
       <div class="summary-grid">
         <div class="metric">
           <div class="label">&#10003; Recebido no mês</div>
-          <div class="value" id="metricRecebido">R$ 0,00</div>
+          <div class="value" id="metricRecebido">R$ ••••••</div>
         </div>
         <div class="metric accent">
           <div class="label">&#8987; A receber</div>
-          <div class="value" id="metricPendente">R$ 0,00</div>
+          <div class="value" id="metricPendente">R$ ••••••</div>
         </div>
       </div>
 
       <div class="month-stats">
         <div class="chip"><span class="n" id="statSessoes">0</span><span class="t">sessões<br>no mês</span></div>
         <div class="chip"><span class="n" id="statPacientes">0</span><span class="t">pacientes<br>atendidas</span></div>
-        <div class="chip"><span class="n" id="statTotal">R$ 0</span><span class="t">total<br>do mês</span></div>
+        <div class="chip"><span class="n" id="statTotal">R$ ••••••</span><span class="t">total<br>do mês</span></div>
       </div>
 
       <div class="action-bar">
@@ -708,7 +752,10 @@ var currentMonth = new Date();
 var currentTab = 'pacientes';
 var _modalStatePushed = false;
 var reportYear = currentMonth.getFullYear();
+var repMonthFilter = 'all'; // 'all' ou '0'..'11'
 var calMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+var evoFilterExpanded = false;
+var evoSortOrder = 'desc'; // 'desc' (mais novos) ou 'asc' (mais antigos)
 
 function pad(n){ return n < 10 ? '0'+n : ''+n; }
 function isoDate(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
@@ -761,6 +808,81 @@ function escapeHtml(s){
     .replace(/'/g, '&#39;');
 }
 function onlyDigits(s){ return String(s||'').replace(/\D/g,''); }
+
+/* Formatador amigável de tamanho de arquivo */
+function formatFileSize(bytes){
+  if(!bytes || bytes <= 0) return '0 KB';
+  if(bytes < 1024 * 1024){
+    return (bytes / 1024).toFixed(1) + ' KB';
+  }
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+/* ============================================================
+   BANCO DE DADOS LOCAL (IndexedDB) PARA EXAMES & DOCUMENTOS
+   ============================================================ */
+var DB_NAME = 'ft_docs_db';
+var DB_VERSION = 1;
+
+function getDb(){
+  return new Promise(function(resolve, reject){
+    var req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = function(e){
+      var db = e.target.result;
+      if(!db.objectStoreNames.contains('files')){
+        db.createObjectStore('files', { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = function(e){ resolve(e.target.result); };
+    req.onerror = function(e){ reject(e.target.error); };
+  });
+}
+
+async function dbSaveFile(fileObj){
+  var db = await getDb();
+  return new Promise(function(resolve, reject){
+    var tx = db.transaction('files', 'readwrite');
+    tx.objectStore('files').put(fileObj);
+    tx.oncomplete = function(){ resolve(); };
+    tx.onerror = function(e){ reject(e.target.error); };
+  });
+}
+
+async function dbGetFilesByPatient(pacienteId, tipo){
+  var db = await getDb();
+  return new Promise(function(resolve, reject){
+    var tx = db.transaction('files', 'readonly');
+    var req = tx.objectStore('files').getAll();
+    req.onsuccess = function(){
+      var all = req.result || [];
+      var filtered = all.filter(function(f){
+        return f.pacienteId === pacienteId && (!tipo || f.tipo === tipo);
+      }).sort(function(a,b){ return (b.data || '').localeCompare(a.data || ''); });
+      resolve(filtered);
+    };
+    req.onerror = function(e){ reject(e.target.error); };
+  });
+}
+
+async function dbDeleteFile(id){
+  var db = await getDb();
+  return new Promise(function(resolve, reject){
+    var tx = db.transaction('files', 'readwrite');
+    tx.objectStore('files').delete(id);
+    tx.oncomplete = function(){ resolve(); };
+    tx.onerror = function(e){ reject(e.target.error); };
+  });
+}
+
+async function dbGetFileById(id){
+  var db = await getDb();
+  return new Promise(function(resolve, reject){
+    var tx = db.transaction('files', 'readonly');
+    var req = tx.objectStore('files').get(id);
+    req.onsuccess = function(){ resolve(req.result || null); };
+    req.onerror = function(e){ reject(e.target.error); };
+  });
+}
 
 /* ---------- Controle de Abas ---------- */
 function switchMainTab(tab){
@@ -818,23 +940,30 @@ function handleFabClick(){
   }
 }
 
-/* ---------- Privacidade Financeira (Olho) ---------- */
+/* ---------- Privacidade Financeira (Olho: Oculto por Padrão) ---------- */
 function isFinancialsHidden(){
-  return localStorage.getItem('hide_financials') === 'true';
+  var show = sessionStorage.getItem('show_financials');
+  // Por padrão os valores aparecem ocultos sempre, a não ser que o usuário clique no botão para exibir
+  return show !== 'true';
 }
+
 function toggleHideFinancials(){
   var hidden = isFinancialsHidden();
-  localStorage.setItem('hide_financials', !hidden ? 'true' : 'false');
+  sessionStorage.setItem('show_financials', hidden ? 'true' : 'false');
+  localStorage.setItem('hide_financials', hidden ? 'false' : 'true');
   updateEyeButtonUI();
   renderList();
+  if(document.getElementById('repBody')) renderReportBody();
 }
+
 function updateEyeButtonUI(){
   var icon = document.getElementById('eyeIcon');
   var text = document.getElementById('eyeText');
-  if(!icon || !text) return;
+  var repIcon = document.getElementById('repEyeIcon');
   var hidden = isFinancialsHidden();
-  icon.textContent = hidden ? '🙈' : '👁️';
-  text.textContent = hidden ? 'Exibir valores' : 'Ocultar valores';
+  if(icon) icon.textContent = hidden ? '🙈' : '👁️';
+  if(text) text.textContent = hidden ? 'Exibir valores' : 'Ocultar valores';
+  if(repIcon) repIcon.textContent = hidden ? '🙈' : '👁️';
 }
 
 /* ---------- Controle de Modais & Botão Voltar do Celular ---------- */
@@ -970,6 +1099,7 @@ async function loadData(){
         diagClinico: r.DiagClinico || '',
         diagFuncional: r.DiagFuncional || '',
         objetivos: r.Objetivos || '',
+        arquivado: r.Arquivado || 'Não',
         criadoEm: r.CriadoEm || ''
       };
     });
@@ -1017,9 +1147,12 @@ function renderPatientsTab(){
   var clearBtn = document.getElementById('clearPatientSearch');
   if(clearBtn) clearBtn.classList.toggle('hidden', query === '');
 
-  var list = patients.slice().sort(function(a,b){
-    return String(a.nome).localeCompare(String(b.nome), 'pt-BR');
-  });
+  // Separa pacientes ativos e arquivados para enviar os arquivados ao final da fila
+  var activeList = patients.filter(function(p){ return p.arquivado !== 'Sim'; })
+    .sort(function(a,b){ return String(a.nome).localeCompare(String(b.nome), 'pt-BR'); });
+  var archivedList = patients.filter(function(p){ return p.arquivado === 'Sim'; })
+    .sort(function(a,b){ return String(a.nome).localeCompare(String(b.nome), 'pt-BR'); });
+  var list = activeList.concat(archivedList);
 
   if(query){
     list = list.filter(function(p){
@@ -1031,7 +1164,9 @@ function renderPatientsTab(){
   }
 
   if(countEl){
-    countEl.textContent = list.length + (list.length === 1 ? ' paciente cadastrado' : ' pacientes cadastrados');
+    var nActive = activeList.length;
+    var nArch = archivedList.length;
+    countEl.textContent = nActive + ' ativo(s)' + (nArch > 0 ? ' · ' + nArch + ' finalizado(s)' : '');
   }
 
   if(list.length === 0){
@@ -1044,6 +1179,7 @@ function renderPatientsTab(){
 
   container.innerHTML = list.map(function(p){
     var isOpen = patientCascadeOpenId === p.id;
+    var isArchived = p.arquivado === 'Sim';
     var telDigits = onlyDigits(p.telefone);
     var waLink = telDigits ? '<a class="wa-chip" href="https://wa.me/55'+telDigits+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">WhatsApp &#128172;</a>' : '';
 
@@ -1051,8 +1187,9 @@ function renderPatientsTab(){
     var freqTag = p.frequenciaSemanal ? '<span class="p-tag freq">'+escapeHtml(p.frequenciaSemanal)+'</span>' : '';
     var tcleTag = p.tcle === 'Sim' ? '<span class="p-tag ok">TCLE &#10003;</span>' : '<span class="p-tag warn">TCLE Pendente</span>';
     var docTag = p.contrato === 'Sim' ? '<span class="p-tag ok">Contrato &#10003;</span>' : '<span class="p-tag warn">Contrato Pendente</span>';
+    var archTag = isArchived ? '<span class="p-tag archived">Finalizado / Arquivado</span>' : '';
 
-    return '<div class="patient-card" id="pcard_'+p.id+'">' +
+    return '<div class="patient-card '+(isArchived ? 'archived' : '')+'" id="pcard_'+p.id+'">' +
       '<div class="p-card-main" onclick="togglePatientCascade(\''+p.id+'\')">' +
         '<div class="avatar">'+initials(p.nome)+'</div>' +
         '<div class="p-meta">' +
@@ -1060,7 +1197,7 @@ function renderPatientsTab(){
             '<div class="p-card-name">'+escapeHtml(p.nome)+'</div>' +
             '<span class="cascade-chevron '+(isOpen?'open':'')+'">&#9660;</span>' +
           '</div>' +
-          '<div class="p-tags-row">' + priceTag + freqTag + tcleTag + docTag + '</div>' +
+          '<div class="p-tags-row">' + archTag + priceTag + freqTag + tcleTag + docTag + '</div>' +
           '<div class="p-sub-row">' +
             (p.telefone ? '<span>'+escapeHtml(p.telefone)+'</span>' : '<span>Sem telefone</span>') +
             waLink +
@@ -1085,9 +1222,21 @@ function renderPatientsTab(){
             '<span class="casc-icon">&#128100;</span>' +
             '<div class="casc-info"><span class="casc-title">Dados Cadastrais</span><span class="casc-desc">Ficha & CREFITO-3</span></div>' +
           '</button>' +
+          '<button class="casc-btn" onclick="openPatientFilesModal(\''+p.id+'\', \'exame\')">' +
+            '<span class="casc-icon">&#128221;</span>' +
+            '<div class="casc-info"><span class="casc-title">Exames</span><span class="casc-desc">Laudos, fotos & PDFs</span></div>' +
+          '</button>' +
+          '<button class="casc-btn" onclick="openPatientFilesModal(\''+p.id+'\', \'documento\')">' +
+            '<span class="casc-icon">&#128193;</span>' +
+            '<div class="casc-info"><span class="casc-title">Documentos</span><span class="casc-desc">Termos, receitas & fotos</span></div>' +
+          '</button>' +
           '<button class="casc-btn" style="grid-column:1 / -1;" onclick="openPatientFinancial(\''+p.id+'\')">' +
             '<span class="casc-icon">&#128176;</span>' +
-            '<div class="casc-info"><span class="casc-title">Financeiro do Paciente</span><span class="casc-desc">Extrato de sessões, saldos e recibos</span></div>' +
+            '<div class="casc-info"><span class="casc-title">Financeiro do Paciente</span><span class="casc-desc">Extrato de sessões por período & recibos</span></div>' +
+          '</button>' +
+          '<button class="casc-btn" style="grid-column:1 / -1;" onclick="toggleArchivePatient(\''+p.id+'\')">' +
+            '<span class="casc-icon">'+(isArchived ? '&#128260;' : '&#128194;')+'</span>' +
+            '<div class="casc-info"><span class="casc-title">'+(isArchived ? 'Reativar Paciente' : 'Finalizar / Arquivar Paciente')+'</span><span class="casc-desc">'+(isArchived ? 'Retornar à lista de pacientes ativos' : 'Tratamento concluído: enviar para o fim da fila')+'</span></div>' +
           '</button>' +
         '</div>' +
       '</div>' +
@@ -1103,6 +1252,35 @@ function togglePatientCascade(id){
 function clearPatientSearch(){
   var inp = document.getElementById('patientSearchInput');
   if(inp){ inp.value = ''; renderPatientsTab(); inp.focus(); }
+}
+
+/* Arquivar / Reativar Paciente */
+async function toggleArchivePatient(id){
+  var p = patients.find(function(x){ return x.id === id; });
+  if(!p) return;
+  var isArchived = p.arquivado === 'Sim';
+  var msg = isArchived
+    ? 'Reativar o paciente "' + p.nome + '"? Ele voltará para o topo da lista de pacientes ativos.'
+    : 'Finalizar o tratamento e arquivar o paciente "' + p.nome + '"?\n\nEle irá para o fim da fila e constará como finalizado no controle financeiro.';
+
+  if(!confirm(msg)) return;
+
+  var newStatus = isArchived ? 'Não' : 'Sim';
+  p.arquivado = newStatus;
+  renderPatientsTab();
+  populatePatientFilter();
+  renderList();
+  showToast(isArchived ? 'Paciente reativado.' : 'Paciente arquivado com sucesso.', 'ok');
+
+  try{
+    await postAction({ action: 'update_patient', id: id, arquivado: newStatus });
+  }catch(err){
+    p.arquivado = isArchived ? 'Sim' : 'Não';
+    renderPatientsTab();
+    populatePatientFilter();
+    renderList();
+    showError('Falha ao atualizar status de arquivamento na planilha.');
+  }
 }
 
 /* Modal de Dados Cadastrais Completos (Criação ou Edição) */
@@ -1294,7 +1472,8 @@ async function submitPatientForm(existingId){
           contrato: contrato,
           diagClinico: diagClinico,
           diagFuncional: diagFuncional,
-          objetivos: objetivos
+          objetivos: objetivos,
+          arquivado: patients[idx].arquivado || 'Não'
         });
       }catch(err){
         patients[idx] = oldData;
@@ -1322,6 +1501,7 @@ async function submitPatientForm(existingId){
       diagClinico: diagClinico,
       diagFuncional: diagFuncional,
       objetivos: objetivos,
+      arquivado: 'Não',
       criadoEm: new Date().toISOString()
     };
     patients.push(newPatient);
@@ -1344,7 +1524,7 @@ async function submitPatientForm(existingId){
 async function deletePatient(id){
   var p = patients.find(function(x){ return x.id === id; });
   if(!p) return;
-  if(!confirm('Excluir o paciente "' + p.nome + '"?\n\nAtenção: isso também removerá em cascata suas evoluções e vínculos.')) return;
+  if(!confirm('Excluir permanentemente o paciente "' + p.nome + '"?\n\nAtenção: isso também removerá em cascata suas evoluções.')) return;
 
   var idx = patients.findIndex(function(x){ return x.id === id; });
   var removed = patients[idx];
@@ -1364,48 +1544,218 @@ async function deletePatient(id){
   }
 }
 
-/* Modal Financeiro do Paciente */
+/* ============================================================
+   EXAMES & DOCUMENTOS (SUBIR ARQUIVO, BATER FOTO, BAIXAR)
+   ============================================================ */
+async function openPatientFilesModal(patientId, tipo){
+  var p = patients.find(function(x){ return x.id === patientId; });
+  if(!p) return;
+
+  var isExame = tipo === 'exame';
+  var title = isExame ? 'Exames · ' : 'Documentos · ';
+  var desc = isExame
+    ? 'Suba laudos, fotos de exames ou PDFs do paciente. Ficam salvos no seu aparelho.'
+    : 'Guarde documentos pessoais, termos, contratos assinados e receitas.';
+
+  var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
+    '<div class="modal">' +
+      '<div class="grabber"></div>' +
+      '<h2>' + escapeHtml(title + p.nome) + '</h2>' +
+      '<p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 12px;">' + desc + '</p>' +
+
+      '<div class="btn-row" style="margin-top:0;margin-bottom:14px;">' +
+        '<label class="btn accent small" style="flex:1;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">' +
+          '<span>&#128194; Subir PDF / Arquivo</span>' +
+          '<input type="file" accept="application/pdf,image/*" class="hidden" onchange="handlePatientFileUpload(event, \''+p.id+'\', \''+tipo+'\')">' +
+        '</label>' +
+        '<label class="btn primary small" style="flex:1;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">' +
+          '<span>&#128247; Bater Foto</span>' +
+          '<input type="file" accept="image/*" capture="environment" class="hidden" onchange="handlePatientFileUpload(event, \''+p.id+'\', \''+tipo+'\')">' +
+        '</label>' +
+      '</div>' +
+
+      '<div id="patientFilesList" style="max-height:280px;overflow-y:auto;border:1px solid var(--line);border-radius:var(--radius-sm);padding:8px;background:var(--bg);">' +
+        '<div class="loading"><div class="spinner"></div>Carregando arquivos...</div>' +
+      '</div>' +
+
+      '<div class="btn-row">' +
+        '<button class="btn ghost" style="width:100%;" onclick="closeModal()">Fechar</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+  openModal(html);
+  await renderPatientFilesList(patientId, tipo);
+}
+
+async function renderPatientFilesList(patientId, tipo){
+  var container = document.getElementById('patientFilesList');
+  if(!container) return;
+
+  try{
+    var files = await dbGetFilesByPatient(patientId, tipo);
+    if(files.length === 0){
+      container.innerHTML = '<p class="empty-mini">Nenhum '+(tipo==='exame'?'exame':'documento')+' anexado ainda. Use os botões acima para subir um PDF ou bater uma foto.</p>';
+      return;
+    }
+
+    container.innerHTML = files.map(function(f){
+      var isPdf = f.mimeType && f.mimeType.indexOf('pdf') > -1;
+      var icon = isPdf ? '&#128196;' : '&#128444;';
+      var dtFormatted = formatDateBR(f.data) + ' às ' + (f.data ? f.data.substring(11, 16) : '');
+
+      return '<div class="file-item">' +
+        '<span class="file-icon">'+icon+'</span>' +
+        '<div class="file-info">' +
+          '<div class="file-name">'+escapeHtml(f.nome)+'</div>' +
+          '<div class="file-meta">'+dtFormatted+' · '+formatFileSize(f.size)+'</div>' +
+        '</div>' +
+        '<div class="file-actions">' +
+          '<button onclick="openPatientFile(\''+f.id+'\')" title="Visualizar / Abrir">&#128065; Abrir</button>' +
+          '<button onclick="downloadPatientFile(\''+f.id+'\')" title="Baixar arquivo">&#11015; Baixar</button>' +
+          '<button style="color:var(--danger);" onclick="removePatientFile(\''+f.id+'\', \''+patientId+'\', \''+tipo+'\')" title="Excluir">&#10005;</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }catch(err){
+    container.innerHTML = '<p class="empty-mini" style="color:var(--danger);">Erro ao ler arquivos locais: ' + escapeHtml(err.message) + '</p>';
+  }
+}
+
+async function handlePatientFileUpload(event, patientId, tipo){
+  var file = event.target.files && event.target.files[0];
+  if(!file) return;
+
+  showToast('Salvando ' + (tipo==='exame'?'exame':'documento') + '...', 'ok');
+
+  var reader = new FileReader();
+  reader.onload = async function(e){
+    var base64 = e.target.result;
+    var fileObj = {
+      id: 'f_' + Date.now(),
+      pacienteId: patientId,
+      tipo: tipo,
+      nome: file.name || ((tipo==='exame'?'Exame_':'Doc_') + isoDate(new Date())),
+      data: new Date().toISOString(),
+      mimeType: file.type || 'application/octet-stream',
+      dataUrl: base64,
+      size: file.size
+    };
+
+    try{
+      await dbSaveFile(fileObj);
+      showToast((tipo==='exame'?'Exame':'Documento') + ' salvo com sucesso!', 'ok');
+      await renderPatientFilesList(patientId, tipo);
+    }catch(err){
+      showError('Erro ao gravar arquivo no banco local: ' + err.message);
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+async function openPatientFile(fileId){
+  try{
+    var f = await dbGetFileById(fileId);
+    if(!f || !f.dataUrl){ alert('Arquivo não encontrado.'); return; }
+    var arr = f.dataUrl.split(',');
+    var mime = arr[0].match(/:(.*?);/)[1];
+    var bstr = atob(arr[1]);
+    var n = bstr.length;
+    var u8arr = new Uint8Array(n);
+    while(n--){
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    var blob = new Blob([u8arr], {type: mime});
+    var blobUrl = URL.createObjectURL(blob);
+    window.open(blobUrl, '_blank');
+  }catch(err){
+    alert('Erro ao abrir arquivo: ' + err.message);
+  }
+}
+
+async function downloadPatientFile(fileId){
+  try{
+    var f = await dbGetFileById(fileId);
+    if(!f || !f.dataUrl){ alert('Arquivo não encontrado.'); return; }
+
+    var arr = f.dataUrl.split(',');
+    var mime = arr[0].match(/:(.*?);/)[1];
+    var bstr = atob(arr[1]);
+    var n = bstr.length;
+    var u8arr = new Uint8Array(n);
+    while(n--){
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    var blob = new Blob([u8arr], {type: mime});
+    var blobUrl = URL.createObjectURL(blob);
+
+    var a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = f.nome || 'arquivo';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){
+      a.remove();
+      URL.revokeObjectURL(blobUrl);
+    }, 1000);
+    showToast('Download concluído.', 'ok');
+  }catch(err){
+    alert('Erro ao baixar arquivo: ' + err.message);
+  }
+}
+
+async function removePatientFile(fileId, patientId, tipo){
+  if(!confirm('Excluir este arquivo?')) return;
+  try{
+    await dbDeleteFile(fileId);
+    showToast('Arquivo excluído.', 'ok');
+    await renderPatientFilesList(patientId, tipo);
+  }catch(err){
+    showError('Erro ao excluir arquivo: ' + err.message);
+  }
+}
+
+/* ============================================================
+   FINANCEIRO DO PACIENTE (COM SELEÇÃO FLEXÍVEL DE PERÍODOS)
+   ============================================================ */
+var pFinPeriodMode = 'all'; // 'all', 'year', 'month', 'multi'
+var pFinSelectedYear = new Date().getFullYear();
+var pFinSelectedMonth = new Date().getMonth();
+var pFinMultiMonths = {};
+
 function openPatientFinancial(patientId){
   var p = patients.find(function(x){ return x.id === patientId; });
   if(!p) return;
 
-  var pEntries = entries.filter(function(e){ return e.nome === p.nome; })
-    .sort(function(a,b){ return String(b.data).localeCompare(String(a.data)); });
-
-  var total = 0, recebido = 0, pendente = 0;
-  pEntries.forEach(function(e){
-    total += e.valor;
-    if(e.status === 'Pago') recebido += e.valor; else pendente += e.valor;
-  });
-
-  var listHtml = pEntries.length === 0
-    ? '<p class="empty-mini">Nenhum atendimento registrado para este paciente.</p>'
-    : pEntries.map(function(e){
-        var pago = e.status === 'Pago';
-        return '<div class="top-row">' +
-          '<div class="nm">' +
-            '<div>'+formatDateBR(e.data)+(e.hora ? ' · '+e.hora : '')+'</div>' +
-            '<span class="badge '+(pago?'pago':'pendente')+'" onclick="badgeClick(\''+e.id+'\'); openPatientFinancial(\''+patientId+'\');">'+e.status+'</span>' +
-          '</div>' +
-          '<div class="vl">'+formatMoney(e.valor)+'</div>' +
-        '</div>';
-      }).join('');
+  pFinPeriodMode = 'all';
+  pFinSelectedYear = currentMonth.getFullYear();
+  pFinSelectedMonth = currentMonth.getMonth();
+  pFinMultiMonths = {};
 
   var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
     '<div class="modal">' +
       '<div class="grabber"></div>' +
       '<h2>Financeiro · ' + escapeHtml(p.nome) + '</h2>' +
-      '<p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 12px;">Histórico financeiro exclusivo do paciente.</p>' +
+      '<p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 10px;">Filtre o período das sessões para consultar ou gerar extrato.</p>' +
 
-      '<div class="rep-kpis">' +
-        '<div class="rep-kpi"><div class="t">FATURADO TOTAL</div><div class="v">'+formatMoney(total)+'</div></div>' +
-        '<div class="rep-kpi rec"><div class="t">RECEBIDO</div><div class="v">'+formatMoney(recebido)+'</div></div>' +
-        '<div class="rep-kpi pen"><div class="t">A RECEBER</div><div class="v">'+formatMoney(pendente)+'</div></div>' +
-        '<div class="rep-kpi"><div class="t">SESSÕES TOTAIS</div><div class="v">'+pEntries.length+'</div></div>' +
+      '<!-- Seletor de Tipo de Período -->' +
+      '<div class="period-tabs">' +
+        '<button class="period-tab active" id="pftab_all" onclick="setPatientFinMode(\''+p.id+'\', \'all\')">Tudo</button>' +
+        '<button class="period-tab" id="pftab_month" onclick="setPatientFinMode(\''+p.id+'\', \'month\')">Por Mês</button>' +
+        '<button class="period-tab" id="pftab_year" onclick="setPatientFinMode(\''+p.id+'\', \'year\')">Por Ano</button>' +
+        '<button class="period-tab" id="pftab_multi" onclick="setPatientFinMode(\''+p.id+'\', \'multi\')">Vários Meses</button>' +
       '</div>' +
 
-      '<div class="rep-section-title">Histórico de Sessões</div>' +
-      '<div style="max-height:220px;overflow-y:auto;border:1px solid var(--line);border-radius:var(--radius-sm);padding:8px;background:var(--surface);">' + listHtml + '</div>' +
+      '<div id="pFinFilterControls" style="margin-bottom:12px;"></div>' +
+
+      '<div class="rep-kpis">' +
+        '<div class="rep-kpi"><div class="t">FATURADO</div><div class="v" id="pFinKpiTotal">R$ 0,00</div></div>' +
+        '<div class="rep-kpi rec"><div class="t">RECEBIDO</div><div class="v" id="pFinKpiRec">R$ 0,00</div></div>' +
+        '<div class="rep-kpi pen"><div class="t">A RECEBER</div><div class="v" id="pFinKpiPen">R$ 0,00</div></div>' +
+        '<div class="rep-kpi"><div class="t">SESSÕES</div><div class="v" id="pFinKpiSess">0</div></div>' +
+      '</div>' +
+
+      '<div class="rep-section-title">Sessões do Período</div>' +
+      '<div id="pFinSessionsList" style="max-height:220px;overflow-y:auto;border:1px solid var(--line);border-radius:var(--radius-sm);padding:8px;background:var(--surface);"></div>' +
 
       '<div class="btn-row">' +
         '<button class="btn accent" style="flex:1;" onclick="generatePatientStatementPDF(\''+p.id+'\')">&#128196; Gerar Extrato (PDF)</button>' +
@@ -1414,29 +1764,154 @@ function openPatientFinancial(patientId){
     '</div>' +
   '</div>';
   openModal(html);
+  renderPatientFinancialDetails(patientId);
+}
+
+function setPatientFinMode(patientId, mode){
+  pFinPeriodMode = mode;
+  ['all', 'year', 'month', 'multi'].forEach(function(m){
+    var tab = document.getElementById('pftab_' + m);
+    if(tab) tab.classList.toggle('active', m === mode);
+  });
+  renderPatientFinancialDetails(patientId);
+}
+
+function getPatientFilteredSessions(patientName){
+  var pEntries = entries.filter(function(e){ return e.nome === patientName; })
+    .sort(function(a,b){ return String(b.data).localeCompare(String(a.data)); });
+
+  if(pFinPeriodMode === 'all') return pEntries;
+
+  return pEntries.filter(function(e){
+    var d = new Date(e.data + 'T00:00:00');
+    if(isNaN(d.getTime())) return false;
+    if(pFinPeriodMode === 'year'){
+      return d.getFullYear() === pFinSelectedYear;
+    }
+    if(pFinPeriodMode === 'month'){
+      return d.getFullYear() === pFinSelectedYear && d.getMonth() === pFinSelectedMonth;
+    }
+    if(pFinPeriodMode === 'multi'){
+      var key = d.getFullYear() + '-' + pad(d.getMonth() + 1);
+      return !!pFinMultiMonths[key];
+    }
+    return true;
+  });
+}
+
+function renderPatientFinancialDetails(patientId){
+  var p = patients.find(function(x){ return x.id === patientId; });
+  if(!p) return;
+
+  var pEntriesAll = entries.filter(function(e){ return e.nome === p.nome; });
+  var ctrl = document.getElementById('pFinFilterControls');
+
+  // Coleta anos e meses com sessões deste paciente
+  var yearsSet = {}, monthsSet = {};
+  pEntriesAll.forEach(function(e){
+    var d = new Date(e.data + 'T00:00:00');
+    if(!isNaN(d.getTime())){
+      yearsSet[d.getFullYear()] = true;
+      monthsSet[d.getFullYear() + '-' + pad(d.getMonth() + 1)] = true;
+    }
+  });
+  var yearsList = Object.keys(yearsSet).map(Number).sort().reverse();
+  if(yearsList.length === 0) yearsList = [new Date().getFullYear()];
+  var monthsKeys = Object.keys(monthsSet).sort().reverse();
+
+  if(ctrl){
+    if(pFinPeriodMode === 'all'){
+      ctrl.innerHTML = '<div style="font-size:12px;color:var(--ink-soft);background:var(--bg);padding:6px 10px;border-radius:var(--radius-xs);">Exibindo todas as sessões registradas de todo o histórico.</div>';
+    } else if(pFinPeriodMode === 'year'){
+      var yOpts = yearsList.map(function(y){
+        return '<option value="'+y+'" '+(y===pFinSelectedYear?'selected':'')+'>'+y+'</option>';
+      }).join('');
+      ctrl.innerHTML = '<label class="filter-label">Ano de referência</label>' +
+        '<select onchange="pFinSelectedYear=parseInt(this.value,10); renderPatientFinancialDetails(\''+p.id+'\');">'+yOpts+'</select>';
+    } else if(pFinPeriodMode === 'month'){
+      var yOpts = yearsList.map(function(y){
+        return '<option value="'+y+'" '+(y===pFinSelectedYear?'selected':'')+'>'+y+'</option>';
+      }).join('');
+      var mesesLongos = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+      var mOpts = mesesLongos.map(function(nm, i){
+        return '<option value="'+i+'" '+(i===pFinSelectedMonth?'selected':'')+'>'+nm+'</option>';
+      }).join('');
+
+      ctrl.innerHTML = '<div class="filter-grid-2">' +
+        '<div><label class="filter-label">Ano</label><select onchange="pFinSelectedYear=parseInt(this.value,10); renderPatientFinancialDetails(\''+p.id+'\');">'+yOpts+'</select></div>' +
+        '<div><label class="filter-label">Mês</label><select onchange="pFinSelectedMonth=parseInt(this.value,10); renderPatientFinancialDetails(\''+p.id+'\');">'+mOpts+'</select></div>' +
+      '</div>';
+    } else if(pFinPeriodMode === 'multi'){
+      var chkBoxes = monthsKeys.map(function(ym){
+        var parts = ym.split('-');
+        var y = parseInt(parts[0], 10), m = parseInt(parts[1], 10) - 1;
+        var checked = pFinMultiMonths[ym] ? 'checked' : '';
+        return '<label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;background:var(--surface);padding:4px 8px;border-radius:var(--radius-xs);border:1px solid var(--line);cursor:pointer;">' +
+          '<input type="checkbox" '+checked+' onchange="pFinMultiMonths[\''+ym+'\']=this.checked; renderPatientFinancialDetails(\''+p.id+'\');"> ' +
+          monthLabelCap(new Date(y, m, 1)) +
+        '</label>';
+      }).join(' ');
+
+      ctrl.innerHTML = '<label class="filter-label">Selecione os meses desejados</label>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:6px;max-height:100px;overflow-y:auto;background:var(--bg);padding:6px;border-radius:var(--radius-xs);border:1px solid var(--line);">' +
+          (chkBoxes || '<span style="font-size:11px;color:var(--ink-soft);">Nenhum mês disponível</span>') +
+        '</div>';
+    }
+  }
+
+  var list = getPatientFilteredSessions(p.nome);
+  var total = 0, recebido = 0, pendente = 0;
+  list.forEach(function(e){
+    total += e.valor;
+    if(e.status === 'Pago') recebido += e.valor; else pendente += e.valor;
+  });
+
+  var hidden = isFinancialsHidden();
+  var maskTxt = 'R$ ••••••';
+
+  document.getElementById('pFinKpiTotal').textContent = hidden ? maskTxt : formatMoney(total);
+  document.getElementById('pFinKpiRec').textContent = hidden ? maskTxt : formatMoney(recebido);
+  document.getElementById('pFinKpiPen').textContent = hidden ? maskTxt : formatMoney(pendente);
+  document.getElementById('pFinKpiSess').textContent = list.length;
+
+  var listContainer = document.getElementById('pFinSessionsList');
+  if(!listContainer) return;
+
+  if(list.length === 0){
+    listContainer.innerHTML = '<p class="empty-mini">Nenhuma sessão encontrada para o período selecionado.</p>';
+    return;
+  }
+
+  listContainer.innerHTML = list.map(function(e){
+    var pago = e.status === 'Pago';
+    return '<div class="top-row">' +
+      '<div class="nm">' +
+        '<div>'+formatDateBR(e.data)+(e.hora ? ' · '+e.hora : '')+'</div>' +
+        '<span class="badge '+(pago?'pago':'pendente')+'" onclick="badgeClick(\''+e.id+'\'); renderPatientFinancialDetails(\''+patientId+'\');">'+e.status+'</span>' +
+      '</div>' +
+      '<div class="vl">'+(hidden ? 'R$ •••' : formatMoney(e.valor))+'</div>' +
+    '</div>';
+  }).join('');
 }
 
 function generatePatientStatementPDF(patientId){
   var p = patients.find(function(x){ return x.id === patientId; });
   if(!p) return;
 
-  var pEntries = entries.filter(function(e){ return e.nome === p.nome; })
-    .sort(function(a,b){ return String(a.data).localeCompare(String(b.data)); });
-
-  if(pEntries.length === 0){ alert('Nenhum atendimento registrado para este paciente.'); return; }
+  var pEntries = getPatientFilteredSessions(p.nome);
+  if(pEntries.length === 0){ alert('Nenhuma sessão no período selecionado para exportar.'); return; }
 
   var doc = new jspdf.jsPDF();
   receiptHeader(doc, 'Extrato Financeiro do Paciente');
 
-  doc.setFontSize(11);
-  doc.setTextColor(138,111,94);
-  doc.text('Paciente:', 15, 55);
-  doc.setTextColor(58,42,32); doc.setFont('helvetica','bold');
-  doc.text(p.nome, 45, 55);
-  doc.setFont('helvetica','normal'); doc.setTextColor(138,111,94);
-  doc.text('Documento:', 15, 62);
-  doc.setTextColor(58,42,32);
-  doc.text(p.documento || 'Não informado', 45, 62);
+  var periodDesc = 'Período: Todo o histórico';
+  if(pFinPeriodMode === 'year') periodDesc = 'Período: Ano de ' + pFinSelectedYear;
+  if(pFinPeriodMode === 'month') periodDesc = 'Período: ' + monthLabelCap(new Date(pFinSelectedYear, pFinSelectedMonth, 1));
+  if(pFinPeriodMode === 'multi') periodDesc = 'Período: Meses selecionados';
+
+  doc.setFontSize(10.5); doc.setTextColor(138,111,94);
+  doc.text('Paciente: ' + p.nome + (p.documento ? ' (' + p.documento + ')' : ''), 15, 54);
+  doc.text(periodDesc, 15, 62);
 
   var rowY = 74, rowH = 9;
   doc.setFillColor(181,84,46);
@@ -1451,7 +1926,7 @@ function generatePatientStatementPDF(patientId){
 
   var total = 0, recebido = 0, pendente = 0;
   doc.setFontSize(10);
-  pEntries.forEach(function(s, i){
+  pEntries.slice().reverse().forEach(function(s, i){
     if(rowY + rowH > 260){ doc.addPage(); marcaDaguaOutono(doc,210,297); rowY = 20; }
     if(i % 2 === 0){ doc.setFillColor(248,236,224); doc.rect(15, rowY, 180, rowH, 'F'); }
     doc.setTextColor(58,42,32);
@@ -1481,7 +1956,7 @@ function generatePatientStatementPDF(patientId){
   doc.text('A Receber: ' + formatMoney(pendente), 155, rowY);
 
   drawStamp(doc, 175, rowY + 22);
-  doc.setFontSize(9); doc.setTextColor(138,111,94); doc.setFont('helvetica','normal');
+  doc.setFontSize(8.5); doc.setTextColor(138,111,94); doc.setFont('helvetica','normal');
   doc.text('Emitido em ' + formatDateBR(isoDate(new Date())), 15, 280);
 
   doc.save('extrato_' + p.nome.replace(/\s+/g,'_') + '.pdf');
@@ -1490,6 +1965,30 @@ function generatePatientStatementPDF(patientId){
 /* ============================================================
    ABA 2: EVOLUÇÕES CLÍNICAS (PRONTUÁRIOS)
    ============================================================ */
+function toggleEvoFilter(){
+  evoFilterExpanded = !evoFilterExpanded;
+  var body = document.getElementById('evoFilterBody');
+  var chevron = document.getElementById('evoFilterChevron');
+  if(body) body.classList.toggle('hidden', !evoFilterExpanded);
+  if(chevron) chevron.style.transform = evoFilterExpanded ? 'rotate(180deg)' : 'none';
+}
+
+function setEvoOrder(order){
+  evoSortOrder = order;
+  var btnDesc = document.getElementById('btnOrderDesc');
+  var btnAsc = document.getElementById('btnOrderAsc');
+  if(btnDesc && btnAsc){
+    if(order === 'desc'){
+      btnDesc.className = 'btn small primary';
+      btnAsc.className = 'btn small ghost';
+    } else {
+      btnDesc.className = 'btn small ghost';
+      btnAsc.className = 'btn small primary';
+    }
+  }
+  renderEvolutionsTab();
+}
+
 function populateEvolutionsFilters(){
   var pSel = document.getElementById('evoFilterPatient');
   if(pSel){
@@ -1545,7 +2044,7 @@ function getFilteredEvolutions(){
   }).sort(function(a,b){
     var dtA = (a.data || '') + ' ' + (a.hora || '');
     var dtB = (b.data || '') + ' ' + (b.hora || '');
-    return dtB.localeCompare(dtA);
+    return evoSortOrder === 'desc' ? dtB.localeCompare(dtA) : dtA.localeCompare(dtB);
   });
 }
 
@@ -1559,7 +2058,6 @@ function renderEvolutionsTab(){
     container.innerHTML = '<div class="empty">' +
       '<span class="leaf">&#129658;</span>' +
       'Nenhuma evolução clínica encontrada para os filtros selecionados.' +
-      '<button class="btn primary" style="margin:16px auto 0;max-width:240px;" onclick="openNewEvolution()">+ Nova Evolução</button>' +
       '</div>';
     return;
   }
@@ -1809,7 +2307,7 @@ async function deleteEvolution(id){
   }
 }
 
-/* Modal de Histórico de Evoluções de um Paciente Específico */
+/* Modal de Histórico de Evoluções de um Paciente */
 function openPatientEvolutions(patientId){
   var p = patients.find(function(x){ return x.id === patientId; });
   if(!p) return;
@@ -1855,7 +2353,6 @@ function openPatientEvolutions(patientId){
   openModal(html);
 }
 
-/* PDF de Evoluções Clínicas */
 function generateSingleEvolutionPDF(evoId){
   var ev = evolutions.find(function(x){ return x.id === evoId; });
   if(!ev) return;
@@ -1871,12 +2368,6 @@ function generatePatientEvolutionsPDF(patientId){
   renderEvolutionsToPDF(pEvos, 'Prontuário Fisioterapêutico · Evoluções', 'Paciente: ' + p.nome);
 }
 
-function exportEvolutionsPDF(){
-  var list = getFilteredEvolutions().slice().reverse();
-  if(list.length === 0){ alert('Nenhuma evolução no filtro atual para exportar.'); return; }
-  renderEvolutionsToPDF(list, 'Relatório de Evoluções Clínicas', 'Total de evoluções: ' + list.length);
-}
-
 function renderEvolutionsToPDF(list, mainTitle, subtitle){
   var doc = new jspdf.jsPDF();
   receiptHeader(doc, mainTitle);
@@ -1885,7 +2376,7 @@ function renderEvolutionsToPDF(list, mainTitle, subtitle){
   doc.text(subtitle, 15, 54);
 
   var y = 64;
-  list.forEach(function(ev, idx){
+  list.forEach(function(ev){
     if(y > 240){
       doc.addPage();
       marcaDaguaOutono(doc, 210, 297);
@@ -1930,21 +2421,10 @@ function renderEvolutionsToPDF(list, mainTitle, subtitle){
   });
 
   drawStamp(doc, 175, 274);
-  doc.setFontSize(8.5); doc.setTextColor(138, 111, 94); doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5); doc.setTextColor(138,111,94); doc.setFont('helvetica','normal');
   doc.text('Emitido em ' + formatDateBR(isoDate(new Date())), 15, 285);
 
   doc.save('prontuario_evolucoes_' + isoDate(new Date()) + '.pdf');
-}
-
-function exportEvolutionsBackup(){
-  var dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(evolutions, null, 2));
-  var a = document.createElement('a');
-  a.setAttribute('href', dataStr);
-  a.setAttribute('download', 'backup_evolucoes_' + isoDate(new Date()) + '.json');
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  showToast('Backup clínico baixado.', 'ok');
 }
 
 /* ============================================================
@@ -1954,9 +2434,13 @@ function populatePatientFilter(){
   var sel = document.getElementById('patientFilter');
   if(!sel) return;
   var current = sel.value;
-  var names = patients.map(function(p){ return p.nome; }).sort(function(a,b){ return String(a).localeCompare(String(b),'pt-BR'); });
-  sel.innerHTML = '<option value="">Todas as pacientes</option>' + names.map(function(n){
-    return '<option value="'+escapeHtml(n)+'">'+escapeHtml(n)+'</option>';
+  var sortedPatients = patients.slice().sort(function(a,b){
+    return String(a.nome).localeCompare(String(b.nome),'pt-BR');
+  });
+
+  sel.innerHTML = '<option value="">Todas as pacientes</option>' + sortedPatients.map(function(p){
+    var label = escapeHtml(p.nome) + (p.arquivado === 'Sim' ? ' (Finalizado)' : '');
+    return '<option value="'+escapeHtml(p.nome)+'">'+label+'</option>';
   }).join('');
   sel.value = current;
 }
@@ -2023,15 +2507,19 @@ function renderList(){
 
   container.innerHTML = list.map(function(e){
     var pago = e.status === 'Pago';
+    var pObj = patients.find(function(x){ return x.nome === e.nome; });
+    var isArchived = pObj && pObj.arquivado === 'Sim';
+
     var paidNote = pago && e.paymentDate ? '<div class="paid-note">&#10003; Pago em '+formatDateBR(e.paymentDate)+'</div>' : '';
     var payBtn = !pago ? '<button class="pay" onclick="openPaymentModal(\''+e.id+'\')">&#128176; Pagar</button>' : '';
+    var archBadge = isArchived ? '<span style="font-size:10px;font-weight:600;color:var(--ink-soft);background:var(--bg-tint);padding:1px 5px;border-radius:4px;margin-left:4px;">Finalizado</span>' : '';
 
     return '<div class="entry">' +
       '<div class="entry-body">' +
         '<div class="entry-top">' +
           '<div class="avatar">'+initials(e.nome)+'</div>' +
           '<div class="info">' +
-            '<div class="name">'+escapeHtml(e.nome)+'</div>' +
+            '<div class="name">'+escapeHtml(e.nome)+archBadge+'</div>' +
             '<div class="date">'+formatDateBR(e.data)+(e.hora ? ' &middot; '+escapeHtml(e.hora) : '')+'</div>' +
             paidNote +
           '</div>' +
@@ -2545,7 +3033,7 @@ function generateReceipt(id){
 }
 
 /* ============================================================
-   RELATÓRIOS FINANCEIROS AVANÇADOS
+   RELATÓRIOS FINANCEIROS AVANÇADOS (COM SELETOR DE MÊS)
    ============================================================ */
 function entriesOfYear(y){
   return entries.filter(function(e){
@@ -2556,17 +3044,34 @@ function entriesOfYear(y){
 
 function openReports(){
   reportYear = currentMonth.getFullYear();
+  repMonthFilter = 'all';
   calMonth = new Date(reportYear, currentMonth.getMonth(), 1);
+
+  var mesesLongos = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  var mOpts = '<option value="all">Ano Completo (' + reportYear + ')</option>' +
+    mesesLongos.map(function(m, i){
+      return '<option value="'+i+'">'+m+'</option>';
+    }).join('');
 
   var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
     '<div class="modal">' +
       '<div class="grabber"></div>' +
-      '<h2>Relatório Financeiro Anual</h2>' +
+      '<h2>Relatório Financeiro</h2>' +
       '<div class="year-nav">' +
         '<button onclick="shiftReportYear(-1)" aria-label="Ano anterior">&lsaquo;</button>' +
         '<div class="y" id="repYear">'+reportYear+'</div>' +
         '<button onclick="shiftReportYear(1)" aria-label="Próximo ano">&rsaquo;</button>' +
       '</div>' +
+
+      '<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">' +
+        '<select id="repMonthSelect" onchange="repMonthFilter=this.value; renderReportBody();" style="flex:1;padding:8px 10px;font-size:13px;">' +
+          mOpts +
+        '</select>' +
+        '<button class="eye-toggle-btn" onclick="toggleHideFinancials();" title="Ocultar ou exibir valores">' +
+          '<span id="repEyeIcon">'+(isFinancialsHidden() ? '🙈' : '👁️')+'</span>' +
+        '</button>' +
+      '</div>' +
+
       '<div id="repBody"></div>' +
       '<div class="btn-row">' +
         '<button class="btn accent" style="flex:1;" onclick="exportAnnualFinancialPDF()">&#128196; Exportar Relatório (PDF)</button>' +
@@ -2583,29 +3088,40 @@ function shiftReportYear(delta){
   calMonth = new Date(reportYear, 0, 1);
   var el = document.getElementById('repYear');
   if(el) el.textContent = reportYear;
+
+  var sel = document.getElementById('repMonthSelect');
+  if(sel && sel.options[0]) sel.options[0].text = 'Ano Completo (' + reportYear + ')';
+
   renderReportBody();
 }
 
 function renderReportBody(){
-  var list = entriesOfYear(reportYear);
+  var rawList = entriesOfYear(reportYear);
   var meses = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  var mesesLongos = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+  var list = rawList;
+  if(repMonthFilter !== 'all'){
+    var mTarget = parseInt(repMonthFilter, 10);
+    list = rawList.filter(function(e){
+      return new Date(e.data + 'T00:00:00').getMonth() === mTarget;
+    });
+  }
 
   var recebido=0, pendente=0, total=0, sessoes=list.length;
   var pacientesSet={}, porMes=[], porPaciente={}, porMetodo={};
   for(var i=0;i<12;i++) porMes[i]={fat:0, rec:0, pen:0, sessoes:0};
 
-  list.forEach(function(e){
+  rawList.forEach(function(e){
     var m = new Date(e.data+'T00:00:00').getMonth();
-    total += e.valor;
     porMes[m].fat += e.valor;
     porMes[m].sessoes += 1;
-    if(e.status === 'Pago'){
-      recebido += e.valor;
-      porMes[m].rec += e.valor;
-    } else {
-      pendente += e.valor;
-      porMes[m].pen += e.valor;
-    }
+    if(e.status === 'Pago') porMes[m].rec += e.valor; else porMes[m].pen += e.valor;
+  });
+
+  list.forEach(function(e){
+    total += e.valor;
+    if(e.status === 'Pago') recebido += e.valor; else pendente += e.valor;
     pacientesSet[e.nome] = true;
     if(!porPaciente[e.nome]) porPaciente[e.nome] = { sessoes:0, valor:0 };
     porPaciente[e.nome].sessoes += 1;
@@ -2624,53 +3140,65 @@ function renderReportBody(){
   var mediaMensal = mesesTrabalhados ? total/mesesTrabalhados : 0;
   var inadimplencia = total > 0 ? ((pendente / total) * 100).toFixed(1) : '0.0';
 
+  var hidden = isFinancialsHidden();
+  var maskTxt = 'R$ ••••••';
+
+  var bodyEl = document.getElementById('repBody');
+  if(!bodyEl) return;
+
   if(sessoes === 0){
-    document.getElementById('repBody').innerHTML =
-      '<div class="empty" style="padding:24px 10px;"><span class="leaf">&#128202;</span>Nenhum atendimento registrado em '+reportYear+'.</div>';
+    var descEmpty = repMonthFilter !== 'all' ? mesesLongos[parseInt(repMonthFilter,10)] + ' de ' + reportYear : reportYear;
+    bodyEl.innerHTML = '<div class="empty" style="padding:24px 10px;"><span class="leaf">&#128202;</span>Nenhum atendimento registrado em '+descEmpty+'.</div>';
     return;
   }
 
+  var titleFat = repMonthFilter !== 'all' ? 'FATURADO NO MÊS' : 'FATURADO TOTAL';
+
   var kpis = '<div class="rep-kpis">' +
-    '<div class="rep-kpi"><div class="t">FATURADO TOTAL</div><div class="v">'+formatMoney(total)+'</div></div>' +
-    '<div class="rep-kpi rec"><div class="t">RECEBIDO</div><div class="v">'+formatMoney(recebido)+'</div></div>' +
-    '<div class="rep-kpi pen"><div class="t">A RECEBER</div><div class="v">'+formatMoney(pendente)+'</div></div>' +
+    '<div class="rep-kpi"><div class="t">'+titleFat+'</div><div class="v">'+(hidden ? maskTxt : formatMoney(total))+'</div></div>' +
+    '<div class="rep-kpi rec"><div class="t">RECEBIDO</div><div class="v">'+(hidden ? maskTxt : formatMoney(recebido))+'</div></div>' +
+    '<div class="rep-kpi pen"><div class="t">A RECEBER</div><div class="v">'+(hidden ? maskTxt : formatMoney(pendente))+'</div></div>' +
     '<div class="rep-kpi"><div class="t">INADIMPLÊNCIA</div><div class="v">'+inadimplencia+'%</div></div>' +
-    '<div class="rep-kpi"><div class="t">SESSÕES TOTAIS</div><div class="v">'+sessoes+'</div></div>' +
-    '<div class="rep-kpi"><div class="t">PACIENTES ATIVOS</div><div class="v">'+nPacientes+'</div></div>' +
-    '<div class="rep-kpi"><div class="t">TICKET MÉDIO</div><div class="v">'+formatMoney(ticket)+'</div></div>' +
-    '<div class="rep-kpi"><div class="t">MÉDIA / MÊS ATIVO</div><div class="v">'+formatMoney(mediaMensal)+'</div></div>' +
+    '<div class="rep-kpi"><div class="t">SESSÕES</div><div class="v">'+sessoes+'</div></div>' +
+    '<div class="rep-kpi"><div class="t">PACIENTES</div><div class="v">'+nPacientes+'</div></div>' +
+    '<div class="rep-kpi"><div class="t">TICKET MÉDIO</div><div class="v">'+(hidden ? maskTxt : formatMoney(ticket))+'</div></div>' +
+    (repMonthFilter === 'all'
+      ? '<div class="rep-kpi"><div class="t">MÉDIA / MÊS ATIVO</div><div class="v">'+(hidden ? maskTxt : formatMoney(mediaMensal))+'</div></div>'
+      : '<div class="rep-kpi"><div class="t">MÊS DE ANÁLISE</div><div class="v" style="font-size:13px;font-weight:700;color:var(--primary);">'+mesesLongos[parseInt(repMonthFilter,10)]+'</div></div>') +
   '</div>';
 
-  // Gráfico comparativo mensal com barras de Recebido (verde) e Pendente (âmbar)
-  var maxFat = 0; porMes.forEach(function(m){ if(m.fat > maxFat) maxFat = m.fat; });
-  var bars = '<div class="rep-section-title">Comparativo Mensal (Recebido x Pendente)</div><div class="bars">';
-  for(var i=0;i<12;i++){
-    var mData = porMes[i];
-    var hTotal = maxFat > 0 ? Math.round((mData.fat/maxFat)*100) : 0;
-    var hRec = mData.fat > 0 ? (mData.rec / mData.fat) * 100 : 0;
-    var hPen = mData.fat > 0 ? (mData.pen / mData.fat) * 100 : 0;
-    var valTxt = mData.fat > 0 ? 'R$'+Math.round(mData.fat) : '';
+  var barsHtml = '';
+  if(repMonthFilter === 'all'){
+    var maxFat = 0; porMes.forEach(function(m){ if(m.fat > maxFat) maxFat = m.fat; });
+    barsHtml = '<div class="rep-section-title">Comparativo Mensal (Recebido x Pendente)</div><div class="bars">';
+    for(var i=0;i<12;i++){
+      var mData = porMes[i];
+      var hTotal = maxFat > 0 ? Math.round((mData.fat/maxFat)*100) : 0;
+      var hRec = mData.fat > 0 ? (mData.rec / mData.fat) * 100 : 0;
+      var hPen = mData.fat > 0 ? (mData.pen / mData.fat) * 100 : 0;
+      var valTxt = mData.fat > 0 ? (hidden ? '•••' : 'R$'+Math.round(mData.fat)) : '';
 
-    bars += '<div class="bar-col">' +
-      '<div class="bar-val">'+valTxt+'</div>' +
-      '<div class="bar-wrap">' +
-        '<div class="bar-stack" style="height:'+Math.max(hTotal, 4)+'%;">' +
-          '<div class="bar-sub-rec" style="height:'+hRec+'%;" title="Recebido: '+formatMoney(mData.rec)+'"></div>' +
-          '<div class="bar-sub-pen" style="height:'+hPen+'%;" title="Pendente: '+formatMoney(mData.pen)+'"></div>' +
+      barsHtml += '<div class="bar-col">' +
+        '<div class="bar-val">'+valTxt+'</div>' +
+        '<div class="bar-wrap">' +
+          '<div class="bar-stack" style="height:'+Math.max(hTotal, 4)+'%;">' +
+            '<div class="bar-sub-rec" style="height:'+hRec+'%;"></div>' +
+            '<div class="bar-sub-pen" style="height:'+hPen+'%;"></div>' +
+          '</div>' +
         '</div>' +
-      '</div>' +
-      '<div class="bar-lbl">'+meses[i]+'</div>' +
-    '</div>';
+        '<div class="bar-lbl">'+meses[i]+'</div>' +
+      '</div>';
+    }
+    barsHtml += '</div>' +
+      '<div style="display:flex;justify-content:center;gap:14px;font-size:11px;color:var(--ink-soft);margin-bottom:14px;">' +
+        '<span><i style="display:inline-block;width:10px;height:10px;background:var(--success);border-radius:2px;margin-right:4px;"></i>Recebido</span>' +
+        '<span><i style="display:inline-block;width:10px;height:10px;background:var(--accent);border-radius:2px;margin-right:4px;"></i>Pendente</span>' +
+      '</div>';
   }
-  bars += '</div>' +
-    '<div style="display:flex;justify-content:center;gap:14px;font-size:11px;color:var(--ink-soft);margin-bottom:14px;">' +
-      '<span><i style="display:inline-block;width:10px;height:10px;background:var(--success);border-radius:2px;margin-right:4px;"></i>Recebido</span>' +
-      '<span><i style="display:inline-block;width:10px;height:10px;background:var(--accent);border-radius:2px;margin-right:4px;"></i>Pendente</span>' +
-    '</div>';
 
-  // Ranking de Pacientes com barras de porcentagem
+  // Ranking de Pacientes
   var topNames = Object.keys(porPaciente).sort(function(a,b){ return porPaciente[b].valor - porPaciente[a].valor; });
-  var top = '<div class="rep-section-title">Ranking de Pacientes (Participação no Faturamento)</div>';
+  var top = '<div class="rep-section-title">Ranking de Pacientes (' + (repMonthFilter !== 'all' ? mesesLongos[parseInt(repMonthFilter,10)] : 'Ano') + ')</div>';
   topNames.slice(0, 6).forEach(function(n, idx){
     var pData = porPaciente[n];
     var pct = total > 0 ? ((pData.valor / total) * 100).toFixed(1) : 0;
@@ -2680,18 +3208,18 @@ function renderReportBody(){
         '<div>'+escapeHtml(n)+' <span style="font-weight:400;color:var(--ink-soft);font-size:11px;">('+pData.sessoes+' sessões · '+pct+'%)</span></div>' +
         '<div class="rep-progress-wrap"><div class="rep-progress-bar" style="width:'+pct+'%;"></div></div>' +
       '</div>' +
-      '<div class="vl">'+formatMoney(pData.valor)+'</div>' +
+      '<div class="vl">'+(hidden ? maskTxt : formatMoney(pData.valor))+'</div>' +
     '</div>';
   });
 
-  // Distribuição de Meios de Pagamento
+  // Meios de Pagamento
   var metodosHtml = '<div class="rep-section-title">Distribuição por Forma de Pagamento</div><div class="card" style="padding:10px 14px;margin-bottom:14px;">';
   Object.keys(porMetodo).sort(function(a,b){ return porMetodo[b].total - porMetodo[a].total; }).forEach(function(mKey){
     var mInfo = porMetodo[mKey];
     var mPct = total > 0 ? ((mInfo.total / total) * 100).toFixed(1) : 0;
     metodosHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);font-size:12px;">' +
       '<div><b>'+escapeHtml(mKey)+'</b> <span style="color:var(--ink-soft);">('+mInfo.count+' sessões)</span></div>' +
-      '<div style="font-family:\'IBM Plex Mono\',monospace;font-weight:600;">'+formatMoney(mInfo.total)+' ('+mPct+'%)</div>' +
+      '<div style="font-family:monospace;font-weight:600;">'+(hidden ? maskTxt : formatMoney(mInfo.total))+' ('+mPct+'%)</div>' +
     '</div>';
   });
   metodosHtml += '</div>';
@@ -2705,7 +3233,7 @@ function renderReportBody(){
     '</div>' +
     '<div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-size:11px;"></div>';
 
-  document.getElementById('repBody').innerHTML = kpis + bars + top + metodosHtml + cal;
+  bodyEl.innerHTML = kpis + barsHtml + top + metodosHtml + cal;
   renderWorkCalendar();
 }
 
@@ -2750,11 +3278,23 @@ function renderWorkCalendar(){
 }
 
 function exportAnnualFinancialPDF(){
-  var list = entriesOfYear(reportYear);
-  if(list.length === 0){ alert('Nenhum atendimento para o ano selecionado.'); return; }
+  var rawList = entriesOfYear(reportYear);
+  var list = rawList;
+  var mesesLongos = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+  if(repMonthFilter !== 'all'){
+    var mTarget = parseInt(repMonthFilter, 10);
+    list = rawList.filter(function(e){ return new Date(e.data + 'T00:00:00').getMonth() === mTarget; });
+  }
+
+  if(list.length === 0){ alert('Nenhum atendimento para o período selecionado.'); return; }
 
   var doc = new jspdf.jsPDF();
-  receiptHeader(doc, 'Relatório Financeiro Anual · ' + reportYear);
+  var titlePdf = repMonthFilter !== 'all'
+    ? 'Relatório Financeiro · ' + mesesLongos[parseInt(repMonthFilter,10)] + ' de ' + reportYear
+    : 'Relatório Financeiro Anual · ' + reportYear;
+
+  receiptHeader(doc, titlePdf);
 
   var total = 0, recebido = 0, pendente = 0;
   var porMes = [];
@@ -2770,31 +3310,44 @@ function exportAnnualFinancialPDF(){
   });
 
   doc.setFontSize(10.5); doc.setTextColor(138,111,94);
-  doc.text('Faturamento Anual: ' + formatMoney(total) + '  |  Recebido: ' + formatMoney(recebido) + '  |  A Receber: ' + formatMoney(pendente), 15, 54);
+  doc.text('Faturamento: ' + formatMoney(total) + '  |  Recebido: ' + formatMoney(recebido) + '  |  A Receber: ' + formatMoney(pendente), 15, 54);
 
   var rowY = 66, rowH = 8.5;
   doc.setFillColor(181,84,46);
   doc.rect(15, rowY, 180, rowH, 'F');
   doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(9);
-  doc.text('MÊS', 19, rowY+5.5);
-  doc.text('SESSÕES', 65, rowY+5.5);
-  doc.text('RECEBIDO', 105, rowY+5.5);
-  doc.text('A RECEBER', 145, rowY+5.5);
-  doc.text('TOTAL', 191, rowY+5.5, { align: 'right' });
+  doc.text(repMonthFilter !== 'all' ? 'DATA' : 'MÊS', 19, rowY+5.5);
+  doc.text(repMonthFilter !== 'all' ? 'PACIENTE' : 'SESSÕES', 65, rowY+5.5);
+  doc.text(repMonthFilter !== 'all' ? 'STATUS' : 'RECEBIDO', 115, rowY+5.5);
+  doc.text('VALOR', 191, rowY+5.5, { align: 'right' });
   doc.setFont('helvetica','normal');
   rowY += rowH;
 
-  var mesesLongos = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-  for(var i=0; i<12; i++){
-    var mD = porMes[i];
-    if(i % 2 === 0){ doc.setFillColor(248,236,224); doc.rect(15, rowY, 180, rowH, 'F'); }
-    doc.setTextColor(58,42,32); doc.setFontSize(9);
-    doc.text(mesesLongos[i], 19, rowY+5.5);
-    doc.text(String(mD.count), 65, rowY+5.5);
-    doc.setTextColor(94,123,71); doc.text(formatMoney(mD.rec), 105, rowY+5.5);
-    doc.setTextColor(201,138,43); doc.text(formatMoney(mD.pen), 145, rowY+5.5);
-    doc.setTextColor(58,42,32); doc.text(formatMoney(mD.tot), 191, rowY+5.5, { align: 'right' });
-    rowY += rowH;
+  if(repMonthFilter !== 'all'){
+    list.slice().sort(function(a,b){ return String(a.data).localeCompare(String(b.data)); }).forEach(function(s, idx){
+      if(rowY + rowH > 260){ doc.addPage(); marcaDaguaOutono(doc,210,297); rowY = 20; }
+      if(idx % 2 === 0){ doc.setFillColor(248,236,224); doc.rect(15, rowY, 180, rowH, 'F'); }
+      doc.setTextColor(58,42,32); doc.setFontSize(9);
+      doc.text(formatDateBR(s.data), 19, rowY+5.5);
+      doc.text(s.nome, 65, rowY+5.5);
+      var pago = s.status === 'Pago';
+      doc.setTextColor(pago?94:138, pago?123:90, pago?71:20);
+      doc.text(s.status, 115, rowY+5.5);
+      doc.setTextColor(58,42,32);
+      doc.text(formatMoney(s.valor), 191, rowY+5.5, { align: 'right' });
+      rowY += rowH;
+    });
+  } else {
+    for(var i=0; i<12; i++){
+      var mD = porMes[i];
+      if(i % 2 === 0){ doc.setFillColor(248,236,224); doc.rect(15, rowY, 180, rowH, 'F'); }
+      doc.setTextColor(58,42,32); doc.setFontSize(9);
+      doc.text(mesesLongos[i], 19, rowY+5.5);
+      doc.text(String(mD.count), 65, rowY+5.5);
+      doc.setTextColor(94,123,71); doc.text(formatMoney(mD.rec), 115, rowY+5.5);
+      doc.setTextColor(58,42,32); doc.text(formatMoney(mD.tot), 191, rowY+5.5, { align: 'right' });
+      rowY += rowH;
+    }
   }
 
   rowY += 4;
@@ -2803,14 +3356,14 @@ function exportAnnualFinancialPDF(){
   rowY += 8;
 
   doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(181,84,46);
-  doc.text('Total Anual: ' + formatMoney(total) + '  (' + list.length + ' atendimentos)', 19, rowY);
+  doc.text('Total: ' + formatMoney(total) + '  (' + list.length + ' atendimentos)', 19, rowY);
 
   drawStamp(doc, 175, 255);
   doc.setFontSize(8.5); doc.setTextColor(138,111,94); doc.setFont('helvetica','normal');
-  doc.text('Relatório Financeiro Oficial gerado em ' + formatDateBR(isoDate(new Date())), 15, 280);
+  doc.text('Relatório Financeiro gerado em ' + formatDateBR(isoDate(new Date())), 15, 280);
 
-  doc.save('relatorio_financeiro_' + reportYear + '.pdf');
-  showToast('Relatório Anual gerado em PDF.', 'ok');
+  doc.save('relatorio_financeiro_' + (repMonthFilter !== 'all' ? (parseInt(repMonthFilter,10)+1) + '_' : '') + reportYear + '.pdf');
+  showToast('Relatório gerado em PDF.', 'ok');
 }
 
 /* ============================================================
@@ -2991,7 +3544,7 @@ async function runDiagnostico(){
 
 function exportBackup(fmt){
   var backupObj = {
-    versao: '2.0',
+    versao: '2.1',
     exportadoEm: new Date().toISOString(),
     profissional: config,
     pacientes: patients,

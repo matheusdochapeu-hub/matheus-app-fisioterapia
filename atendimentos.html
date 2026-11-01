@@ -1467,8 +1467,14 @@ function renderPatientsTab(){
           '</button>' +
           '<button class="casc-btn" style="grid-column:1 / -1;" onclick="toggleArchivePatient(\''+p.id+'\')">' +
             '<span class="casc-icon">'+(isArchived ? '&#128260;' : '&#128194;')+'</span>' +
-            '<div class="casc-info"><span class="casc-title">'+(isArchived ? 'Reativar Paciente' : 'Finalizar / Arquivar Paciente')+'</span><span class="casc-desc">'+(isArchived ? 'Retornar à lista de pacientes ativos' : 'Tratamento concluído: enviar para o fim da fila')+'</span></div>' +
+            '<div class="casc-info"><span class="casc-title">'+(isArchived ? 'Reativar Paciente' : 'Finalizar / Arquivar Paciente')+'</span><span class="casc-desc">'+(isArchived ? 'Retornar à lista de pacientes ativos' : 'Enviar para o fim da fila (mantém todos os dados)')+'</span></div>' +
           '</button>' +
+          (isArchived
+            ? '<button class="casc-btn" style="grid-column:1 / -1;border-color:rgba(168,51,51,0.3);background:var(--danger-bg);" onclick="deletePatient(\''+p.id+'\')">' +
+                '<span class="casc-icon">&#128465;&#65039;</span>' +
+                '<div class="casc-info"><span class="casc-title" style="color:var(--danger);">Excluir Definitivamente</span><span class="casc-desc" style="color:var(--danger);">Apagar permanentemente o paciente arquivado</span></div>' +
+              '</button>'
+            : '') +
         '</div>' +
       '</div>' +
     '</div>';
@@ -1493,7 +1499,7 @@ async function toggleArchivePatient(id){
   var dispName = getPatientDisplayName(p);
   var msg = isArchived
     ? 'Reativar o paciente "' + dispName + '"? Ele voltará para o topo da lista de pacientes ativos.'
-    : 'Finalizar o tratamento e arquivar o paciente "' + dispName + '"?\n\nEle irá para o fim da fila e constará como finalizado no controle financeiro.';
+    : 'Finalizar o tratamento e arquivar o paciente "' + dispName + '"?\n\nTodos os dados cadastrais, evoluções, exames, documentos e histórico financeiro serão mantidos intactos. Ele apenas irá para o fim da fila como finalizado.';
 
   if(!confirm(msg)) return;
 
@@ -1502,7 +1508,7 @@ async function toggleArchivePatient(id){
   renderPatientsTab();
   populatePatientFilter();
   renderList();
-  showToast(isArchived ? 'Paciente reativado.' : 'Paciente arquivado com sucesso.', 'ok');
+  showToast(isArchived ? 'Paciente reativado.' : 'Paciente arquivado (dados mantidos).', 'ok');
 
   try{
     await postAction({ action: 'update_patient', id: id, arquivado: newStatus });
@@ -1657,7 +1663,7 @@ function openPatientForm(patientId){
       '<textarea id="pFormObjetivos" placeholder="Metas de curto e longo prazo (ex: ganho de amplitude, treino de marcha, prevenção de quedas)...">'+escapeHtml(p?p.objetivos:'')+'</textarea>' +
 
       '<div class="btn-row">' +
-        (isEdit ? '<button class="btn danger small" onclick="deletePatient(\''+p.id+'\')">Excluir</button>' : '') +
+        (isEdit && p.arquivado === 'Sim' ? '<button class="btn danger small" onclick="deletePatient(\''+p.id+'\')">Excluir Definitivamente</button>' : '') +
         '<button class="btn ghost" style="flex:1;" onclick="closeModal()">Cancelar</button>' +
         '<button class="btn primary" id="savePatientFormBtn" style="flex:2;" onclick="submitPatientForm(\''+(p?p.id:'')+'\')">Salvar Paciente</button>' +
       '</div>' +
@@ -1879,7 +1885,15 @@ async function submitPatientForm(existingId){
 async function deletePatient(id){
   var p = patients.find(function(x){ return x.id === id; });
   if(!p) return;
-  if(!confirm('Excluir permanentemente o paciente "' + getPatientDisplayName(p) + '"?\n\nAtenção: isso também removerá em cascata suas evoluções.')) return;
+
+  // Só permite excluir definitivamente se o paciente já estiver arquivado
+  if(p.arquivado !== 'Sim'){
+    alert('Para preservar o histórico, não é possível excluir um paciente ativo diretamente.\n\nPrimeiro utilize o botão "Finalizar / Arquivar Paciente" (que mantém todos os dados salvos). A exclusão definitiva só fica disponível após o paciente estar arquivado.');
+    return;
+  }
+
+  var dispName = getPatientDisplayName(p);
+  if(!confirm('⚠️ EXCLUSÃO DEFINITIVA\n\nTem certeza que deseja excluir DEFINITIVAMENTE o paciente arquivado "' + dispName + '"?\n\nEsta ação removerá o cadastro e suas evoluções da planilha e não poderá ser desfeita.')) return;
 
   var idx = patients.findIndex(function(x){ return x.id === id; });
   var removed = patients[idx];
@@ -1895,7 +1909,7 @@ async function deletePatient(id){
   renderEvolutionsTab();
   renderList();
   closeModal();
-  showToast('Paciente excluído.', 'ok');
+  showToast('Paciente excluído definitivamente.', 'ok');
 
   try{
     await postAction({ action: 'delete_patient', id: id });

@@ -642,6 +642,48 @@
   .spinner{width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--primary);border-radius:50%;animation:spin .6s linear infinite;}
   .hint-banner{background:var(--bg-tint);border:1px solid var(--line);padding:10px 12px;border-radius:var(--radius-xs);font-size:var(--fs-xs);color:var(--ink-soft);line-height:1.45;}
 
+  /* Agenda & Google Calendar */
+  .gcal-banner{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+    background:linear-gradient(145deg,var(--surface),var(--bg-tint));
+    border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:12px;
+    box-shadow:var(--shadow-soft);
+  }
+  .gcal-status{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink);min-width:0;flex:1;}
+  .gcal-dot{width:9px;height:9px;border-radius:50%;background:var(--accent);flex-shrink:0;}
+  .gcal-dot.linked{background:var(--success);}
+  .sched-day-group{margin-bottom:14px;}
+  .sched-day-header{
+    font-size:12px;font-weight:700;color:var(--primary-deep);text-transform:uppercase;
+    letter-spacing:.4px;padding:6px 10px;background:var(--bg-tint);border-radius:var(--radius-xs);
+    margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;
+  }
+  .sched-card{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm);
+    padding:12px 14px;margin-bottom:8px;box-shadow:var(--shadow-soft);
+    display:flex;flex-direction:column;gap:8px;
+  }
+  .sched-card.done{border-left:4px solid var(--success);background:linear-gradient(to right,var(--success-soft),var(--surface) 30%);}
+  .sched-card.pending{border-left:4px solid var(--primary);}
+  .sched-top{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .sched-time-pill{
+    background:var(--primary-soft);color:var(--primary-deep);font-family:'IBM Plex Mono',monospace;
+    font-size:12px;font-weight:700;padding:4px 8px;border-radius:8px;white-space:nowrap;
+  }
+  .sched-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;border-top:1px dashed var(--line);padding-top:8px;}
+  .dow-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:6px;}
+  .dow-chip{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:8px 2px;border:1px solid var(--line);border-radius:var(--radius-xs);
+    background:var(--bg);font-size:11.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;user-select:none;
+  }
+  .dow-chip input{display:none;}
+  .dow-chip.active{background:var(--primary);color:#fff;border-color:var(--primary-deep);font-weight:700;}
+  @media (max-width: 480px){
+    .main-tab{padding:9px 4px;font-size:11.5px;gap:4px;}
+    .main-tab .tab-ic{width:14px;height:14px;}
+  }
+
   @keyframes spin{to{transform:rotate(360deg);}}
   @keyframes fade{from{opacity:0;}to{opacity:1;}}
   @keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
@@ -669,6 +711,8 @@
       <input id="providerDocInput" placeholder="Número de registro CREFITO ou CPF">
       <label style="margin-top:8px;display:block;">Telefone ou PIX para contato</label>
       <input id="providerContactInput" placeholder="Ex: (11) 99999-9999">
+      <label style="margin-top:8px;display:block;">E-mail da sua Google Agenda (opcional)</label>
+      <input id="calendarIdInput" type="email" placeholder="Ex: seuemail@gmail.com">
       <label style="margin-top:8px;display:block;">Link da planilha (Apps Script /exec)</label>
       <input id="scriptUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
     </div>
@@ -716,11 +760,15 @@
 
     <div id="errorBanner" class="error-banner hidden"></div>
 
-    <!-- 3 ABAS PRINCIPAIS -->
+    <!-- 4 ABAS PRINCIPAIS -->
     <nav class="main-tabs" role="tablist" aria-label="Navegação principal">
       <button id="tabBtnPacientes" class="main-tab active" onclick="switchMainTab('pacientes')" role="tab" aria-selected="true">
         <svg class="tab-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         <span>Pacientes</span>
+      </button>
+      <button id="tabBtnAgenda" class="main-tab" onclick="switchMainTab('agenda')" role="tab" aria-selected="false">
+        <svg class="tab-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span>Agenda</span>
       </button>
       <button id="tabBtnEvolucoes" class="main-tab" onclick="switchMainTab('evolucoes')" role="tab" aria-selected="false">
         <svg class="tab-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
@@ -750,6 +798,52 @@
         <svg style="width:18px;height:18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Adicionar novo paciente
       </button>
+    </div>
+
+    <!-- ABA NOVA: AGENDA & GOOGLE AGENDA -->
+    <div id="tabAgendaView" class="tab-view hidden">
+      <div class="gcal-banner">
+        <div class="gcal-status">
+          <span id="gcalStatusDot" class="gcal-dot"></span>
+          <div style="min-width:0;">
+            <div style="font-weight:700;color:var(--primary-deep);font-size:12.5px;">Sincronização Google Agenda</div>
+            <div id="gcalStatusText" style="font-size:11.5px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Agenda padrão da planilha</div>
+          </div>
+        </div>
+        <button class="btn small ghost" onclick="openCalendarSettingsModal()">&#128279; Vincular Minha Agenda</button>
+      </div>
+
+      <div class="month-nav">
+        <button onclick="shiftAgendaMonth(-1)" aria-label="Mês anterior">&lsaquo;</button>
+        <div class="label" id="agendaMonthLabel">-</div>
+        <button onclick="shiftAgendaMonth(1)" aria-label="Próximo mês">&rsaquo;</button>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+        <button class="btn primary" style="flex:1;" onclick="openScheduleModal()">&#128197; + Agendar Sessão / Escala do Mês</button>
+      </div>
+
+      <div class="card" style="padding:12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <span style="font-size:11.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;">Calendário de Agendamentos</span>
+          <button id="agendaClearDayBtn" class="rep-entry-btn hidden" onclick="selectAgendaDay(null)">Ver mês todo</button>
+        </div>
+        <div id="agendaCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-size:11px;"></div>
+      </div>
+
+      <div class="filter-row" style="margin-bottom:10px;">
+        <label class="filter-label" for="agendaPatientFilter">Paciente</label>
+        <select id="agendaPatientFilter" onchange="renderAgendaTab()">
+          <option value="">Todos os pacientes</option>
+        </select>
+        <select id="agendaStatusFilter" onchange="renderAgendaTab()" style="max-width:135px;">
+          <option value="all">Todos</option>
+          <option value="Agendado">Agendados</option>
+          <option value="Realizado">Realizados</option>
+        </select>
+      </div>
+
+      <div id="agendaListContainer"></div>
     </div>
 
     <!-- ABA 2: EVOLUÇÕES CLÍNICAS (PRONTUÁRIOS) -->
@@ -889,9 +983,13 @@ var config = null;
 var entries = [];
 var patients = [];
 var evolutions = [];
+var schedules = [];
 var exercises = [];
 var routines = [];
 var currentMonth = new Date();
+var agendaMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+var agendaSelectedDay = null;
+var schedModalMode = 'single'; // 'single' ou 'batch'
 var currentTab = 'pacientes';
 var _modalStatePushed = false;
 var reportYear = currentMonth.getFullYear();
@@ -1146,7 +1244,7 @@ async function dbGetFileById(id){
 function switchMainTab(tab){
   currentTab = tab;
   try { localStorage.setItem('active_tab', tab); } catch(e){}
-  var tabs = ['pacientes', 'evolucoes', 'financeiro'];
+  var tabs = ['pacientes', 'agenda', 'evolucoes', 'financeiro'];
   tabs.forEach(function(t){
     var btn = document.getElementById('tabBtn' + capitalize(t));
     var view = document.getElementById('tab' + capitalize(t) + 'View');
@@ -1170,6 +1268,7 @@ function switchMainTab(tab){
 
   updateFab();
   if(tab === 'pacientes') renderPatientsTab();
+  if(tab === 'agenda') renderAgendaTab();
   if(tab === 'evolucoes') renderEvolutionsTab();
   if(tab === 'financeiro') renderList();
 }
@@ -1180,6 +1279,8 @@ function updateFab(){
   if(!fab) return;
   if(currentTab === 'pacientes'){
     fab.textContent = '+ Novo paciente';
+  } else if(currentTab === 'agenda'){
+    fab.textContent = '+ Agendar';
   } else if(currentTab === 'evolucoes'){
     fab.textContent = '+ Nova evolução';
   } else {
@@ -1191,6 +1292,8 @@ function updateFab(){
 function handleFabClick(){
   if(currentTab === 'pacientes'){
     openPatientForm();
+  } else if(currentTab === 'agenda'){
+    openScheduleModal();
   } else if(currentTab === 'evolucoes'){
     openNewEvolution();
   } else {
@@ -1320,7 +1423,7 @@ async function postAction(payload){
   if(data.success === false){
     throw new Error(data.error || 'Erro ao processar a solicitação na planilha.');
   }
-  return res;
+  return data;
 }
 
 async function loadData(){
@@ -1399,18 +1502,56 @@ async function loadData(){
     localEvos.forEach(function(ev){ evoMap[ev.id] = ev; });
     evolutions = Object.keys(evoMap).map(function(k){ return evoMap[k]; });
 
+    var sheetScheds = (data.agendamentos || []).map(function(r){
+      return {
+        id: String(r.ID),
+        pacienteId: String(r.PacienteID || ''),
+        pacienteNome: r.PacienteNome || '',
+        data: r.Data || '',
+        hora: r.Hora || '',
+        duracaoMin: parseInt(r.DuracaoMin, 10) || 50,
+        valor: parseValor(r.Valor),
+        status: r.Status || 'Agendado',
+        observacao: r.Observacao || '',
+        calendarEventId: r.CalendarEventId || '',
+        calendarId: r.CalendarId || '',
+        atendimentoId: r.AtendimentoId || '',
+        criadoEm: r.CriadoEm || ''
+      };
+    });
+    var localScheds = getLocalSchedules();
+    var schedMap = {};
+    sheetScheds.forEach(function(sc){ schedMap[sc.id] = sc; });
+    localScheds.forEach(function(sc){ schedMap[sc.id] = sc; });
+    schedules = Object.keys(schedMap).map(function(k){ return schedMap[k]; });
+
     exercises = data.exercicios || [];
     routines = data.rotinas || [];
 
     populatePatientFilter();
     populateEvolutionsFilters();
+    populateAgendaFilters();
     renderPatientsTab();
+    renderAgendaTab();
     renderEvolutionsTab();
     renderList();
   }catch(e){
     showError('Não foi possível carregar os dados da planilha. Confira sua conexão ou o link configurado.');
   }
   document.getElementById('loadingState').classList.add('hidden');
+}
+
+function getLocalSchedules(){
+  try{
+    var raw = localStorage.getItem('ft_local_schedules');
+    return raw ? JSON.parse(raw) : [];
+  }catch(e){ return []; }
+}
+
+function saveLocalSchedules(){
+  try{
+    localStorage.setItem('ft_local_schedules', JSON.stringify(schedules));
+  }catch(e){}
 }
 
 function getLocalEvolutions(){
@@ -1524,6 +1665,10 @@ function renderSinglePatientCardHtml(p){
           '<span class="casc-icon">&#128205;</span>' +
           '<div class="casc-info"><span class="casc-title">Check-in</span><span class="casc-desc">Lançar sessão rápida</span></div>' +
         '</button>' +
+        '<button class="casc-btn" onclick="openScheduleModal(\''+p.id+'\')">' +
+          '<span class="casc-icon">&#128197;</span>' +
+          '<div class="casc-info"><span class="casc-title">Agendar</span><span class="casc-desc">Semana/mês & Google Agenda</span></div>' +
+        '</button>' +
         '<button class="casc-btn" onclick="openNewEvolution(\''+p.id+'\')">' +
           '<span class="casc-icon">&#129658;</span>' +
           '<div class="casc-info"><span class="casc-title">Evolução</span><span class="casc-desc">Registrar prontuário</span></div>' +
@@ -1540,7 +1685,7 @@ function renderSinglePatientCardHtml(p){
           '<span class="casc-icon">&#128221;</span>' +
           '<div class="casc-info"><span class="casc-title">Exames</span><span class="casc-desc">Laudos, fotos & PDFs</span></div>' +
         '</button>' +
-        '<button class="casc-btn" onclick="openPatientFilesModal(\''+p.id+'\', \'documento\')">' +
+        '<button class="casc-btn" style="grid-column:1 / -1;" onclick="openPatientFilesModal(\''+p.id+'\', \'documento\')">' +
           '<span class="casc-icon">&#128193;</span>' +
           '<div class="casc-info"><span class="casc-title">Documentos</span><span class="casc-desc">Termos, receitas & fotos</span></div>' +
         '</button>' +
@@ -1934,7 +2079,9 @@ async function submitPatientForm(existingId){
       renderPatientsTab();
       populatePatientFilter();
       populateEvolutionsFilters();
+      populateAgendaFilters();
       renderEvolutionsTab();
+      renderAgendaTab();
       renderList();
       closeModal();
       showToast('Dados atualizados com sucesso.', 'ok');
@@ -2004,7 +2151,9 @@ async function submitPatientForm(existingId){
     renderPatientsTab();
     populatePatientFilter();
     populateEvolutionsFilters();
+    populateAgendaFilters();
     renderEvolutionsTab();
+    renderAgendaTab();
     renderList();
     closeModal();
     showToast('Paciente cadastrado com sucesso!', 'ok');
@@ -2015,6 +2164,8 @@ async function submitPatientForm(existingId){
       patients = patients.filter(function(x){ return x.id !== newId; });
       removeLocalPatientMeta(newId);
       renderPatientsTab();
+      populateAgendaFilters();
+      renderAgendaTab();
       renderList();
       showError('Falha ao gravar paciente na planilha: ' + err.message);
     }
@@ -2037,14 +2188,19 @@ async function deletePatient(id){
   var idx = patients.findIndex(function(x){ return x.id === id; });
   var removed = patients[idx];
   var oldEvolutions = evolutions.slice();
+  var oldSchedules = schedules.slice();
   patients.splice(idx, 1);
   evolutions = evolutions.filter(function(ev){ return ev.pacienteId !== id; });
+  schedules = schedules.filter(function(sc){ return sc.pacienteId !== id; });
   saveLocalEvolutions();
+  saveLocalSchedules();
   removeLocalPatientMeta(id);
   renderPatientsTab();
   populatePatientFilter();
   populateEvolutionsFilters();
+  populateAgendaFilters();
   renderEvolutionsTab();
+  renderAgendaTab();
   renderList();
   closeModal();
   showToast('Paciente excluído definitivamente.', 'ok');
@@ -2055,11 +2211,15 @@ async function deletePatient(id){
     patients.splice(idx, 0, removed);
     saveLocalPatientMeta(removed);
     evolutions = oldEvolutions;
+    schedules = oldSchedules;
     saveLocalEvolutions();
+    saveLocalSchedules();
     renderPatientsTab();
     populatePatientFilter();
     populateEvolutionsFilters();
+    populateAgendaFilters();
     renderEvolutionsTab();
+    renderAgendaTab();
     showError('Não foi possível excluir o paciente na planilha.');
   }
 }
@@ -4326,12 +4486,981 @@ function receiptHeader(doc, title){
 }
 
 /* ============================================================
+   ABA 4: AGENDA & INTEGRAÇÃO GOOGLE AGENDA (CalendarApp)
+   ============================================================ */
+function getUserCalendarId(){
+  if(config && config.calendarId) return String(config.calendarId).trim();
+  try{
+    return String(localStorage.getItem('ft_calendar_id') || '').trim();
+  }catch(e){
+    return '';
+  }
+}
+
+function updateGCalBannerUI(){
+  var calId = getUserCalendarId();
+  var box = document.getElementById('gcalBannerBox');
+  var title = document.getElementById('gcalBannerTitle');
+  var desc = document.getElementById('gcalBannerDesc');
+  var btn = document.getElementById('gcalBannerBtn');
+  var icsBtn = document.getElementById('agendaExportIcsBtn');
+  if(!box || !title || !desc || !btn) return;
+
+  if(calId){
+    box.classList.remove('disconnected');
+    title.innerHTML = '✅ Google Agenda Vinculada: <span style="text-decoration:underline;">' + escapeHtml(calId) + '</span>';
+    desc.textContent = 'Novos agendamentos, remarcações e cancelamentos são sincronizados automaticamente com sua agenda.';
+    btn.innerHTML = '⚙️ Configurar Agenda';
+  } else {
+    box.classList.add('disconnected');
+    title.textContent = 'Sincronização com Google Agenda';
+    desc.textContent = 'Vincule seu e-mail do Google Agenda para criar e atualizar seus atendimentos automaticamente no celular.';
+    btn.innerHTML = '🔗 Vincular Minha Agenda';
+  }
+  if(icsBtn){
+    icsBtn.style.display = schedules.length > 0 ? 'inline-flex' : 'none';
+  }
+}
+
+function openCalendarSettingsModal(){
+  var calId = getUserCalendarId();
+  var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
+    '<div class="modal">' +
+      '<div class="grabber"></div>' +
+      '<h2>📅 Vincular Google Agenda</h2>' +
+      '<p style="font-size:12.5px;color:var(--ink-soft);margin-bottom:14px;line-height:1.45;">' +
+        'Informe o <strong>e-mail da sua conta Google</strong> para que o sistema crie, remarque e remova automaticamente os eventos na sua agenda.' +
+      '</p>' +
+
+      '<label>Seu E-mail do Google Agenda (Gmail)</label>' +
+      '<input id="modalCalendarIdInput" type="email" placeholder="Ex: seuemail@gmail.com" value="' + escapeHtml(calId) + '" autocomplete="email">' +
+
+      '<div style="background:var(--bg);border:1px solid var(--line);border-radius:var(--radius-sm);padding:12px;margin-top:14px;font-size:12px;color:var(--ink-soft);line-height:1.5;">' +
+        '<div style="font-weight:700;color:var(--ink);margin-bottom:4px;">💡 Como funciona a sincronização automática:</div>' +
+        '1. <strong>Mesma conta da planilha:</strong> Se o seu e-mail for o mesmo dono da planilha/Apps Script, os eventos são criados diretamente na sua agenda principal.<br>' +
+        '2. <strong>Outra conta Gmail:</strong> Se você usa outro e-mail pessoal, o sistema envia automaticamente o convite/evento para o seu Google Agenda (ou grava direto caso você compartilhe sua agenda com permissão de edição).<br>' +
+        '3. <strong>Primeira ativação no Apps Script:</strong> Após atualizar o <code>Code.gs</code> na planilha, execute uma vez a função <code>autorizarGoogleAgenda</code> no editor do Apps Script para liberar a permissão do Google Agenda.' +
+      '</div>' +
+
+      '<div id="calTestResultBox" class="hidden" style="margin-top:12px;padding:10px 12px;border-radius:var(--radius-xs);font-size:12px;line-height:1.4;"></div>' +
+
+      '<div class="btn-row" style="margin-top:16px;">' +
+        '<button class="btn ghost" type="button" onclick="testGoogleCalendarConnection()">🔍 Testar Conexão</button>' +
+        '<button class="btn primary" type="button" onclick="saveCalendarSettings()">Salvar Agenda</button>' +
+      '</div>' +
+      '<div class="btn-row" style="margin-top:8px;">' +
+        '<button class="btn ghost" type="button" style="width:100%;" onclick="closeModal()">Fechar</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+  openModal(html);
+}
+
+async function testGoogleCalendarConnection(){
+  var inp = document.getElementById('modalCalendarIdInput');
+  var calId = inp ? inp.value.trim() : getUserCalendarId();
+  var resBox = document.getElementById('calTestResultBox');
+  if(!resBox) return;
+
+  resBox.classList.remove('hidden');
+  resBox.style.background = 'var(--surface)';
+  resBox.style.border = '1px solid var(--line)';
+  resBox.style.color = 'var(--ink)';
+  resBox.textContent = '⏳ Testando conexão com o Google Agenda via Apps Script...';
+
+  try{
+    var resp = await postAction({ action: 'test_calendar', calendarId: calId });
+    resBox.style.background = 'var(--ok-bg)';
+    resBox.style.border = '1px solid var(--ok)';
+    resBox.style.color = '#2b4718';
+    resBox.innerHTML = '✅ <strong>Conexão ativa!</strong> ' + escapeHtml(resp.message || ('Agenda "' + (resp.calendarName || 'Principal') + '" pronta para sincronizar.'));
+  }catch(err){
+    resBox.style.background = '#FBE6E4';
+    resBox.style.border = '1px solid var(--err)';
+    resBox.style.color = 'var(--err)';
+    var msg = err && err.message ? err.message : String(err);
+    if(msg.indexOf('Ação não reconhecida') > -1){
+      resBox.innerHTML = '⚠️ <strong>Atualize o Code.gs na planilha:</strong> Copie o novo código do arquivo <code>Code.gs</code> para o editor do Google Apps Script, execute <code>autorizarGoogleAgenda</code> e publique uma <strong>Nova implantação</strong>.';
+    } else {
+      resBox.innerHTML = '⚠️ <strong>Atenção:</strong> ' + escapeHtml(msg) + '<br><span style="font-size:11px;">No editor do Apps Script, selecione a função <code>autorizarGoogleAgenda</code> no topo e clique em <strong>Executar</strong> para autorizar o Google Agenda.</span>';
+    }
+  }
+}
+
+function saveCalendarSettings(){
+  var inp = document.getElementById('modalCalendarIdInput');
+  var calId = inp ? inp.value.trim() : '';
+  try{
+    localStorage.setItem('ft_calendar_id', calId);
+  }catch(e){}
+  if(config){
+    config.calendarId = calId;
+    try{ localStorage.setItem(CONFIG_KEY, JSON.stringify(config)); }catch(e){}
+  }
+  var setupCalInp = document.getElementById('calendarIdInput');
+  if(setupCalInp) setupCalInp.value = calId;
+
+  updateGCalBannerUI();
+  closeModal();
+  if(calId){
+    showToast('Agenda vinculada: ' + calId, 'ok');
+  } else {
+    showToast('Vínculo de e-mail removido (usando agenda padrão da planilha).', 'ok');
+  }
+}
+
+function populateAgendaFilters(){
+  var sel = document.getElementById('agendaFilterPatient');
+  if(!sel) return;
+  var cur = sel.value;
+  var activeList = patients.filter(function(p){ return p.arquivado !== 'Sim'; }).sort(function(a,b){
+    return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b), 'pt-BR');
+  });
+  sel.innerHTML = '<option value="">Todos os pacientes</option>' +
+    activeList.map(function(p){
+      return '<option value="'+p.id+'">'+escapeHtml(getPatientDisplayName(p))+'</option>';
+    }).join('');
+  sel.value = cur;
+}
+
+function shiftAgendaMonth(delta){
+  agendaMonth = new Date(agendaMonth.getFullYear(), agendaMonth.getMonth() + delta, 1);
+  agendaSelectedDay = null;
+  renderAgendaTab();
+}
+
+function selectAgendaDay(dayIso){
+  if(agendaSelectedDay === dayIso){
+    agendaSelectedDay = null;
+  } else {
+    agendaSelectedDay = dayIso;
+  }
+  renderAgendaTab();
+}
+
+function clearAgendaDayFilter(){
+  agendaSelectedDay = null;
+  renderAgendaTab();
+}
+
+function getSchedulePatientDisplayName(sc){
+  if(sc.pacienteId){
+    var p = patients.find(function(x){ return x.id === sc.pacienteId; });
+    if(p) return getPatientDisplayName(p);
+  }
+  if(sc.pacienteNome){
+    var pByName = findPatientByName(sc.pacienteNome);
+    if(pByName) return getPatientDisplayName(pByName);
+    return sc.pacienteNome;
+  }
+  return 'Paciente';
+}
+
+function getSchedulePatientObj(sc){
+  if(sc.pacienteId){
+    var p = patients.find(function(x){ return x.id === sc.pacienteId; });
+    if(p) return p;
+  }
+  if(sc.pacienteNome) return findPatientByName(sc.pacienteNome);
+  return null;
+}
+
+function renderAgendaTab(){
+  updateGCalBannerUI();
+  populateAgendaFilters();
+
+  var y = agendaMonth.getFullYear();
+  var m = agendaMonth.getMonth();
+  var ymPrefix = y + '-' + pad(m + 1);
+
+  var lbl = document.getElementById('agendaMonthLabel');
+  if(lbl) lbl.textContent = monthLabelCap(agendaMonth);
+
+  var filterPid = document.getElementById('agendaFilterPatient') ? document.getElementById('agendaFilterPatient').value : '';
+  var filterStatus = document.getElementById('agendaFilterStatus') ? document.getElementById('agendaFilterStatus').value : '';
+
+  var monthSchedules = schedules.filter(function(sc){
+    if(!sc.data || sc.data.indexOf(ymPrefix) !== 0) return false;
+    if(filterPid && sc.pacienteId !== filterPid) return false;
+    return true;
+  });
+
+  var totalCount = monthSchedules.filter(function(s){ return s.status !== 'Cancelado'; }).length;
+  var pendingCount = monthSchedules.filter(function(s){ return !s.status || s.status === 'Agendado'; }).length;
+  var doneCount = monthSchedules.filter(function(s){ return s.status === 'Realizado'; }).length;
+
+  var elTot = document.getElementById('agendaKpiTotal');
+  var elPen = document.getElementById('agendaKpiPending');
+  var elDone = document.getElementById('agendaKpiDone');
+  if(elTot) elTot.textContent = totalCount;
+  if(elPen) elPen.textContent = pendingCount;
+  if(elDone) elDone.textContent = doneCount;
+
+  renderAgendaCalendar(y, m, monthSchedules);
+
+  var listSchedules = monthSchedules.filter(function(sc){
+    if(filterStatus && sc.status !== filterStatus) return false;
+    if(agendaSelectedDay && sc.data !== agendaSelectedDay) return false;
+    return true;
+  }).sort(function(a, b){
+    var cmpD = String(a.data || '').localeCompare(String(b.data || ''));
+    if(cmpD !== 0) return cmpD;
+    return String(a.hora || '').localeCompare(String(b.hora || ''));
+  });
+
+  var headerEl = document.getElementById('agendaDayHeader');
+  if(headerEl){
+    if(agendaSelectedDay){
+      headerEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">' +
+        '<span>📅 Sessões em <strong>' + formatDateBR(agendaSelectedDay) + '</strong> (' + listSchedules.length + ')</span>' +
+        '<div style="display:flex;gap:6px;">' +
+          '<button class="btn small ghost" style="width:auto;padding:4px 10px;font-size:11px;" onclick="openScheduleModal(\'\', \''+agendaSelectedDay+'\')">+ Agendar neste dia</button>' +
+          '<button class="btn small ghost" style="width:auto;padding:4px 10px;font-size:11px;" onclick="clearAgendaDayFilter()">Ver mês inteiro</button>' +
+        '</div>' +
+      '</div>';
+    } else {
+      headerEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;">' +
+        '<span>📅 Todos os agendamentos de <strong>' + escapeHtml(monthLabelCap(agendaMonth)) + '</strong> (' + listSchedules.length + ')</span>' +
+        '<span style="font-size:11px;font-weight:500;color:var(--ink-faint);">Toque em um dia no calendário para filtrar</span>' +
+      '</div>';
+    }
+  }
+
+  var listEl = document.getElementById('agendaDayList');
+  if(!listEl) return;
+
+  if(listSchedules.length === 0){
+    listEl.innerHTML = '<div class="empty" style="padding:28px 16px;">' +
+      '<div class="icon">📅</div>' +
+      '<h3>Nenhum agendamento ' + (agendaSelectedDay ? 'para ' + formatDateBR(agendaSelectedDay) : 'neste período') + '</h3>' +
+      '<p>Agende um atendimento único ou gere a escala de toda a semana/mês com sincronização automática no Google Agenda.</p>' +
+      '<button class="btn primary small" style="width:auto;margin:12px auto 0;" onclick="openScheduleModal(\'\', \''+(agendaSelectedDay || '')+'\')">+ Agendar Atendimento</button>' +
+    '</div>';
+    return;
+  }
+
+  var diasSemanaCurto = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  var hiddenFin = isFinancialsHidden();
+
+  listEl.innerHTML = listSchedules.map(function(sc){
+    var pObj = getSchedulePatientObj(sc);
+    var dispName = getSchedulePatientDisplayName(sc);
+    var st = sc.status || 'Agendado';
+    var stClass = st === 'Realizado' ? 'done' : (st === 'Cancelado' ? 'canceled' : '');
+    var dObj = new Date(sc.data + 'T12:00:00');
+    var dowLbl = !isNaN(dObj.getTime()) ? diasSemanaCurto[dObj.getDay()] : '';
+    var endParts = [];
+    if(pObj){
+      if(pObj.endereco) endParts.push(pObj.endereco);
+      if(pObj.bairro) endParts.push(pObj.bairro);
+    }
+    var locStr = endParts.join(' · ');
+    var valNum = parseValor(sc.valor);
+    var valTxt = valNum > 0 ? (hiddenFin ? 'R$ ••••' : formatMoney(valNum)) : '';
+
+    var statusBadgeHtml = '';
+    if(st === 'Realizado'){
+      statusBadgeHtml = '<span class="badge pago">✓ Realizado</span>';
+    } else if(st === 'Cancelado'){
+      statusBadgeHtml = '<span class="badge" style="background:#FBE6E4;color:var(--err);">✕ Cancelado</span>';
+    } else {
+      statusBadgeHtml = '<span class="badge pendente">⏰ Agendado</span>';
+    }
+
+    var syncBadge = sc.calendarEventId
+      ? '<span class="gcal-sync-tag" title="Sincronizado com Google Agenda">📅 Google Agenda</span>'
+      : '';
+
+    var actionsHtml = '';
+    if(st === 'Agendado'){
+      actionsHtml = '<div class="sched-actions">' +
+        '<button class="btn small primary" style="background:var(--ok);padding:7px 12px;" onclick="completeScheduleCheckin(\''+sc.id+'\')">✓ Confirmar Atendimento (Check-in)</button>' +
+        '<button class="btn small ghost" style="padding:7px 10px;" onclick="openEditScheduleModal(\''+sc.id+'\')">&#9998; Remarcar</button>' +
+        '<button class="btn small ghost" style="padding:7px 10px;" onclick="openScheduleInGCalUrl(\''+sc.id+'\')" title="Abrir diretamente no aplicativo Google Agenda">📅 Abrir no Google Agenda</button>' +
+        '<button class="btn small danger" style="padding:7px 10px;" onclick="deleteSchedule(\''+sc.id+'\')">&#10005; Cancelar</button>' +
+      '</div>';
+    } else {
+      actionsHtml = '<div class="sched-actions">' +
+        '<button class="btn small ghost" style="padding:6px 10px;" onclick="openEditScheduleModal(\''+sc.id+'\')">&#9998; Editar</button>' +
+        '<button class="btn small ghost" style="padding:6px 10px;" onclick="openScheduleInGCalUrl(\''+sc.id+'\')">📅 Abrir no Google Agenda</button>' +
+        '<button class="btn small danger" style="padding:6px 10px;" onclick="deleteSchedule(\''+sc.id+'\')">&#10005; Excluir</button>' +
+      '</div>';
+    }
+
+    return '<div class="sched-card '+stClass+'">' +
+      '<div class="sched-top">' +
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+          '<span class="sched-time">' + escapeHtml(dowLbl ? (dowLbl + ', ' + formatDateBR(sc.data)) : formatDateBR(sc.data)) + (sc.hora ? ' · ' + escapeHtml(sc.hora) : '') + '</span>' +
+          '<span style="font-size:11px;color:var(--ink-soft);">(' + (parseInt(sc.duracaoMin, 10) || 50) + ' min)</span>' +
+          syncBadge +
+        '</div>' +
+        statusBadgeHtml +
+      '</div>' +
+      '<div class="sched-patient">' + escapeHtml(dispName) + (valTxt ? ' <span style="font-size:12.5px;font-weight:700;color:var(--primary);margin-left:6px;">' + valTxt + '</span>' : '') + '</div>' +
+      (locStr ? '<div class="sched-meta">📍 ' + escapeHtml(locStr) + '</div>' : '') +
+      (sc.observacao ? '<div class="sched-meta" style="margin-top:4px;font-style:italic;">💬 ' + escapeHtml(sc.observacao) + '</div>' : '') +
+      actionsHtml +
+    '</div>';
+  }).join('');
+}
+
+function renderAgendaCalendar(year, month, monthSchedules){
+  var calEl = document.getElementById('agendaCalendarGrid');
+  if(!calEl) return;
+
+  var countByDay = {};
+  var doneByDay = {};
+  monthSchedules.forEach(function(sc){
+    if(sc.status === 'Cancelado') return;
+    countByDay[sc.data] = (countByDay[sc.data] || 0) + 1;
+    if(sc.status === 'Realizado'){
+      doneByDay[sc.data] = (doneByDay[sc.data] || 0) + 1;
+    }
+  });
+
+  var firstDay = new Date(year, month, 1).getDay();
+  var daysInMonth = new Date(year, month + 1, 0).getDate();
+  var todayIso = isoDate(new Date());
+
+  var dows = ['D','S','T','Q','Q','S','S'];
+  var html = '<div class="cal-grid">';
+  dows.forEach(function(d){ html += '<div class="cal-dow">'+d+'</div>'; });
+
+  for(var e = 0; e < firstDay; e++){
+    html += '<div class="cal-day empty"></div>';
+  }
+  for(var day = 1; day <= daysInMonth; day++){
+    var dIso = year + '-' + pad(month + 1) + '-' + pad(day);
+    var cnt = countByDay[dIso] || 0;
+    var doneCnt = doneByDay[dIso] || 0;
+    var isSelected = agendaSelectedDay === dIso;
+    var isToday = dIso === todayIso;
+
+    var bgStyle = '';
+    if(isSelected){
+      bgStyle = 'outline:2.5px solid var(--primary);outline-offset:1px;background:var(--bg-deep);color:var(--primary-dark);font-weight:800;';
+    } else if(cnt > 0 && doneCnt === cnt){
+      bgStyle = 'background:var(--ok-bg);color:var(--ok);border-color:rgba(94,123,71,0.35);font-weight:700;';
+    } else if(cnt > 0){
+      bgStyle = 'background:#FDF6EC;color:var(--primary-dark);border-color:var(--primary);font-weight:700;';
+    } else if(isToday){
+      bgStyle = 'border-color:var(--primary);font-weight:700;';
+    }
+
+    html += '<div class="cal-day" onclick="selectAgendaDay(\''+dIso+'\')" style="cursor:pointer;position:relative;flex-direction:column;gap:1px;'+bgStyle+'" title="'+formatDateBR(dIso)+(cnt ? ' ('+cnt+' agendado(s))' : '')+'">' +
+      '<span>' + day + '</span>' +
+      (cnt > 0 ? '<span style="font-size:9px;line-height:1;padding:1px 4px;border-radius:99px;background:'+(doneCnt===cnt?'var(--ok)':'var(--primary)')+';color:#fff;">' + cnt + '</span>' : '') +
+    '</div>';
+  }
+  html += '</div>';
+  calEl.innerHTML = html;
+}
+
+function openScheduleModal(preSelectPatientId, preSelectDate){
+  var activePatients = patients.filter(function(p){ return p.arquivado !== 'Sim'; }).sort(function(a,b){
+    return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b), 'pt-BR');
+  });
+  if(activePatients.length === 0){
+    alert('Cadastre um paciente ativo primeiro antes de criar agendamentos.');
+    return;
+  }
+
+  schedModalMode = 'single';
+  var defaultDate = preSelectDate || agendaSelectedDay || isoDate(new Date());
+  var firstPat = preSelectPatientId
+    ? (activePatients.find(function(p){ return p.id === preSelectPatientId; }) || activePatients[0])
+    : activePatients[0];
+  var defaultValor = firstPat && firstPat.valorPadrao ? parseValor(firstPat.valorPadrao).toFixed(2) : '';
+
+  // Datas padrão para geração em lote (hoje até fim do mês)
+  var dStart = new Date(defaultDate + 'T12:00:00');
+  if(isNaN(dStart.getTime())) dStart = new Date();
+  var dEndMonth = new Date(dStart.getFullYear(), dStart.getMonth() + 1, 0);
+
+  var patOptions = activePatients.map(function(p){
+    var sel = (firstPat && p.id === firstPat.id) ? 'selected' : '';
+    return '<option value="'+p.id+'" '+sel+'>'+escapeHtml(getPatientDisplayName(p))+'</option>';
+  }).join('');
+
+  var calId = getUserCalendarId();
+
+  var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
+    '<div class="modal">' +
+      '<div class="grabber"></div>' +
+      '<h2>📅 Agendar Atendimento</h2>' +
+      '<p style="font-size:12px;color:var(--ink-soft);margin-bottom:12px;">Agende uma sessão avulsa ou gere de uma só vez a escala da semana ou do mês do paciente.</p>' +
+
+      '<div class="period-tabs" style="grid-template-columns:1fr 1fr;margin-bottom:14px;">' +
+        '<button type="button" class="period-tab active" id="schedTabSingle" onclick="setSchedModalMode(\'single\')">Sessão Única</button>' +
+        '<button type="button" class="period-tab" id="schedTabBatch" onclick="setSchedModalMode(\'batch\')">Escala da Semana / Mês</button>' +
+      '</div>' +
+
+      '<label>Paciente *</label>' +
+      '<select id="schedPatientSelect" onchange="fillScheduleDefaultValor()">' + patOptions + '</select>' +
+
+      '<!-- MODO 1: SESSÃO ÚNICA -->' +
+      '<div id="schedSingleBox">' +
+        '<label>Data da Sessão *</label>' +
+        '<input id="schedDateInput" type="date" value="' + defaultDate + '">' +
+      '</div>' +
+
+      '<!-- MODO 2: ESCALA SEMANA / MÊS -->' +
+      '<div id="schedBatchBox" class="hidden">' +
+        '<label>Período Rápido</label>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">' +
+          '<button type="button" class="btn small ghost" style="width:auto;padding:5px 10px;font-size:11.5px;" onclick="applyBatchPreset(\'week\')">Esta Semana</button>' +
+          '<button type="button" class="btn small ghost" style="width:auto;padding:5px 10px;font-size:11.5px;" onclick="applyBatchPreset(\'2weeks\')">Próximas 2 Semanas</button>' +
+          '<button type="button" class="btn small ghost" style="width:auto;padding:5px 10px;font-size:11.5px;" onclick="applyBatchPreset(\'month\')">Este Mês Inteiro</button>' +
+          '<button type="button" class="btn small ghost" style="width:auto;padding:5px 10px;font-size:11.5px;" onclick="applyBatchPreset(\'nextmonth\')">Próximo Mês</button>' +
+        '</div>' +
+
+        '<div class="row-2">' +
+          '<div>' +
+            '<label>Data Inicial *</label>' +
+            '<input id="schedBatchStart" type="date" value="' + isoDate(dStart) + '" onchange="updateBatchPreview()">' +
+          '</div>' +
+          '<div>' +
+            '<label>Data Final *</label>' +
+            '<input id="schedBatchEnd" type="date" value="' + isoDate(dEndMonth) + '" onchange="updateBatchPreview()">' +
+          '</div>' +
+        '</div>' +
+
+        '<label>Dias da Semana do Paciente *</label>' +
+        '<div class="dow-grid">' +
+          '<button type="button" class="dow-chip" data-dow="1" onclick="toggleDowChip(this)">Seg</button>' +
+          '<button type="button" class="dow-chip" data-dow="2" onclick="toggleDowChip(this)">Ter</button>' +
+          '<button type="button" class="dow-chip" data-dow="3" onclick="toggleDowChip(this)">Qua</button>' +
+          '<button type="button" class="dow-chip" data-dow="4" onclick="toggleDowChip(this)">Qui</button>' +
+          '<button type="button" class="dow-chip" data-dow="5" onclick="toggleDowChip(this)">Sex</button>' +
+          '<button type="button" class="dow-chip" data-dow="6" onclick="toggleDowChip(this)">Sáb</button>' +
+          '<button type="button" class="dow-chip" data-dow="0" onclick="toggleDowChip(this)">Dom</button>' +
+        '</div>' +
+
+        '<div id="schedBatchPreview" style="margin-top:10px;padding:10px 12px;background:var(--bg);border:1px solid var(--line);border-radius:var(--radius-xs);font-size:12px;color:var(--ink-soft);">' +
+          'Selecione os dias da semana acima para visualizar as datas que serão agendadas.' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="row-2">' +
+        '<div>' +
+          '<label>Horário *</label>' +
+          '<input id="schedHoraInput" type="time" value="14:00">' +
+        '</div>' +
+        '<div>' +
+          '<label>Duração (minutos)</label>' +
+          '<input id="schedDuracaoInput" type="number" min="15" step="5" value="50">' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="row-2">' +
+        '<div>' +
+          '<label>Valor da Sessão (R$)</label>' +
+          '<input id="schedValorInput" type="number" step="0.01" inputmode="decimal" placeholder="0,00" value="' + defaultValor + '">' +
+        '</div>' +
+        '<div>' +
+          '<label>Observação / Local</label>' +
+          '<input id="schedObsInput" type="text" placeholder="Ex: Levar faixa elástica">' +
+        '</div>' +
+      '</div>' +
+
+      '<div style="margin-top:12px;padding:10px 12px;background:var(--ok-bg);border:1px solid rgba(94,123,71,0.3);border-radius:var(--radius-xs);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">' +
+        '<div style="font-size:12px;color:#2b4718;">' +
+          '📅 <strong>Google Agenda:</strong> ' + (calId ? ('Sincronizando com <u>' + escapeHtml(calId) + '</u>') : 'Usando agenda principal da planilha') +
+        '</div>' +
+        '<button type="button" class="btn small ghost" style="width:auto;padding:4px 8px;font-size:11px;background:#fff;" onclick="openCalendarSettingsModal()">Alterar e-mail</button>' +
+      '</div>' +
+
+      '<div class="btn-row">' +
+        '<button class="btn ghost" type="button" onclick="closeModal()">Cancelar</button>' +
+        '<button class="btn primary" type="button" id="schedSubmitBtn" onclick="submitSchedule()">Salvar e Sincronizar</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+
+  openModal(html);
+}
+
+function setSchedModalMode(mode){
+  schedModalMode = mode;
+  var tabS = document.getElementById('schedTabSingle');
+  var tabB = document.getElementById('schedTabBatch');
+  var boxS = document.getElementById('schedSingleBox');
+  var boxB = document.getElementById('schedBatchBox');
+  if(tabS) tabS.classList.toggle('active', mode === 'single');
+  if(tabB) tabB.classList.toggle('active', mode === 'batch');
+  if(boxS) boxS.classList.toggle('hidden', mode !== 'single');
+  if(boxB) boxB.classList.toggle('hidden', mode !== 'batch');
+  if(mode === 'batch') updateBatchPreview();
+}
+
+function fillScheduleDefaultValor(){
+  var sel = document.getElementById('schedPatientSelect');
+  var valInp = document.getElementById('schedValorInput');
+  if(!sel || !valInp) return;
+  var p = patients.find(function(x){ return x.id === sel.value; });
+  if(p && p.valorPadrao){
+    valInp.value = parseValor(p.valorPadrao).toFixed(2);
+  }
+}
+
+function applyBatchPreset(preset){
+  var now = new Date();
+  var startInp = document.getElementById('schedBatchStart');
+  var endInp = document.getElementById('schedBatchEnd');
+  if(!startInp || !endInp) return;
+
+  if(preset === 'week'){
+    var day = now.getDay();
+    var diffToMon = (day === 0 ? -6 : 1 - day);
+    var mon = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMon);
+    var sun = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + 6);
+    startInp.value = isoDate(mon);
+    endInp.value = isoDate(sun);
+  } else if(preset === '2weeks'){
+    var end2w = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 13);
+    startInp.value = isoDate(now);
+    endInp.value = isoDate(end2w);
+  } else if(preset === 'month'){
+    var firstM = new Date(agendaMonth.getFullYear(), agendaMonth.getMonth(), 1);
+    var lastM = new Date(agendaMonth.getFullYear(), agendaMonth.getMonth() + 1, 0);
+    startInp.value = isoDate(firstM);
+    endInp.value = isoDate(lastM);
+  } else if(preset === 'nextmonth'){
+    var firstNM = new Date(agendaMonth.getFullYear(), agendaMonth.getMonth() + 1, 1);
+    var lastNM = new Date(agendaMonth.getFullYear(), agendaMonth.getMonth() + 2, 0);
+    startInp.value = isoDate(firstNM);
+    endInp.value = isoDate(lastNM);
+  }
+  updateBatchPreview();
+}
+
+function toggleDowChip(btn){
+  if(!btn) return;
+  btn.classList.toggle('active');
+  updateBatchPreview();
+}
+
+function computeBatchDates(){
+  var startVal = document.getElementById('schedBatchStart') ? document.getElementById('schedBatchStart').value : '';
+  var endVal = document.getElementById('schedBatchEnd') ? document.getElementById('schedBatchEnd').value : '';
+  if(!startVal || !endVal || startVal > endVal) return [];
+
+  var chips = document.querySelectorAll('.dow-chip.active');
+  var selectedDows = {};
+  for(var i = 0; i < chips.length; i++){
+    selectedDows[parseInt(chips[i].getAttribute('data-dow'), 10)] = true;
+  }
+  if(Object.keys(selectedDows).length === 0) return [];
+
+  var dates = [];
+  var cur = new Date(startVal + 'T12:00:00');
+  var end = new Date(endVal + 'T12:00:00');
+  var maxGuard = 0;
+  while(cur <= end && maxGuard < 120){
+    if(selectedDows[cur.getDay()]){
+      dates.push(isoDate(cur));
+    }
+    cur.setDate(cur.getDate() + 1);
+    maxGuard++;
+  }
+  return dates;
+}
+
+function updateBatchPreview(){
+  var box = document.getElementById('schedBatchPreview');
+  if(!box) return;
+  var dates = computeBatchDates();
+  if(dates.length === 0){
+    box.innerHTML = 'Selecione os dias da semana acima para visualizar as datas que serão agendadas.';
+    return;
+  }
+  var diasSemanaCurto = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  var sample = dates.slice(0, 8).map(function(d){
+    var dt = new Date(d + 'T12:00:00');
+    return diasSemanaCurto[dt.getDay()] + ' ' + d.substring(8,10) + '/' + d.substring(5,7);
+  }).join(', ');
+  if(dates.length > 8) sample += ' e mais ' + (dates.length - 8) + '...';
+  box.innerHTML = '✅ <strong>' + dates.length + ' atendimento(s)</strong> serão criados: <br><span style="color:var(--ink);">' + sample + '</span>';
+}
+
+async function submitSchedule(){
+  var patId = document.getElementById('schedPatientSelect') ? document.getElementById('schedPatientSelect').value : '';
+  var p = patients.find(function(x){ return x.id === patId; });
+  if(!p){ alert('Selecione um paciente.'); return; }
+
+  var hora = document.getElementById('schedHoraInput') ? document.getElementById('schedHoraInput').value : '14:00';
+  var duracao = parseInt(document.getElementById('schedDuracaoInput') ? document.getElementById('schedDuracaoInput').value : '50', 10) || 50;
+  var valor = parseValor(document.getElementById('schedValorInput') ? document.getElementById('schedValorInput').value : p.valorPadrao);
+  var obs = (document.getElementById('schedObsInput') ? document.getElementById('schedObsInput').value : '').trim();
+  var calId = getUserCalendarId();
+  var legalName = p.nome || getPatientDisplayName(p);
+
+  var targetDates = [];
+  if(schedModalMode === 'single'){
+    var dt = document.getElementById('schedDateInput') ? document.getElementById('schedDateInput').value : '';
+    if(!dt){ alert('Informe a data da sessão.'); return; }
+    targetDates = [dt];
+  } else {
+    targetDates = computeBatchDates();
+    if(targetDates.length === 0){
+      alert('Selecione pelo menos um dia da semana e verifique o período inicial e final.');
+      return;
+    }
+  }
+
+  var btn = document.getElementById('schedSubmitBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Sincronizando...'; }
+
+  var nowTs = Date.now();
+  var createdItems = targetDates.map(function(dt, idx){
+    return {
+      id: 'ag_' + nowTs + '_' + idx,
+      pacienteId: p.id,
+      pacienteNome: legalName,
+      data: dt,
+      hora: hora,
+      duracaoMin: duracao,
+      valor: valor,
+      status: 'Agendado',
+      observacao: obs,
+      calendarEventId: '',
+      calendarId: calId,
+      atendimentoId: '',
+      criadoEm: new Date().toISOString()
+    };
+  });
+
+  createdItems.forEach(function(item){ schedules.push(item); });
+  saveLocalSchedules();
+
+  // Ajusta o mês da agenda para o primeiro agendamento criado
+  if(createdItems.length > 0 && createdItems[0].data){
+    var firstDt = new Date(createdItems[0].data + 'T12:00:00');
+    if(!isNaN(firstDt.getTime())){
+      agendaMonth = new Date(firstDt.getFullYear(), firstDt.getMonth(), 1);
+    }
+  }
+
+  closeModal();
+  renderAgendaTab();
+  showToast(createdItems.length === 1 ? 'Atendimento agendado!' : (createdItems.length + ' atendimentos agendados!'), 'ok');
+
+  try{
+    if(createdItems.length === 1){
+      var resp = await postAction(Object.assign({ action: 'create_schedule' }, createdItems[0]));
+      if(resp && resp.calendarEventId){
+        createdItems[0].calendarEventId = resp.calendarEventId;
+        saveLocalSchedules();
+        renderAgendaTab();
+        showToast('Sincronizado com o Google Agenda!', 'ok');
+      }
+    } else {
+      var respB = await postAction({
+        action: 'create_schedules_batch',
+        calendarId: calId,
+        items: createdItems
+      });
+      if(respB && respB.eventMap){
+        createdItems.forEach(function(it){
+          if(respB.eventMap[it.id]) it.calendarEventId = respB.eventMap[it.id];
+        });
+        saveLocalSchedules();
+        renderAgendaTab();
+      }
+      if(respB && respB.calendarSyncedCount > 0){
+        showToast(respB.calendarSyncedCount + ' evento(s) criados no Google Agenda!', 'ok');
+      }
+    }
+  }catch(err){
+    console.warn('Aviso ao sincronizar agendamento com Apps Script:', err);
+  }
+}
+
+function openEditScheduleModal(id){
+  var sc = schedules.find(function(x){ return x.id === id; });
+  if(!sc) return;
+
+  var dispName = getSchedulePatientDisplayName(sc);
+  var st = sc.status || 'Agendado';
+
+  var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
+    '<div class="modal">' +
+      '<div class="grabber"></div>' +
+      '<h2>&#9998; Remarcar / Editar Agendamento</h2>' +
+      '<p style="font-size:12.5px;color:var(--ink-soft);margin-bottom:12px;">Paciente: <strong>' + escapeHtml(dispName) + '</strong></p>' +
+
+      '<div class="row-2">' +
+        '<div>' +
+          '<label>Data *</label>' +
+          '<input id="editSchedData" type="date" value="' + escapeHtml(sc.data || '') + '">' +
+        '</div>' +
+        '<div>' +
+          '<label>Horário *</label>' +
+          '<input id="editSchedHora" type="time" value="' + escapeHtml(sc.hora || '14:00') + '">' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="row-2">' +
+        '<div>' +
+          '<label>Duração (minutos)</label>' +
+          '<input id="editSchedDuracao" type="number" min="15" step="5" value="' + (parseInt(sc.duracaoMin, 10) || 50) + '">' +
+        '</div>' +
+        '<div>' +
+          '<label>Valor (R$)</label>' +
+          '<input id="editSchedValor" type="number" step="0.01" inputmode="decimal" value="' + (parseValor(sc.valor) ? parseValor(sc.valor).toFixed(2) : '') + '">' +
+        '</div>' +
+      '</div>' +
+
+      '<label>Status do Agendamento</label>' +
+      '<select id="editSchedStatus">' +
+        '<option value="Agendado" '+(st==='Agendado'?'selected':'')+'>⏰ Agendado</option>' +
+        '<option value="Realizado" '+(st==='Realizado'?'selected':'')+'>✓ Realizado</option>' +
+        '<option value="Cancelado" '+(st==='Cancelado'?'selected':'')+'>✕ Cancelado</option>' +
+      '</select>' +
+
+      '<label>Observação</label>' +
+      '<input id="editSchedObs" type="text" value="' + escapeHtml(sc.observacao || '') + '" placeholder="Ex: Remarcado a pedido do paciente">' +
+
+      '<div class="btn-row">' +
+        '<button class="btn ghost" type="button" onclick="closeModal()">Fechar</button>' +
+        '<button class="btn primary" type="button" onclick="submitEditSchedule(\''+sc.id+'\')">Salvar Alterações</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+
+  openModal(html);
+}
+
+async function submitEditSchedule(id){
+  var sc = schedules.find(function(x){ return x.id === id; });
+  if(!sc) return;
+
+  var novaData = document.getElementById('editSchedData') ? document.getElementById('editSchedData').value : sc.data;
+  var novaHora = document.getElementById('editSchedHora') ? document.getElementById('editSchedHora').value : sc.hora;
+  var novaDur = parseInt(document.getElementById('editSchedDuracao') ? document.getElementById('editSchedDuracao').value : sc.duracaoMin, 10) || 50;
+  var novoVal = parseValor(document.getElementById('editSchedValor') ? document.getElementById('editSchedValor').value : sc.valor);
+  var novoSt = document.getElementById('editSchedStatus') ? document.getElementById('editSchedStatus').value : sc.status;
+  var novaObs = (document.getElementById('editSchedObs') ? document.getElementById('editSchedObs').value : '').trim();
+
+  if(!novaData){ alert('Informe a data.'); return; }
+
+  sc.data = novaData;
+  sc.hora = novaHora;
+  sc.duracaoMin = novaDur;
+  sc.valor = novoVal;
+  sc.status = novoSt;
+  sc.observacao = novaObs;
+  if(!sc.calendarId) sc.calendarId = getUserCalendarId();
+
+  saveLocalSchedules();
+  closeModal();
+  renderAgendaTab();
+  showToast('Agendamento atualizado!', 'ok');
+
+  try{
+    var resp = await postAction(Object.assign({ action: 'update_schedule' }, sc));
+    if(resp && resp.calendarEventId){
+      sc.calendarEventId = resp.calendarEventId;
+      saveLocalSchedules();
+      renderAgendaTab();
+    }
+  }catch(err){
+    console.warn('Aviso ao sincronizar edição de agendamento:', err);
+  }
+}
+
+async function deleteSchedule(id){
+  var sc = schedules.find(function(x){ return x.id === id; });
+  if(!sc) return;
+
+  var dispName = getSchedulePatientDisplayName(sc);
+  if(!confirm('Cancelar e remover o agendamento de ' + dispName + ' em ' + formatDateBR(sc.data) + (sc.hora ? ' às ' + sc.hora : '') + '?\n\nO evento também será removido automaticamente do Google Agenda.')) return;
+
+  var idx = schedules.findIndex(function(x){ return x.id === id; });
+  if(idx > -1) schedules.splice(idx, 1);
+  saveLocalSchedules();
+  renderAgendaTab();
+  showToast('Agendamento removido.', 'ok');
+
+  try{
+    await postAction({
+      action: 'delete_schedule',
+      id: sc.id,
+      calendarEventId: sc.calendarEventId || '',
+      calendarId: sc.calendarId || getUserCalendarId()
+    });
+  }catch(err){
+    console.warn('Aviso ao remover agendamento na planilha/Google Agenda:', err);
+  }
+}
+
+async function completeScheduleCheckin(id){
+  var sc = schedules.find(function(x){ return x.id === id; });
+  if(!sc) return;
+  if(sc.status === 'Realizado'){
+    showToast('Este atendimento já foi confirmado.', 'ok');
+    return;
+  }
+
+  var pObj = getSchedulePatientObj(sc);
+  var legalName = pObj ? pObj.nome : (sc.pacienteNome || 'Paciente');
+  var dispName = getSchedulePatientDisplayName(sc);
+  var valorSessao = parseValor(sc.valor || (pObj && pObj.valorPadrao) || 0);
+
+  var newEntryId = 'e' + Date.now();
+  var newEntry = {
+    id: newEntryId,
+    nome: legalName,
+    data: sc.data || isoDate(new Date()),
+    hora: sc.hora || nowTime(),
+    valor: valorSessao,
+    status: 'Pendente',
+    paymentDate: '',
+    lat: '',
+    lng: ''
+  };
+
+  sc.status = 'Realizado';
+  sc.atendimentoId = newEntryId;
+  if(!sc.calendarId) sc.calendarId = getUserCalendarId();
+
+  entries.push(newEntry);
+  saveLocalSchedules();
+
+  renderAgendaTab();
+  renderPatientsTab();
+  renderList();
+  showToast('✓ Check-in confirmado! Sessão de ' + dispName + ' lançada no financeiro.', 'ok');
+
+  try{
+    await postAction(Object.assign({ action: 'create' }, newEntry));
+    await postAction(Object.assign({ action: 'update_schedule' }, sc));
+  }catch(err){
+    console.warn('Aviso ao sincronizar check-in na planilha:', err);
+  }
+}
+
+function buildGCalTemplateUrl(sc){
+  var dispName = getSchedulePatientDisplayName(sc);
+  var pObj = getSchedulePatientObj(sc);
+  var title = (sc.status === 'Realizado' ? '✓ ' : '') + 'Fisioterapia - ' + dispName;
+
+  var dateClean = String(sc.data || isoDate(new Date())).replace(/-/g, '');
+  var hParts = String(sc.hora || '14:00').split(':');
+  var hh = parseInt(hParts[0], 10); if(isNaN(hh)) hh = 14;
+  var mm = parseInt(hParts[1], 10); if(isNaN(mm)) mm = 0;
+
+  var startDt = new Date(
+    parseInt(dateClean.substring(0,4), 10),
+    parseInt(dateClean.substring(4,6), 10) - 1,
+    parseInt(dateClean.substring(6,8), 10),
+    hh, mm, 0
+  );
+  var dur = parseInt(sc.duracaoMin, 10) || 50;
+  var endDt = new Date(startDt.getTime() + dur * 60000);
+
+  function fmtLocalGCal(d){
+    return d.getFullYear() + pad(d.getMonth()+1) + pad(d.getDate()) + 'T' + pad(d.getHours()) + pad(d.getMinutes()) + '00';
+  }
+
+  var datesParam = fmtLocalGCal(startDt) + '/' + fmtLocalGCal(endDt);
+  var locParts = [];
+  if(pObj){
+    if(pObj.endereco) locParts.push(pObj.endereco);
+    if(pObj.bairro) locParts.push(pObj.bairro);
+    if(pObj.cidade) locParts.push(pObj.cidade);
+  }
+  var details = 'Atendimento domiciliar de fisioterapia — ' + dispName;
+  if(sc.observacao) details += '\nObs: ' + sc.observacao;
+
+  var url = 'https://calendar.google.com/calendar/render?action=TEMPLATE' +
+    '&text=' + encodeURIComponent(title) +
+    '&dates=' + encodeURIComponent(datesParam) +
+    '&details=' + encodeURIComponent(details) +
+    '&location=' + encodeURIComponent(locParts.join(', '));
+
+  var calId = getUserCalendarId();
+  if(calId) url += '&authuser=' + encodeURIComponent(calId);
+  return url;
+}
+
+function openScheduleInGCalUrl(id){
+  var sc = schedules.find(function(x){ return x.id === id; });
+  if(!sc) return;
+  window.open(buildGCalTemplateUrl(sc), '_blank');
+}
+
+function exportSchedulesICS(){
+  var y = agendaMonth.getFullYear();
+  var m = agendaMonth.getMonth();
+  var ymPrefix = y + '-' + pad(m + 1);
+  var list = schedules.filter(function(s){
+    return s.data && s.data.indexOf(ymPrefix) === 0 && s.status !== 'Cancelado';
+  });
+  if(list.length === 0){
+    alert('Não há agendamentos ativos neste mês para exportar.');
+    return;
+  }
+
+  var lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Fisioterapia Domiciliar//Agenda//PT-BR',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH'
+  ];
+
+  list.forEach(function(sc){
+    var dispName = getSchedulePatientDisplayName(sc);
+    var pObj = getSchedulePatientObj(sc);
+    var dateClean = String(sc.data).replace(/-/g, '');
+    var hParts = String(sc.hora || '14:00').split(':');
+    var hh = parseInt(hParts[0], 10); if(isNaN(hh)) hh = 14;
+    var mm = parseInt(hParts[1], 10); if(isNaN(mm)) mm = 0;
+    var startDt = new Date(
+      parseInt(dateClean.substring(0,4), 10),
+      parseInt(dateClean.substring(4,6), 10) - 1,
+      parseInt(dateClean.substring(6,8), 10),
+      hh, mm, 0
+    );
+    var dur = parseInt(sc.duracaoMin, 10) || 50;
+    var endDt = new Date(startDt.getTime() + dur * 60000);
+    function fmtIcs(d){
+      return d.getFullYear() + pad(d.getMonth()+1) + pad(d.getDate()) + 'T' + pad(d.getHours()) + pad(d.getMinutes()) + '00';
+    }
+    var locParts = [];
+    if(pObj){
+      if(pObj.endereco) locParts.push(pObj.endereco);
+      if(pObj.bairro) locParts.push(pObj.bairro);
+      if(pObj.cidade) locParts.push(pObj.cidade);
+    }
+    lines.push('BEGIN:VEVENT');
+    lines.push('UID:' + sc.id + '@fisioterapia.app');
+    lines.push('DTSTART:' + fmtIcs(startDt));
+    lines.push('DTEND:' + fmtIcs(endDt));
+    lines.push('SUMMARY:Fisioterapia - ' + dispName);
+    if(locParts.length) lines.push('LOCATION:' + locParts.join(', '));
+    if(sc.observacao) lines.push('DESCRIPTION:' + String(sc.observacao).replace(/\n/g, '\\n'));
+    lines.push('END:VEVENT');
+  });
+
+  lines.push('END:VCALENDAR');
+  var blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'agenda_fisioterapia_' + ymPrefix + '.ics';
+  a.click();
+}
+
+/* ============================================================
    CONFIGURAÇÕES, BACKUP & DIAGNÓSTICO
    ============================================================ */
 async function saveSetup(){
   var name = document.getElementById('providerNameInput').value.trim();
   var doc = document.getElementById('providerDocInput').value.trim();
   var contact = document.getElementById('providerContactInput').value.trim();
+  var calInput = document.getElementById('calendarIdInput');
+  var calendarIdVal = calInput ? calInput.value.trim() : getUserCalendarId();
   var errEl = document.getElementById('setupError');
   errEl.classList.add('hidden');
 
@@ -4354,10 +5483,12 @@ async function saveSetup(){
 
   var newConfig = {
     scriptUrl: scriptUrlVal,
-    providerName: name, providerDoc: doc, providerContact: contact
+    providerName: name, providerDoc: doc, providerContact: contact,
+    calendarId: calendarIdVal
   };
   try{
     localStorage.setItem(CONFIG_KEY, JSON.stringify(newConfig));
+    localStorage.setItem('ft_calendar_id', calendarIdVal);
     config = newConfig;
   }catch(e){
     errEl.textContent = 'Não foi possível salvar localmente.';
@@ -4376,6 +5507,7 @@ async function saveSetup(){
   document.getElementById('fab').classList.remove('hidden');
   document.getElementById('providerNameDisplay').textContent = name;
   updateMonthLabel();
+  updateGCalBannerUI();
   await loadData();
 }
 
@@ -4386,7 +5518,7 @@ function openSettings(){
   document.getElementById('fab').classList.add('hidden');
   document.getElementById('setupScreen').classList.remove('hidden');
   document.getElementById('setupTitle').textContent = 'Configurações';
-  document.getElementById('setupIntro').textContent = 'Atualize seus dados cadastrais e link da planilha.';
+  document.getElementById('setupIntro').textContent = 'Atualize seus dados cadastrais, agenda vinculada e link da planilha.';
   var topBackBtn = document.getElementById('setupTopBackBtn');
   if(topBackBtn) topBackBtn.classList.remove('hidden');
   document.getElementById('setupCancelBtn').classList.remove('hidden');
@@ -4395,6 +5527,9 @@ function openSettings(){
   document.getElementById('providerNameInput').value = (config && config.providerName) || '';
   document.getElementById('providerDocInput').value = (config && config.providerDoc) || '';
   document.getElementById('providerContactInput').value = (config && config.providerContact) || '';
+  if(document.getElementById('calendarIdInput')){
+    document.getElementById('calendarIdInput').value = getUserCalendarId();
+  }
   if(document.getElementById('scriptUrlInput')){
     document.getElementById('scriptUrlInput').value = (config && config.scriptUrl) || SCRIPT_URL || '';
   }
@@ -4424,6 +5559,9 @@ function cancelSetup(fromPopstate){
   document.getElementById('providerNameInput').value = (config && config.providerName) || '';
   document.getElementById('providerDocInput').value = (config && config.providerDoc) || '';
   document.getElementById('providerContactInput').value = (config && config.providerContact) || '';
+  if(document.getElementById('calendarIdInput')){
+    document.getElementById('calendarIdInput').value = getUserCalendarId();
+  }
 
   if(!fromPopstate){
     try { history.back(); } catch(e){}
@@ -4447,6 +5585,7 @@ async function runDiagnostico(){
     p('   Pacientes na planilha: ' + (d.pacientes || []).length);
     p('   Atendimentos na planilha: ' + (d.atendimentos || []).length);
     p('   Evoluções na planilha: ' + (d.evolucoes || []).length);
+    p('   Agendamentos na planilha: ' + (d.agendamentos || []).length);
     p('✅ CONEXÃO COM A PLANILHA FUNCIONANDO PERFEITAMENTE!');
   }catch(err){
     p('❌ ERRO NO TESTE: ' + err.message);
@@ -4456,12 +5595,13 @@ async function runDiagnostico(){
 
 function exportBackup(fmt){
   var backupObj = {
-    versao: '2.1',
+    versao: '2.2',
     exportadoEm: new Date().toISOString(),
     profissional: config,
     pacientes: patients,
     atendimentos: entries,
-    evolucoes: evolutions
+    evolucoes: evolutions,
+    agendamentos: schedules
   };
 
   if(fmt === 'csv'){
@@ -4496,10 +5636,15 @@ async function importBackup(ev){
       var impPac = Array.isArray(data.pacientes) ? data.pacientes : [];
       var impAtend = Array.isArray(data.atendimentos) ? data.atendimentos : [];
       var impEvo = Array.isArray(data.evolucoes) ? data.evolucoes : [];
+      var impAgend = Array.isArray(data.agendamentos) ? data.agendamentos : [];
 
-      if(!confirm('Restaurar ' + impPac.length + ' paciente(s), ' + impAtend.length + ' atendimento(s) e ' + impEvo.length + ' evolução(ões)?')) return;
+      if(!confirm('Restaurar ' + impPac.length + ' paciente(s), ' + impAtend.length + ' atendimento(s), ' + impEvo.length + ' evolução(ões) e ' + impAgend.length + ' agendamento(s)?')) return;
 
       showToast('Restaurando backup...', 'ok');
+      if(impAgend.length > 0){
+        schedules = impAgend;
+        saveLocalSchedules();
+      }
       await postAction({
         action: 'bulk_import',
         pacientes: impPac,

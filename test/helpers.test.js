@@ -129,5 +129,74 @@ describe('scheduleMatchesPatient and isSchedulePendingForecast', () => {
   });
 });
 
+const timeStrToMin = extractFn('timeStrToMin');
+const minToTimeStr = extractFnWithScope('minToTimeStr', {
+  pad: (n) => String(n).padStart(2, '0')
+});
+const formatDurationFriendly = extractFn('formatDurationFriendly');
+const calcFuelMetrics = extractFnWithScope('calcFuelMetrics', {
+  getCarKmPerLiter: () => 14,
+  getGasPrice: () => 6.10
+});
+const buildGoogleMapsDirUrl = extractFn('buildGoogleMapsDirUrl');
+
+describe('Route and Fuel Assistant helpers', () => {
+  test('timeStrToMin converts HH:MM to total minutes correctly', () => {
+    assert.equal(timeStrToMin('00:00'), 0);
+    assert.equal(timeStrToMin('10:00'), 600);
+    assert.equal(timeStrToMin('14:00'), 840);
+    assert.equal(timeStrToMin('14:50'), 890);
+    assert.equal(timeStrToMin('15:00'), 900);
+    assert.equal(timeStrToMin('16:00'), 960);
+  });
+
+  test('minToTimeStr formats total minutes into HH:MM string', () => {
+    assert.equal(minToTimeStr(0), '00:00');
+    assert.equal(minToTimeStr(600), '10:00');
+    assert.equal(minToTimeStr(840), '14:00');
+    assert.equal(minToTimeStr(890), '14:50');
+    assert.equal(minToTimeStr(900), '15:00');
+    assert.equal(minToTimeStr(960), '16:00');
+  });
+
+  test('formatDurationFriendly handles minutes and hours properly', () => {
+    assert.equal(formatDurationFriendly(8), '8 min');
+    assert.equal(formatDurationFriendly(9), '9 min');
+    assert.equal(formatDurationFriendly(50), '50 min');
+    assert.equal(formatDurationFriendly(60), '1h');
+    assert.equal(formatDurationFriendly(70), '1h 10min');
+    assert.equal(formatDurationFriendly(130), '2h 10min');
+  });
+
+  test('calcFuelMetrics calculates liters and cost with 14 km/L and R$ 6.10/L', () => {
+    const res = calcFuelMetrics(14);
+    assert.equal(res.km, 14);
+    assert.equal(res.liters, 1.0);
+    assert.equal(res.cost, 6.10);
+    assert.equal(res.kml, 14);
+
+    const res28 = calcFuelMetrics(28);
+    assert.equal(res28.km, 28);
+    assert.equal(res28.liters, 2.0);
+    assert.equal(res28.cost, 12.20);
+
+    const zero = calcFuelMetrics(0);
+    assert.equal(zero.km, 0);
+    assert.equal(zero.liters, 0);
+    assert.equal(zero.cost, 0);
+  });
+
+  test('buildGoogleMapsDirUrl constructs valid direction URL with origin, destination, and optional waypoint', () => {
+    const url = buildGoogleMapsDirUrl('Rua Maracaju, 88', 'Av Independencia, 1200');
+    assert.match(url, /https:\/\/www\.google\.com\/maps\/dir\/\?api=1/);
+    assert.match(url, /origin=Rua%20Maracaju%2C%2088/);
+    assert.match(url, /destination=Av%20Independencia%2C%201200/);
+    assert.match(url, /travelmode=driving/);
+
+    const urlWaypoint = buildGoogleMapsDirUrl('Rua Maracaju, 88', 'Rua B', 'Rua A');
+    assert.match(urlWaypoint, /waypoints=Rua%20A/);
+  });
+});
+
 
 

@@ -704,6 +704,21 @@
   }
   .dow-chip input{display:none;}
   .dow-chip.active{background:var(--primary);color:#fff;border-color:var(--primary-deep);font-weight:700;}
+  .preset-chip{
+    width:auto !important;padding:6px 11px !important;font-size:11.5px !important;font-weight:600 !important;
+    border:1px solid var(--line) !important;border-radius:999px !important;background:var(--bg) !important;
+    color:var(--ink-soft) !important;cursor:pointer;transition:all .15s ease;
+  }
+  .preset-chip.active{
+    background:var(--primary) !important;color:#fff !important;
+    border-color:var(--primary-deep) !important;font-weight:700 !important;
+    box-shadow:0 2px 6px rgba(181,84,46,.25);
+  }
+  .dow-time-pill{
+    display:inline-block;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:700;
+    background:var(--primary-soft);color:var(--primary-deep);border:1px solid var(--line-strong);
+    margin:2px 4px 2px 0;
+  }
   .row-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;}
   .forecast-card{
     background:linear-gradient(145deg,var(--surface),var(--bg-tint));
@@ -5638,6 +5653,11 @@ function renderAgendaCalendar(year, month, monthSchedules){
   calEl.innerHTML = html;
 }
 
+var schedDowTimes = {};
+var schedDowCustom = {};
+var schedActivePreset = '';
+var schedShowAllPreview = false;
+
 function openScheduleModal(preSelectPatientId, preSelectDate){
   var activePatients = patients.filter(function(p){ return p.arquivado !== 'Sim'; }).sort(function(a,b){
     return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b), 'pt-BR');
@@ -5648,6 +5668,11 @@ function openScheduleModal(preSelectPatientId, preSelectDate){
   }
 
   schedModalMode = 'single';
+  schedDowTimes = {};
+  schedDowCustom = {};
+  schedActivePreset = '';
+  schedShowAllPreview = false;
+
   var defaultDate = preSelectDate || agendaSelectedDay || isoDate(new Date());
   var firstPat = preSelectPatientId
     ? (activePatients.find(function(p){ return p.id === preSelectPatientId; }) || activePatients[0])
@@ -5690,20 +5715,20 @@ function openScheduleModal(preSelectPatientId, preSelectDate){
       '<div id="schedBatchBox" class="hidden">' +
         '<label>Período Rápido</label>' +
         '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">' +
-          '<button type="button" class="btn small ghost" style="width:auto;padding:5px 10px;font-size:11.5px;" onclick="applyBatchPreset(\'week\')">Esta Semana</button>' +
-          '<button type="button" class="btn small ghost" style="width:auto;padding:5px 10px;font-size:11.5px;" onclick="applyBatchPreset(\'2weeks\')">Próximas 2 Semanas</button>' +
-          '<button type="button" class="btn small ghost" style="width:auto;padding:5px 10px;font-size:11.5px;" onclick="applyBatchPreset(\'month\')">Este Mês Inteiro</button>' +
-          '<button type="button" class="btn small ghost" style="width:auto;padding:5px 10px;font-size:11.5px;" onclick="applyBatchPreset(\'nextmonth\')">Próximo Mês</button>' +
+          '<button type="button" class="btn small ghost preset-chip" data-preset="week" onclick="applyBatchPreset(\'week\')">Esta Semana</button>' +
+          '<button type="button" class="btn small ghost preset-chip" data-preset="2weeks" onclick="applyBatchPreset(\'2weeks\')">Próximas 2 Semanas</button>' +
+          '<button type="button" class="btn small ghost preset-chip" data-preset="month" onclick="applyBatchPreset(\'month\')">Este Mês Inteiro</button>' +
+          '<button type="button" class="btn small ghost preset-chip" data-preset="nextmonth" onclick="applyBatchPreset(\'nextmonth\')">Próximo Mês</button>' +
         '</div>' +
 
         '<div class="row-2">' +
           '<div>' +
             '<label>Data Inicial *</label>' +
-            '<input id="schedBatchStart" type="date" value="' + isoDate(dStart) + '" onchange="updateBatchPreview()">' +
+            '<input id="schedBatchStart" type="date" value="' + isoDate(dStart) + '" onchange="onBatchDateRangeInput()">' +
           '</div>' +
           '<div>' +
             '<label>Data Final *</label>' +
-            '<input id="schedBatchEnd" type="date" value="' + isoDate(dEndMonth) + '" onchange="updateBatchPreview()">' +
+            '<input id="schedBatchEnd" type="date" value="' + isoDate(dEndMonth) + '" onchange="onBatchDateRangeInput()">' +
           '</div>' +
         '</div>' +
 
@@ -5718,15 +5743,17 @@ function openScheduleModal(preSelectPatientId, preSelectDate){
           '<button type="button" class="dow-chip" data-dow="0" onclick="toggleDowChip(this)">Dom</button>' +
         '</div>' +
 
+        '<div id="schedDowTimesBox" class="hidden" style="margin-top:10px;padding:10px 12px;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius-xs);"></div>' +
+
         '<div id="schedBatchPreview" style="margin-top:10px;padding:10px 12px;background:var(--bg);border:1px solid var(--line);border-radius:var(--radius-xs);font-size:12px;color:var(--ink-soft);">' +
-          'Selecione os dias da semana acima para visualizar as datas que serão agendadas.' +
+          'Selecione os dias da semana acima para visualizar as datas e horários que serão agendados.' +
         '</div>' +
       '</div>' +
 
       '<div class="row-2">' +
         '<div>' +
-          '<label>Horário *</label>' +
-          '<input id="schedHoraInput" type="time" value="14:00">' +
+          '<label id="schedHoraLabel">Horário *</label>' +
+          '<input id="schedHoraInput" type="time" value="14:00" onchange="onBaseHoraChange(this.value)" oninput="onBaseHoraChange(this.value)">' +
         '</div>' +
         '<div>' +
           '<label>Duração (minutos)</label>' +
@@ -5772,7 +5799,14 @@ function setSchedModalMode(mode){
   if(tabB) tabB.classList.toggle('active', mode === 'batch');
   if(boxS) boxS.classList.toggle('hidden', mode !== 'single');
   if(boxB) boxB.classList.toggle('hidden', mode !== 'batch');
-  if(mode === 'batch') updateBatchPreview();
+  if(mode === 'batch'){
+    syncPresetButtonsWithDates();
+    renderSelectedDowTimesUI();
+    updateBatchPreview();
+  } else {
+    var hLbl = document.getElementById('schedHoraLabel');
+    if(hLbl) hLbl.textContent = 'Horário *';
+  }
 }
 
 function fillScheduleDefaultValor(){
@@ -5785,40 +5819,172 @@ function fillScheduleDefaultValor(){
   }
 }
 
-function applyBatchPreset(preset){
+function getPresetRangeBounds(preset){
   var now = new Date();
-  var startInp = document.getElementById('schedBatchStart');
-  var endInp = document.getElementById('schedBatchEnd');
-  if(!startInp || !endInp) return;
-
   if(preset === 'week'){
     var day = now.getDay();
     var diffToMon = (day === 0 ? -6 : 1 - day);
     var mon = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMon);
     var sun = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + 6);
-    startInp.value = isoDate(mon);
-    endInp.value = isoDate(sun);
-  } else if(preset === '2weeks'){
+    return { start: isoDate(mon), end: isoDate(sun) };
+  }
+  if(preset === '2weeks'){
     var end2w = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 13);
-    startInp.value = isoDate(now);
-    endInp.value = isoDate(end2w);
-  } else if(preset === 'month'){
+    return { start: isoDate(now), end: isoDate(end2w) };
+  }
+  if(preset === 'month'){
     var firstM = new Date(agendaMonth.getFullYear(), agendaMonth.getMonth(), 1);
     var lastM = new Date(agendaMonth.getFullYear(), agendaMonth.getMonth() + 1, 0);
-    startInp.value = isoDate(firstM);
-    endInp.value = isoDate(lastM);
-  } else if(preset === 'nextmonth'){
+    return { start: isoDate(firstM), end: isoDate(lastM) };
+  }
+  if(preset === 'nextmonth'){
     var firstNM = new Date(agendaMonth.getFullYear(), agendaMonth.getMonth() + 1, 1);
     var lastNM = new Date(agendaMonth.getFullYear(), agendaMonth.getMonth() + 2, 0);
-    startInp.value = isoDate(firstNM);
-    endInp.value = isoDate(lastNM);
+    return { start: isoDate(firstNM), end: isoDate(lastNM) };
+  }
+  return null;
+}
+
+function highlightBatchPresetButtons(activeKey){
+  schedActivePreset = activeKey || '';
+  var btns = document.querySelectorAll('.preset-chip');
+  for(var i = 0; i < btns.length; i++){
+    var k = btns[i].getAttribute('data-preset');
+    btns[i].classList.toggle('active', k === schedActivePreset);
+  }
+}
+
+function syncPresetButtonsWithDates(){
+  var startInp = document.getElementById('schedBatchStart');
+  var endInp = document.getElementById('schedBatchEnd');
+  if(!startInp || !endInp) return;
+  var curS = startInp.value;
+  var curE = endInp.value;
+  var keys = ['week', '2weeks', 'month', 'nextmonth'];
+  var matched = '';
+  for(var i = 0; i < keys.length; i++){
+    var b = getPresetRangeBounds(keys[i]);
+    if(b && b.start === curS && b.end === curE){
+      matched = keys[i];
+      break;
+    }
+  }
+  highlightBatchPresetButtons(matched);
+}
+
+function onBatchDateRangeInput(){
+  syncPresetButtonsWithDates();
+  updateBatchPreview();
+}
+
+function applyBatchPreset(preset){
+  var startInp = document.getElementById('schedBatchStart');
+  var endInp = document.getElementById('schedBatchEnd');
+  if(!startInp || !endInp) return;
+
+  var bounds = getPresetRangeBounds(preset);
+  if(bounds){
+    startInp.value = bounds.start;
+    endInp.value = bounds.end;
+  }
+  highlightBatchPresetButtons(preset);
+  updateBatchPreview();
+}
+
+function getBatchHoraForDow(dow, fallbackHora){
+  var key = String(dow);
+  var baseHora = fallbackHora || (document.getElementById('schedHoraInput') ? document.getElementById('schedHoraInput').value : '') || '14:00';
+  var chips = document.querySelectorAll('.dow-chip.active');
+  if(chips.length <= 1){
+    return baseHora;
+  }
+  return schedDowTimes[key] || baseHora;
+}
+
+function onBaseHoraChange(newHora){
+  var val = newHora || '14:00';
+  var chips = document.querySelectorAll('.dow-chip.active');
+  for(var i = 0; i < chips.length; i++){
+    var d = String(chips[i].getAttribute('data-dow'));
+    if(!schedDowCustom[d]){
+      schedDowTimes[d] = val;
+    }
+  }
+  renderSelectedDowTimesUI();
+  if(schedModalMode === 'batch') updateBatchPreview();
+}
+
+function onDowTimeInput(dow, val){
+  var key = String(dow);
+  schedDowTimes[key] = val || '14:00';
+  schedDowCustom[key] = true;
+  // Se for o primeiro dia ou todos tiverem o mesmo horário, sincroniza o campo base também
+  var activeChips = document.querySelectorAll('.dow-chip.active');
+  if(activeChips.length === 1){
+    var hInp = document.getElementById('schedHoraInput');
+    if(hInp) hInp.value = schedDowTimes[key];
   }
   updateBatchPreview();
+}
+
+function renderSelectedDowTimesUI(){
+  var box = document.getElementById('schedDowTimesBox');
+  var hLbl = document.getElementById('schedHoraLabel');
+  if(!box) return;
+
+  var chips = document.querySelectorAll('.dow-chip.active');
+  if(chips.length <= 1){
+    box.classList.add('hidden');
+    box.innerHTML = '';
+    if(hLbl) hLbl.textContent = 'Horário *';
+    return;
+  }
+
+  if(hLbl) hLbl.textContent = 'Horário Padrão *';
+  var baseHora = (document.getElementById('schedHoraInput') ? document.getElementById('schedHoraInput').value : '') || '14:00';
+  var dowNamesLong = {
+    '1': 'Segunda-feira',
+    '2': 'Terça-feira',
+    '3': 'Quarta-feira',
+    '4': 'Quinta-feira',
+    '5': 'Sexta-feira',
+    '6': 'Sábado',
+    '0': 'Domingo'
+  };
+
+  var itemsHtml = '';
+  for(var i = 0; i < chips.length; i++){
+    var dow = String(chips[i].getAttribute('data-dow'));
+    if(!schedDowTimes[dow]) schedDowTimes[dow] = baseHora;
+    var hr = schedDowTimes[dow];
+    itemsHtml += '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 9px;">' +
+      '<span style="font-size:12px;font-weight:700;color:var(--primary-deep);">' + dowNamesLong[dow] + '</span>' +
+      '<input type="time" value="' + escapeHtml(hr) + '" style="width:auto;min-width:92px;height:32px;padding:2px 6px;font-size:12.5px;font-weight:700;margin:0;color:var(--ink);background:#fff;border:1px solid var(--line-strong);" onchange="onDowTimeInput(\''+dow+'\', this.value)" oninput="onDowTimeInput(\''+dow+'\', this.value)">' +
+    '</div>';
+  }
+
+  box.innerHTML = '<div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:2px;">⏰ Horários por Dia da Semana</div>' +
+    '<div style="font-size:11px;color:var(--ink-soft);margin-bottom:8px;">Configure horários diferentes para cada dia, se necessário (ex: Terça às 14:00 e Quinta às 10:00):</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(195px,1fr));gap:6px;">' +
+      itemsHtml +
+    '</div>';
+  box.classList.remove('hidden');
 }
 
 function toggleDowChip(btn){
   if(!btn) return;
   btn.classList.toggle('active');
+  var dow = String(btn.getAttribute('data-dow'));
+  var baseHora = (document.getElementById('schedHoraInput') ? document.getElementById('schedHoraInput').value : '') || '14:00';
+  if(btn.classList.contains('active')){
+    if(!schedDowTimes[dow]) schedDowTimes[dow] = baseHora;
+  }
+  renderSelectedDowTimesUI();
+  updateBatchPreview();
+}
+
+function toggleBatchPreviewAll(){
+  schedShowAllPreview = !schedShowAllPreview;
   updateBatchPreview();
 }
 
@@ -5853,16 +6019,45 @@ function updateBatchPreview(){
   if(!box) return;
   var dates = computeBatchDates();
   if(dates.length === 0){
-    box.innerHTML = 'Selecione os dias da semana acima para visualizar as datas que serão agendadas.';
+    box.innerHTML = 'Selecione os dias da semana acima para visualizar as datas e horários que serão agendadas.';
     return;
   }
   var diasSemanaCurto = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-  var sample = dates.slice(0, 8).map(function(d){
+  var chips = document.querySelectorAll('.dow-chip.active');
+
+  var summaryHtml = '';
+  if(chips.length > 1){
+    var pills = [];
+    for(var i = 0; i < chips.length; i++){
+      var d = parseInt(chips[i].getAttribute('data-dow'), 10);
+      var hr = getBatchHoraForDow(d);
+      pills.push('<span class="dow-time-pill">' + diasSemanaCurto[d] + ' às ' + escapeHtml(hr) + '</span>');
+    }
+    summaryHtml = '<div style="margin-bottom:6px;padding-bottom:6px;border-bottom:1px dashed var(--line);">' +
+      '🕒 <strong>Escala semanal:</strong> ' + pills.join(' ') +
+    '</div>';
+  }
+
+  var maxVisible = schedShowAllPreview ? dates.length : 12;
+  var sample = dates.slice(0, maxVisible).map(function(d){
     var dt = new Date(d + 'T12:00:00');
-    return diasSemanaCurto[dt.getDay()] + ' ' + d.substring(8,10) + '/' + d.substring(5,7);
+    var dow = dt.getDay();
+    var hr = getBatchHoraForDow(dow);
+    return '<strong>' + diasSemanaCurto[dow] + ' ' + d.substring(8,10) + '/' + d.substring(5,7) + '</strong> <span style="color:var(--primary-deep);font-weight:600;">(' + escapeHtml(hr) + ')</span>';
   }).join(', ');
-  if(dates.length > 8) sample += ' e mais ' + (dates.length - 8) + '...';
-  box.innerHTML = '✅ <strong>' + dates.length + ' atendimento(s)</strong> serão criados: <br><span style="color:var(--ink);">' + sample + '</span>';
+
+  var moreHtml = '';
+  if(dates.length > 12){
+    if(!schedShowAllPreview){
+      moreHtml = ' <button type="button" onclick="toggleBatchPreviewAll()" style="background:none;border:none;color:var(--primary);font-weight:700;font-size:11.5px;text-decoration:underline;cursor:pointer;padding:0 4px;">+ ver mais ' + (dates.length - 12) + ' data(s)</button>';
+    } else {
+      moreHtml = ' <button type="button" onclick="toggleBatchPreviewAll()" style="background:none;border:none;color:var(--ink-soft);font-weight:600;font-size:11px;text-decoration:underline;cursor:pointer;padding:0 4px;">(recolher)</button>';
+    }
+  }
+
+  box.innerHTML = summaryHtml +
+    '✅ <strong>' + dates.length + ' atendimento(s)</strong> serão criados:<br>' +
+    '<span style="color:var(--ink);line-height:1.6;">' + sample + '</span>' + moreHtml;
 }
 
 async function submitSchedule(){
@@ -5892,8 +6087,10 @@ async function submitSchedule(){
 
   // Filtra datas que já possuem agendamento ativo no mesmo horário para este paciente (evita duplicar escala)
   var filteredDates = targetDates.filter(function(dt){
+    var dtDow = new Date(dt + 'T12:00:00').getDay();
+    var targetHora = schedModalMode === 'batch' ? getBatchHoraForDow(dtDow, hora) : hora;
     var dup = schedules.some(function(sc){
-      return sc.status !== 'Cancelado' && sc.data === dt && scheduleMatchesPatient(sc, p) && (schedModalMode === 'batch' || (sc.hora || '') === (hora || ''));
+      return sc.status !== 'Cancelado' && sc.data === dt && scheduleMatchesPatient(sc, p) && (schedModalMode === 'batch' || (sc.hora || '') === (targetHora || ''));
     });
     return !dup;
   });
@@ -5927,12 +6124,14 @@ async function submitSchedule(){
       usedEntryIds[existingEntry.id] = true;
       autoLinkedCount++;
     }
+    var dtDow = new Date(dt + 'T12:00:00').getDay();
+    var itemHora = schedModalMode === 'batch' ? getBatchHoraForDow(dtDow, hora) : hora;
     return {
       id: 'ag_' + nowTs + '_' + idx,
       pacienteId: p.id,
       pacienteNome: legalName,
       data: dt,
-      hora: (existingEntry && existingEntry.hora) ? existingEntry.hora : hora,
+      hora: (existingEntry && existingEntry.hora) ? existingEntry.hora : itemHora,
       duracaoMin: duracao,
       valor: valor,
       status: st,

@@ -291,9 +291,39 @@
   }
   .patient-card:hover{border-color:var(--primary-soft);}
   .patient-card.archived{
-    opacity:.80;background:#faf5f0;border-style:dashed;border-color:#d4c4b5;
+    opacity:.92;background:#faf5f0;border-style:dashed;border-color:#d4c4b5;
   }
   .patient-card.archived .p-card-name{color:var(--ink-soft);}
+  .archived-section-wrap{
+    margin-top:22px;padding-top:14px;border-top:2px dashed var(--line);
+  }
+  .archived-tab-header{
+    width:100%;display:flex;align-items:center;justify-content:space-between;
+    padding:12px 14px;background:linear-gradient(145deg,#efe3d6,#e5d4c3);
+    border:1px solid #d4c4b5;border-radius:var(--radius-sm);cursor:pointer;
+    color:var(--primary-deep);font-weight:700;font-size:var(--fs-md);
+    margin-bottom:10px;transition:background .15s ease;
+  }
+  .archived-tab-header:hover{background:#e5d4c3;}
+  .archived-tab-badge{
+    background:var(--surface);color:var(--ink-soft);border:1px solid #d4c4b5;
+    padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;margin-left:6px;
+  }
+  .archived-quick-actions{
+    display:flex;gap:8px;padding:8px 14px 12px;border-top:1px dashed #e2d3c4;background:rgba(255,255,255,0.45);
+  }
+  .archived-quick-actions .btn-unarchive{
+    flex:1;padding:7px 10px;border-radius:var(--radius-xs);border:1px solid var(--line);
+    background:var(--surface);color:var(--primary-deep);font-size:12px;font-weight:600;
+    cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;
+  }
+  .archived-quick-actions .btn-unarchive:hover{background:var(--bg);}
+  .archived-quick-actions .btn-del-perm{
+    flex:1;padding:7px 10px;border-radius:var(--radius-xs);border:1px solid rgba(168,51,51,0.3);
+    background:var(--danger-bg);color:var(--danger);font-size:12px;font-weight:600;
+    cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;
+  }
+  .archived-quick-actions .btn-del-perm:hover{opacity:.9;}
   .p-card-main{
     display:flex;align-items:center;gap:12px;padding:12px 14px;cursor:pointer;user-select:none;
   }
@@ -1302,32 +1332,35 @@ async function loadData(){
     });
 
     patients = (data.pacientes || []).map(function(r){
-      var valPadrao = r.ValorPadrao || '';
+      var pid = String(r.ID);
+      var meta = getLocalPatientMeta(pid);
+      var valPadrao = (meta.valorPadrao !== undefined && meta.valorPadrao !== '') ? meta.valorPadrao : (r.ValorPadrao || '');
       if(typeof valPadrao === 'string' && /^\d{4}-\d{2}-\d{2}/.test(valPadrao.trim())) {
         valPadrao = '';
       }
+      var savedArch = localStorage.getItem('ft_archived_' + pid) || meta.arquivado || r.Arquivado || 'Não';
       return {
-        id: String(r.ID),
-        nome: r.Nome || '',
-        nomeFantasia: r.NomeFantasia || localStorage.getItem('ft_nome_fantasia_' + r.ID) || '',
-        oldNome: localStorage.getItem('ft_old_nome_' + r.ID) || '',
-        telefone: r.Telefone || '',
+        id: pid,
+        nome: meta.nome || r.Nome || '',
+        nomeFantasia: r.NomeFantasia || meta.nomeFantasia || localStorage.getItem('ft_nome_fantasia_' + pid) || '',
+        oldNome: localStorage.getItem('ft_old_nome_' + pid) || r.OldNome || meta.oldNome || '',
+        telefone: meta.telefone !== undefined ? meta.telefone : (r.Telefone || ''),
         valorPadrao: valPadrao,
-        formaPagamento: r.FormaPagamento || '',
-        endereco: r.Endereco || '',
-        bairro: r.Bairro || '',
-        cidade: r.Cidade || '',
-        dataNascimento: r.DataNascimento || '',
-        contato02: r.Contato02 || '',
-        documento: r.Documento || '',
-        tcle: r.TCLE || 'Não',
-        contrato: r.Contrato || 'Não',
-        frequenciaSemanal: r.FrequenciaSemanal || '',
-        diagClinico: r.DiagClinico || '',
-        diagFuncional: r.DiagFuncional || '',
-        objetivos: r.Objetivos || '',
-        arquivado: r.Arquivado || 'Não',
-        foto: r.Foto || localStorage.getItem('ft_avatar_' + r.ID) || '',
+        formaPagamento: meta.formaPagamento !== undefined ? meta.formaPagamento : (r.FormaPagamento || ''),
+        endereco: r.Endereco || meta.endereco || '',
+        bairro: r.Bairro || meta.bairro || '',
+        cidade: r.Cidade || meta.cidade || '',
+        dataNascimento: r.DataNascimento || meta.dataNascimento || '',
+        contato02: r.Contato02 || meta.contato02 || '',
+        documento: r.Documento || meta.documento || '',
+        tcle: r.TCLE || meta.tcle || 'Não',
+        contrato: r.Contrato || meta.contrato || 'Não',
+        frequenciaSemanal: r.FrequenciaSemanal || meta.frequenciaSemanal || '',
+        diagClinico: r.DiagClinico || meta.diagClinico || '',
+        diagFuncional: r.DiagFuncional || meta.diagFuncional || '',
+        objetivos: r.Objetivos || meta.objetivos || '',
+        arquivado: savedArch,
+        foto: r.Foto || meta.foto || localStorage.getItem('ft_avatar_' + pid) || '',
         criadoEm: r.CriadoEm || ''
       };
     });
@@ -1361,10 +1394,142 @@ async function loadData(){
   document.getElementById('loadingState').classList.add('hidden');
 }
 
+function getLocalPatientMeta(id){
+  try{
+    var raw = localStorage.getItem('ft_pmeta_' + id);
+    return raw ? JSON.parse(raw) : {};
+  }catch(e){ return {}; }
+}
+
+function saveLocalPatientMeta(p){
+  if(!p || !p.id) return;
+  try{
+    localStorage.setItem('ft_archived_' + p.id, p.arquivado || 'Não');
+    localStorage.setItem('ft_pmeta_' + p.id, JSON.stringify({
+      nome: p.nome || '',
+      nomeFantasia: p.nomeFantasia || '',
+      oldNome: p.oldNome || '',
+      telefone: p.telefone || '',
+      valorPadrao: p.valorPadrao !== undefined ? p.valorPadrao : '',
+      formaPagamento: p.formaPagamento || '',
+      endereco: p.endereco || '',
+      bairro: p.bairro || '',
+      cidade: p.cidade || '',
+      dataNascimento: p.dataNascimento || '',
+      contato02: p.contato02 || '',
+      documento: p.documento || '',
+      tcle: p.tcle || 'Não',
+      contrato: p.contrato || 'Não',
+      frequenciaSemanal: p.frequenciaSemanal || '',
+      diagClinico: p.diagClinico || '',
+      diagFuncional: p.diagFuncional || '',
+      objetivos: p.objetivos || '',
+      arquivado: p.arquivado || 'Não',
+      foto: p.foto || ''
+    }));
+  }catch(e){}
+}
+
+function removeLocalPatientMeta(id){
+  try{
+    localStorage.removeItem('ft_pmeta_' + id);
+    localStorage.removeItem('ft_archived_' + id);
+    localStorage.removeItem('ft_avatar_' + id);
+    localStorage.removeItem('ft_nome_fantasia_' + id);
+    localStorage.removeItem('ft_old_nome_' + id);
+  }catch(e){}
+}
+
 /* ============================================================
    ABA 1: PACIENTES E DADOS CADASTRAIS
    ============================================================ */
 var patientCascadeOpenId = null;
+var archivedTabOpen = true;
+
+function toggleArchivedPatientsTab(){
+  archivedTabOpen = !archivedTabOpen;
+  renderPatientsTab();
+}
+
+function renderSinglePatientCardHtml(p){
+  var isOpen = patientCascadeOpenId === p.id;
+  var isArchived = p.arquivado === 'Sim';
+  var telDigits = onlyDigits(p.telefone);
+  var waLink = telDigits ? '<a class="wa-chip" href="https://wa.me/55'+telDigits+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">WhatsApp &#128172;</a>' : '';
+
+  var priceTag = p.valorPadrao ? '<span class="p-tag price">'+formatMoney(parseValor(p.valorPadrao))+'</span>' : '';
+  var freqTag = p.frequenciaSemanal ? '<span class="p-tag freq">'+escapeHtml(p.frequenciaSemanal)+'</span>' : '';
+  var tcleTag = p.tcle === 'Sim' ? '<span class="p-tag ok">TCLE &#10003;</span>' : '<span class="p-tag warn">TCLE Pendente</span>';
+  var docTag = p.contrato === 'Sim' ? '<span class="p-tag ok">Contrato &#10003;</span>' : '<span class="p-tag warn">Contrato Pendente</span>';
+  var archTag = isArchived ? '<span class="p-tag archived">Finalizado / Arquivado</span>' : '';
+
+  var quickArchivedBar = isArchived
+    ? '<div class="archived-quick-actions">' +
+        '<button type="button" class="btn-unarchive" onclick="event.stopPropagation(); toggleArchivePatient(\''+p.id+'\')">&#128260; Desarquivar</button>' +
+        '<button type="button" class="btn-del-perm" onclick="event.stopPropagation(); deletePatient(\''+p.id+'\')">&#128465;&#65039; Excluir Definitivamente</button>' +
+      '</div>'
+    : '';
+
+  return '<div class="patient-card '+(isArchived ? 'archived' : '')+'" id="pcard_'+p.id+'">' +
+    '<div class="p-card-main" onclick="togglePatientCascade(\''+p.id+'\')">' +
+      renderPatientAvatar(p) +
+      '<div class="p-meta">' +
+        '<div class="p-name-row">' +
+          '<div class="p-card-name">'+escapeHtml(getPatientDisplayName(p))+'</div>' +
+          '<span class="cascade-chevron '+(isOpen?'open':'')+'">&#9660;</span>' +
+        '</div>' +
+        '<div class="p-tags-row">' + archTag + priceTag + freqTag + tcleTag + docTag + '</div>' +
+        '<div class="p-sub-row">' +
+          (p.telefone ? '<span>'+escapeHtml(p.telefone)+'</span>' : '<span>Sem telefone</span>') +
+          waLink +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    quickArchivedBar +
+    '<div class="p-cascade '+(isOpen?'':'hidden')+'" id="pcascade_'+p.id+'">' +
+      '<div class="cascade-grid">' +
+        '<button class="casc-btn" onclick="openNewEntry(\''+p.id+'\')">' +
+          '<span class="casc-icon">&#128205;</span>' +
+          '<div class="casc-info"><span class="casc-title">Check-in</span><span class="casc-desc">Lançar sessão rápida</span></div>' +
+        '</button>' +
+        '<button class="casc-btn" onclick="openNewEvolution(\''+p.id+'\')">' +
+          '<span class="casc-icon">&#129658;</span>' +
+          '<div class="casc-info"><span class="casc-title">Evolução</span><span class="casc-desc">Registrar prontuário</span></div>' +
+        '</button>' +
+        '<button class="casc-btn" onclick="openPatientEvolutions(\''+p.id+'\')">' +
+          '<span class="casc-icon">&#128203;</span>' +
+          '<div class="casc-info"><span class="casc-title">Evoluções</span><span class="casc-desc">Histórico & PDF</span></div>' +
+        '</button>' +
+        '<button class="casc-btn" onclick="openPatientForm(\''+p.id+'\')">' +
+          '<span class="casc-icon">&#128100;</span>' +
+          '<div class="casc-info"><span class="casc-title">Dados Cadastrais</span><span class="casc-desc">Ficha & CREFITO-3</span></div>' +
+        '</button>' +
+        '<button class="casc-btn" onclick="openPatientFilesModal(\''+p.id+'\', \'exame\')">' +
+          '<span class="casc-icon">&#128221;</span>' +
+          '<div class="casc-info"><span class="casc-title">Exames</span><span class="casc-desc">Laudos, fotos & PDFs</span></div>' +
+        '</button>' +
+        '<button class="casc-btn" onclick="openPatientFilesModal(\''+p.id+'\', \'documento\')">' +
+          '<span class="casc-icon">&#128193;</span>' +
+          '<div class="casc-info"><span class="casc-title">Documentos</span><span class="casc-desc">Termos, receitas & fotos</span></div>' +
+        '</button>' +
+        '<button class="casc-btn" style="grid-column:1 / -1;" onclick="openPatientFinancial(\''+p.id+'\')">' +
+          '<span class="casc-icon">&#128176;</span>' +
+          '<div class="casc-info"><span class="casc-title">Financeiro do Paciente</span><span class="casc-desc">Extrato de sessões por período & recibos</span></div>' +
+        '</button>' +
+        '<button class="casc-btn" style="grid-column:1 / -1;" onclick="toggleArchivePatient(\''+p.id+'\')">' +
+          '<span class="casc-icon">'+(isArchived ? '&#128260;' : '&#128194;')+'</span>' +
+          '<div class="casc-info"><span class="casc-title">'+(isArchived ? 'Desarquivar / Reativar Paciente' : 'Finalizar / Arquivar Paciente')+'</span><span class="casc-desc">'+(isArchived ? 'Retornar à lista de pacientes ativos' : 'Mover para a aba de Pacientes Arquivados no final da página')+'</span></div>' +
+        '</button>' +
+        (isArchived
+          ? '<button class="casc-btn" style="grid-column:1 / -1;border-color:rgba(168,51,51,0.3);background:var(--danger-bg);" onclick="deletePatient(\''+p.id+'\')">' +
+              '<span class="casc-icon">&#128465;&#65039;</span>' +
+              '<div class="casc-info"><span class="casc-title" style="color:var(--danger);">Excluir Definitivamente</span><span class="casc-desc" style="color:var(--danger);">Apagar permanentemente o paciente arquivado</span></div>' +
+            '</button>'
+          : '') +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
 
 function renderPatientsTab(){
   var container = document.getElementById('patientsContainer');
@@ -1375,32 +1540,30 @@ function renderPatientsTab(){
   var clearBtn = document.getElementById('clearPatientSearch');
   if(clearBtn) clearBtn.classList.toggle('hidden', query === '');
 
-  // Separa pacientes ativos e arquivados para enviar os arquivados ao final da fila
-  var activeList = patients.filter(function(p){ return p.arquivado !== 'Sim'; })
-    .sort(function(a,b){ return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b), 'pt-BR'); });
-  var archivedList = patients.filter(function(p){ return p.arquivado === 'Sim'; })
-    .sort(function(a,b){ return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b), 'pt-BR'); });
-  var list = activeList.concat(archivedList);
-
-  if(query){
-    list = list.filter(function(p){
-      var disp = getPatientDisplayName(p).toLowerCase();
-      return disp.indexOf(query) > -1 ||
-             (p.nome && p.nome.toLowerCase().indexOf(query) > -1) ||
-             (p.nomeFantasia && p.nomeFantasia.toLowerCase().indexOf(query) > -1) ||
-             (p.telefone && p.telefone.indexOf(query) > -1) ||
-             (p.documento && p.documento.toLowerCase().indexOf(query) > -1) ||
-             (p.bairro && p.bairro.toLowerCase().indexOf(query) > -1);
-    });
+  function matchesSearch(p){
+    if(!query) return true;
+    var disp = getPatientDisplayName(p).toLowerCase();
+    return disp.indexOf(query) > -1 ||
+           (p.nome && p.nome.toLowerCase().indexOf(query) > -1) ||
+           (p.nomeFantasia && p.nomeFantasia.toLowerCase().indexOf(query) > -1) ||
+           (p.telefone && p.telefone.indexOf(query) > -1) ||
+           (p.documento && p.documento.toLowerCase().indexOf(query) > -1) ||
+           (p.bairro && p.bairro.toLowerCase().indexOf(query) > -1);
   }
+
+  var activeAll = patients.filter(function(p){ return p.arquivado !== 'Sim'; })
+    .sort(function(a,b){ return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b), 'pt-BR'); });
+  var archivedAll = patients.filter(function(p){ return p.arquivado === 'Sim'; })
+    .sort(function(a,b){ return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b), 'pt-BR'); });
+
+  var activeList = activeAll.filter(matchesSearch);
+  var archivedList = archivedAll.filter(matchesSearch);
 
   if(countEl){
-    var nActive = activeList.length;
-    var nArch = archivedList.length;
-    countEl.textContent = nActive + ' ativo(s)' + (nArch > 0 ? ' · ' + nArch + ' finalizado(s)' : '');
+    countEl.textContent = activeAll.length + ' ativo(s)' + (archivedAll.length > 0 ? ' · ' + archivedAll.length + ' arquivado(s)' : '');
   }
 
-  if(list.length === 0){
+  if(activeList.length === 0 && archivedList.length === 0){
     container.innerHTML = '<div class="empty">' +
       '<span class="leaf">&#128100;</span>' +
       (query ? 'Nenhum paciente encontrado para a busca.' : 'Nenhum paciente cadastrado ainda.') +
@@ -1408,77 +1571,23 @@ function renderPatientsTab(){
     return;
   }
 
-  container.innerHTML = list.map(function(p){
-    var isOpen = patientCascadeOpenId === p.id;
-    var isArchived = p.arquivado === 'Sim';
-    var telDigits = onlyDigits(p.telefone);
-    var waLink = telDigits ? '<a class="wa-chip" href="https://wa.me/55'+telDigits+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">WhatsApp &#128172;</a>' : '';
+  var activeHtml = activeList.length > 0
+    ? activeList.map(renderSinglePatientCardHtml).join('')
+    : '<p class="empty-mini" style="margin-bottom:12px;">Nenhum paciente ativo no momento.</p>';
 
-    var priceTag = p.valorPadrao ? '<span class="p-tag price">'+formatMoney(parseValor(p.valorPadrao))+'</span>' : '';
-    var freqTag = p.frequenciaSemanal ? '<span class="p-tag freq">'+escapeHtml(p.frequenciaSemanal)+'</span>' : '';
-    var tcleTag = p.tcle === 'Sim' ? '<span class="p-tag ok">TCLE &#10003;</span>' : '<span class="p-tag warn">TCLE Pendente</span>';
-    var docTag = p.contrato === 'Sim' ? '<span class="p-tag ok">Contrato &#10003;</span>' : '<span class="p-tag warn">Contrato Pendente</span>';
-    var archTag = isArchived ? '<span class="p-tag archived">Finalizado / Arquivado</span>' : '';
+  var archivedSectionHtml = '<div class="archived-section-wrap" id="archivedPatientsSection">' +
+    '<button type="button" class="archived-tab-header" onclick="toggleArchivedPatientsTab()">' +
+      '<span style="display:inline-flex;align-items:center;gap:6px;">&#128193; Pacientes Arquivados <span class="archived-tab-badge">' + archivedList.length + '</span></span>' +
+      '<span style="font-size:12px;color:var(--ink-soft);">' + (archivedTabOpen ? '&#9650; Recolher' : '&#9660; Expandir') + '</span>' +
+    '</button>' +
+    (archivedTabOpen
+      ? (archivedList.length > 0
+          ? '<div id="archivedPatientsList">' + archivedList.map(renderSinglePatientCardHtml).join('') + '</div>'
+          : '<p class="empty-mini" style="background:var(--surface);border:1px dashed var(--line);border-radius:var(--radius-sm);padding:14px;">Nenhum paciente arquivado. Quando um paciente for finalizado/arquivado, ele aparecerá aqui no final da página.</p>')
+      : '') +
+  '</div>';
 
-    return '<div class="patient-card '+(isArchived ? 'archived' : '')+'" id="pcard_'+p.id+'">' +
-      '<div class="p-card-main" onclick="togglePatientCascade(\''+p.id+'\')">' +
-        renderPatientAvatar(p) +
-        '<div class="p-meta">' +
-          '<div class="p-name-row">' +
-            '<div class="p-card-name">'+escapeHtml(getPatientDisplayName(p))+'</div>' +
-            '<span class="cascade-chevron '+(isOpen?'open':'')+'">&#9660;</span>' +
-          '</div>' +
-          '<div class="p-tags-row">' + archTag + priceTag + freqTag + tcleTag + docTag + '</div>' +
-          '<div class="p-sub-row">' +
-            (p.telefone ? '<span>'+escapeHtml(p.telefone)+'</span>' : '<span>Sem telefone</span>') +
-            waLink +
-          '</div>' +
-        '</div>' +
-      '</div>' +
-      '<div class="p-cascade '+(isOpen?'':'hidden')+'" id="pcascade_'+p.id+'">' +
-        '<div class="cascade-grid">' +
-          '<button class="casc-btn" onclick="openNewEntry(\''+p.id+'\')">' +
-            '<span class="casc-icon">&#128205;</span>' +
-            '<div class="casc-info"><span class="casc-title">Check-in</span><span class="casc-desc">Lançar sessão rápida</span></div>' +
-          '</button>' +
-          '<button class="casc-btn" onclick="openNewEvolution(\''+p.id+'\')">' +
-            '<span class="casc-icon">&#129658;</span>' +
-            '<div class="casc-info"><span class="casc-title">Evolução</span><span class="casc-desc">Registrar prontuário</span></div>' +
-          '</button>' +
-          '<button class="casc-btn" onclick="openPatientEvolutions(\''+p.id+'\')">' +
-            '<span class="casc-icon">&#128203;</span>' +
-            '<div class="casc-info"><span class="casc-title">Evoluções</span><span class="casc-desc">Histórico & PDF</span></div>' +
-          '</button>' +
-          '<button class="casc-btn" onclick="openPatientForm(\''+p.id+'\')">' +
-            '<span class="casc-icon">&#128100;</span>' +
-            '<div class="casc-info"><span class="casc-title">Dados Cadastrais</span><span class="casc-desc">Ficha & CREFITO-3</span></div>' +
-          '</button>' +
-          '<button class="casc-btn" onclick="openPatientFilesModal(\''+p.id+'\', \'exame\')">' +
-            '<span class="casc-icon">&#128221;</span>' +
-            '<div class="casc-info"><span class="casc-title">Exames</span><span class="casc-desc">Laudos, fotos & PDFs</span></div>' +
-          '</button>' +
-          '<button class="casc-btn" onclick="openPatientFilesModal(\''+p.id+'\', \'documento\')">' +
-            '<span class="casc-icon">&#128193;</span>' +
-            '<div class="casc-info"><span class="casc-title">Documentos</span><span class="casc-desc">Termos, receitas & fotos</span></div>' +
-          '</button>' +
-          '<button class="casc-btn" style="grid-column:1 / -1;" onclick="openPatientFinancial(\''+p.id+'\')">' +
-            '<span class="casc-icon">&#128176;</span>' +
-            '<div class="casc-info"><span class="casc-title">Financeiro do Paciente</span><span class="casc-desc">Extrato de sessões por período & recibos</span></div>' +
-          '</button>' +
-          '<button class="casc-btn" style="grid-column:1 / -1;" onclick="toggleArchivePatient(\''+p.id+'\')">' +
-            '<span class="casc-icon">'+(isArchived ? '&#128260;' : '&#128194;')+'</span>' +
-            '<div class="casc-info"><span class="casc-title">'+(isArchived ? 'Reativar Paciente' : 'Finalizar / Arquivar Paciente')+'</span><span class="casc-desc">'+(isArchived ? 'Retornar à lista de pacientes ativos' : 'Enviar para o fim da fila (mantém todos os dados)')+'</span></div>' +
-          '</button>' +
-          (isArchived
-            ? '<button class="casc-btn" style="grid-column:1 / -1;border-color:rgba(168,51,51,0.3);background:var(--danger-bg);" onclick="deletePatient(\''+p.id+'\')">' +
-                '<span class="casc-icon">&#128465;&#65039;</span>' +
-                '<div class="casc-info"><span class="casc-title" style="color:var(--danger);">Excluir Definitivamente</span><span class="casc-desc" style="color:var(--danger);">Apagar permanentemente o paciente arquivado</span></div>' +
-              '</button>'
-            : '') +
-        '</div>' +
-      '</div>' +
-    '</div>';
-  }).join('');
+  container.innerHTML = activeHtml + archivedSectionHtml;
 }
 
 function togglePatientCascade(id){
@@ -1498,26 +1607,38 @@ async function toggleArchivePatient(id){
   var isArchived = p.arquivado === 'Sim';
   var dispName = getPatientDisplayName(p);
   var msg = isArchived
-    ? 'Reativar o paciente "' + dispName + '"? Ele voltará para o topo da lista de pacientes ativos.'
-    : 'Finalizar o tratamento e arquivar o paciente "' + dispName + '"?\n\nTodos os dados cadastrais, evoluções, exames, documentos e histórico financeiro serão mantidos intactos. Ele apenas irá para o fim da fila como finalizado.';
+    ? 'Desarquivar o paciente "' + dispName + '"?\n\nEle voltará para a lista de pacientes ativos no topo da página.'
+    : 'Finalizar e arquivar o paciente "' + dispName + '"?\n\nEle será movido para a aba "Pacientes Arquivados" no final da página e todos os seus dados serão mantidos.';
 
   if(!confirm(msg)) return;
 
   var newStatus = isArchived ? 'Não' : 'Sim';
   p.arquivado = newStatus;
+  patientCascadeOpenId = null;
+  if(newStatus === 'Sim'){
+    archivedTabOpen = true;
+  }
+  saveLocalPatientMeta(p);
+
   renderPatientsTab();
   populatePatientFilter();
   renderList();
-  showToast(isArchived ? 'Paciente reativado.' : 'Paciente arquivado (dados mantidos).', 'ok');
+  showToast(isArchived ? 'Paciente desarquivado e reativado!' : 'Paciente movido para Pacientes Arquivados.', 'ok');
+
+  if(newStatus === 'Sim'){
+    setTimeout(function(){
+      var archSec = document.getElementById('archivedPatientsSection');
+      if(archSec && archSec.scrollIntoView){
+        archSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 80);
+  }
 
   try{
     await postAction({ action: 'update_patient', id: id, arquivado: newStatus });
   }catch(err){
-    p.arquivado = isArchived ? 'Sim' : 'Não';
-    renderPatientsTab();
-    populatePatientFilter();
-    renderList();
-    showError('Falha ao atualizar status de arquivamento na planilha.');
+    // Mantém o arquivamento salvo localmente mesmo se a planilha ainda estiver com script legado
+    console.warn('Aviso ao sincronizar arquivamento na planilha:', err);
   }
 }
 
@@ -1776,6 +1897,7 @@ async function submitPatientForm(existingId){
       } else {
         try{ localStorage.removeItem('ft_avatar_' + existingId); }catch(e){}
       }
+      saveLocalPatientMeta(patients[idx]);
 
       renderPatientsTab();
       populatePatientFilter();
@@ -1810,22 +1932,7 @@ async function submitPatientForm(existingId){
           foto: foto
         });
       }catch(err){
-        patients[idx] = oldData;
-        if(oldData.nomeFantasia){
-          try{ localStorage.setItem('ft_nome_fantasia_' + existingId, oldData.nomeFantasia); }catch(e){}
-        } else {
-          try{ localStorage.removeItem('ft_nome_fantasia_' + existingId); }catch(e){}
-        }
-        if(oldData.foto){
-          try{ localStorage.setItem('ft_avatar_' + existingId, oldData.foto); }catch(e){}
-        } else {
-          try{ localStorage.removeItem('ft_avatar_' + existingId); }catch(e){}
-        }
-        renderPatientsTab();
-        populatePatientFilter();
-        renderEvolutionsTab();
-        renderList();
-        showError('Falha ao atualizar paciente na planilha: ' + err.message);
+        console.warn('Aviso ao sincronizar atualização do paciente na planilha:', err);
       }
     }
   } else {
@@ -1860,6 +1967,7 @@ async function submitPatientForm(existingId){
     if(foto){
       try{ localStorage.setItem('ft_avatar_' + newId, foto); }catch(e){}
     }
+    saveLocalPatientMeta(newPatient);
     patients.push(newPatient);
     renderPatientsTab();
     populatePatientFilter();
@@ -1873,8 +1981,7 @@ async function submitPatientForm(existingId){
       await postAction(Object.assign({ action: 'create_patient' }, newPatient));
     }catch(err){
       patients = patients.filter(function(x){ return x.id !== newId; });
-      try{ localStorage.removeItem('ft_nome_fantasia_' + newId); }catch(e){}
-      try{ localStorage.removeItem('ft_avatar_' + newId); }catch(e){}
+      removeLocalPatientMeta(newId);
       renderPatientsTab();
       renderList();
       showError('Falha ao gravar paciente na planilha: ' + err.message);
@@ -1900,9 +2007,7 @@ async function deletePatient(id){
   var oldEvolutions = evolutions.slice();
   patients.splice(idx, 1);
   evolutions = evolutions.filter(function(ev){ return ev.pacienteId !== id; });
-  try{ localStorage.removeItem('ft_avatar_' + id); }catch(e){}
-  try{ localStorage.removeItem('ft_nome_fantasia_' + id); }catch(e){}
-  try{ localStorage.removeItem('ft_old_nome_' + id); }catch(e){}
+  removeLocalPatientMeta(id);
   renderPatientsTab();
   populatePatientFilter();
   populateEvolutionsFilters();
@@ -1915,6 +2020,7 @@ async function deletePatient(id){
     await postAction({ action: 'delete_patient', id: id });
   }catch(err){
     patients.splice(idx, 0, removed);
+    saveLocalPatientMeta(removed);
     evolutions = oldEvolutions;
     renderPatientsTab();
     populatePatientFilter();

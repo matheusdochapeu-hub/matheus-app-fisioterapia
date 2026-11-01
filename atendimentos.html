@@ -1048,6 +1048,7 @@
    Se vazio, o app solicitará o link na primeira inicialização.
    ============================================================ */
 var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwGStc4TIkgeIhJhGvlTtVUOd-oamJ77wMgvaiisl8xjUXgXqgqm0bTPl6T0vy8Gqmw4g/exec';
+var DEFAULT_CALENDAR_ID = 'scarletsantos7@gmail.com';
 
 var CONFIG_KEY = 'config';
 var config = null;
@@ -5180,10 +5181,10 @@ function receiptHeader(doc, title){
 function getUserCalendarId(){
   if(config && config.calendarId) return String(config.calendarId).trim();
   try{
-    return String(localStorage.getItem('ft_calendar_id') || '').trim();
-  }catch(e){
-    return '';
-  }
+    var saved = String(localStorage.getItem('ft_calendar_id') || '').trim();
+    if(saved) return saved;
+  }catch(e){}
+  return (typeof DEFAULT_CALENDAR_ID !== 'undefined' && DEFAULT_CALENDAR_ID) ? DEFAULT_CALENDAR_ID : '';
 }
 
 function updateGCalBannerUI(){
@@ -6483,6 +6484,15 @@ async function init(){
     try{ localStorage.setItem(CONFIG_KEY, JSON.stringify(config)); }catch(e){}
   }
 
+  // Garante o e-mail padrão do Google Agenda caso ainda não tenha sido configurado
+  if(config && !config.calendarId && DEFAULT_CALENDAR_ID){
+    config.calendarId = DEFAULT_CALENDAR_ID;
+    try{
+      localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+      if(!localStorage.getItem('ft_calendar_id')) localStorage.setItem('ft_calendar_id', DEFAULT_CALENDAR_ID);
+    }catch(e){}
+  }
+
   var savedTab = 'pacientes';
   try{ savedTab = localStorage.getItem('active_tab') || 'pacientes'; }catch(e){}
 
@@ -6490,6 +6500,9 @@ async function init(){
   if(!config || !config.providerName || !hasUrl){
     if(document.getElementById('scriptUrlInput') && SCRIPT_URL){
       document.getElementById('scriptUrlInput').value = SCRIPT_URL;
+    }
+    if(document.getElementById('calendarIdInput')){
+      document.getElementById('calendarIdInput').value = getUserCalendarId();
     }
     document.getElementById('setupScreen').classList.remove('hidden');
   } else {

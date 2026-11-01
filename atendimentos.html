@@ -1168,16 +1168,23 @@ function toggleHideFinancials(){
   updateEyeButtonUI();
   renderList();
   if(document.getElementById('repBody')) renderReportBody();
+  if(document.getElementById('pFinSessionsList') && pFinActivePatientId){
+    renderPatientFinancialDetails(pFinActivePatientId);
+  }
 }
 
 function updateEyeButtonUI(){
   var icon = document.getElementById('eyeIcon');
   var text = document.getElementById('eyeText');
   var repIcon = document.getElementById('repEyeIcon');
+  var pFinIcon = document.getElementById('pFinEyeIcon');
+  var pFinText = document.getElementById('pFinEyeText');
   var hidden = isFinancialsHidden();
   if(icon) icon.textContent = hidden ? '🙈' : '👁️';
   if(text) text.textContent = hidden ? 'Exibir valores' : 'Ocultar valores';
   if(repIcon) repIcon.textContent = hidden ? '🙈' : '👁️';
+  if(pFinIcon) pFinIcon.textContent = hidden ? '🙈' : '👁️';
+  if(pFinText) pFinText.textContent = hidden ? 'Exibir valores' : 'Ocultar valores';
 }
 
 /* ---------- Controle de Modais & Botão Voltar do Celular ---------- */
@@ -2073,25 +2080,34 @@ var pFinPeriodMode = 'all'; // 'all', 'year', 'month', 'multi'
 var pFinSelectedYear = new Date().getFullYear();
 var pFinSelectedMonth = new Date().getMonth();
 var pFinMultiMonths = {};
+var pFinActivePatientId = null;
 
 function openPatientFinancial(patientId){
   var p = patients.find(function(x){ return x.id === patientId; });
   if(!p) return;
 
+  pFinActivePatientId = patientId;
   pFinPeriodMode = 'all';
   pFinSelectedYear = currentMonth.getFullYear();
   pFinSelectedMonth = currentMonth.getMonth();
   pFinMultiMonths = {};
 
+  var hidden = isFinancialsHidden();
   var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
     '<div class="modal">' +
       '<div class="grabber"></div>' +
-      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">' +
-        '<div style="width:46px;height:46px;border-radius:14px;overflow:hidden;flex-shrink:0;">' + renderPatientAvatar(p) + '</div>' +
-        '<div style="min-width:0;">' +
-          '<h2 style="margin:0 0 2px;font-size:18px;">Financeiro · ' + escapeHtml(getPatientDisplayName(p)) + '</h2>' +
-          '<p style="font-size:12px;color:var(--ink-soft);margin:0;">Filtre o período das sessões para consultar ou gerar extrato.</p>' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;">' +
+        '<div style="display:flex;align-items:center;gap:12px;min-width:0;flex:1;">' +
+          '<div style="width:46px;height:46px;border-radius:14px;overflow:hidden;flex-shrink:0;">' + renderPatientAvatar(p) + '</div>' +
+          '<div style="min-width:0;">' +
+            '<h2 style="margin:0 0 2px;font-size:18px;">Financeiro · ' + escapeHtml(getPatientDisplayName(p)) + '</h2>' +
+            '<p style="font-size:12px;color:var(--ink-soft);margin:0;">Filtre o período das sessões para consultar ou gerar extrato.</p>' +
+          '</div>' +
         '</div>' +
+        '<button class="eye-toggle-btn" style="flex-shrink:0;" onclick="toggleHideFinancials();" title="Ocultar ou exibir valores">' +
+          '<span id="pFinEyeIcon">' + (hidden ? '🙈' : '👁️') + '</span>' +
+          '<span id="pFinEyeText">' + (hidden ? 'Exibir valores' : 'Ocultar valores') + '</span>' +
+        '</button>' +
       '</div>' +
 
       '<!-- Seletor de Tipo de Período -->' +

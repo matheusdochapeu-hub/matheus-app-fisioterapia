@@ -1,17 +1,17 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `01/11/2026`  
-Versão do Service Worker: `atend-v24` (`sw.js`)
+Versão do Service Worker: `atend-v29` (`sw.js`)
 
 ---
 
-## 1. Estabilidade, Concorrência, Sincronização e Link da Planilha (`Plans 001–005` + `v21–v24`)
-- **Validação estrita em `postAction` (`atendimentos.html`):** Detecta erros HTTP, páginas HTML de erro do Google Apps Script e respostas `handled: false` ou `success: false`.
+## 1. Estabilidade, Concorrência, Sincronização e Link da Planilha (`Plans 001–005` + `v21–v29`)
+- **Validação estrita em `postAction` (`atendimentos.html`):** Detecta erros HTTP, páginas HTML de erro do Google Apps Script e respostas `handled: false` ou `success: false`, retornando o objeto JSON parseado (`data`) para uso direto nos fluxos de sincronização.
 - **Bloqueio de concorrência em `Code.gs`:** Uso de `LockService.getScriptLock()` (timeout de 30s) com `try/catch/finally` e formatação de datas respeitando o fuso horário da planilha (`getTimeZone_()`).
-- **Migração automática de colunas (`ensureColumns_` em `Code.gs`):** Adiciona automaticamente novas colunas (`NomeFantasia`, `OldNome`, `Arquivado`, `Foto`, dados clínicos CREFITO-3) e lê/atualiza células pelo nome do cabeçalho (`readSheet_`, `updateFieldById_`).
+- **Migração automática de colunas e abas (`ensureColumns_` em `Code.gs`):** Adiciona automaticamente novas colunas (`NomeFantasia`, `OldNome`, `Arquivado`, `Foto`, dados clínicos CREFITO-3) e cria/atualiza as abas `Evolucoes` e `Agendamentos`.
 - **Importação em lote (`bulk_import` em `Code.gs`):** Restauração rápida de backups em uma única chamada em lote.
-- **Persistência local resiliente (`saveLocalPatientMeta` / `getLocalPatientMeta` / `saveLocalEvolutions` / `getLocalEvolutions` em `atendimentos.html`):** Mantém metadados cadastrais, fotos, nome fantasia, status de arquivamento e evoluções clínicas sincronizados também no `localStorage` (`ft_pmeta_<id>`, `ft_archived_<id>`, `ft_avatar_<id>`, `ft_nome_fantasia_<id>`, `ft_local_evolutions`), evitando perda de dados ou reversão de estado.
-- **Atualização automática do Link da Planilha (`SCRIPT_URL` e `init()` em `atendimentos.html`):** Configurado o novo link da implantação do Apps Script (`/exec`) com migração automática do `config.scriptUrl` salvo no navegador ao abrir o app.
+- **Persistência local resiliente (`saveLocalPatientMeta`, `saveLocalEvolutions`, `saveLocalSchedules` em `atendimentos.html`):** Mantém metadados cadastrais, fotos, nome fantasia, status de arquivamento, evoluções clínicas e agendamentos sincronizados também no `localStorage` (`ft_pmeta_<id>`, `ft_archived_<id>`, `ft_avatar_<id>`, `ft_nome_fantasia_<id>`, `ft_local_evolutions`, `ft_local_schedules`).
+- **Atualização automática do Link da Planilha (`SCRIPT_URL` e `init()` em `atendimentos.html`):** Configurado o link da implantação do Apps Script (`/exec`) com migração automática do `config.scriptUrl` salvo no navegador ao abrir o app.
 
 ---
 
@@ -28,27 +28,45 @@ Versão do Service Worker: `atend-v24` (`sw.js`)
 
 ---
 
-## 3. Arquitetura em 3 Abas Principais
+## 3. Arquitetura em 4 Abas Principais
 
 ### Aba 1 — Pacientes e Dados Cadastrais (`👥 Pacientes`)
-- **Cards de Pacientes com Menu Cascata:** Busca instantânea por Nome Fantasia, Nome Completo, CPF/RG, telefone ou bairro.
+- **Cards de Pacientes com Menu Cascata:** Busca instantânea por Nome Fantasia, Nome Completo, CPF/RG, telefone ou bairro, com botão direto para **📅 Agendar**.
 - **Foto de Perfil em Miniatura (`renderPatientAvatar` / `compressPatientPhoto`):** Permite subir foto da galeria ou tirar foto com a câmera na ficha cadastral, comprimindo automaticamente para miniatura quadrada `160x160` JPEG exibida no lugar das iniciais.
 - **Nome Fantasia vs. Nome Completo (`getPatientDisplayName` / `getPatientLegalName`):**
   - **Nome Fantasia:** Aparece antes do Nome Completo na ficha do paciente e é usado em **todas as visualizações internas** do aplicativo.
   - **Nome Completo:** Usado exclusivamente em **todos os documentos exportados** (PDFs de ficha cadastral, prontuários/evoluções, extratos, recibos individuais, comprovantes mensais e exportação CSV). O Nome Fantasia jamais aparece em documentos externos.
 - **Ficha Cadastral e Prontuário CREFITO-3 (`openPatientForm`):** Campos alinhados lado a lado no celular (`40px`/`42px`), com exportação da ficha completa em PDF.
 - **Exames e Documentos (`openPatientFilesModal`):** Dois botões dedicados para anexar PDFs/imagens ou bater foto na hora (`capture="environment"`), visualizar, baixar e excluir arquivos (armazenados via `IndexedDB` `ft_docs_db`).
-- **Financeiro do Paciente (`openPatientFinancial`):** Filtro por período (*Tudo*, *Por Mês*, *Por Ano*, *Vários Meses*), botão exibir/ocultar valores (`🙈 / 👁️`), alteração de status `Pago`/`Pendente` preservando o modal aberto e geração de Extrato em PDF.
+- **Financeiro Individual do Paciente (`openPatientFinancial` / `renderPatientFinancialDetails`):**
+  - Filtro por período (*Tudo*, *Por Mês*, *Por Ano*, *Vários Meses*) e botão exibir/ocultar valores (`🙈 / 👁️`).
+  - **Previsão do Paciente (`#pFinForecastBox`):** Exibe **Ganho Real (Feito)**, **Previsto (Agenda)** e **Ganho Possível**, além de listar as sessões agendadas pendentes com botão de **✓ Check-in** rápido.
 - **Fluxo de Arquivamento e Aba "📁 Pacientes Arquivados" (`toggleArchivePatient` / `deletePatient`):**
-  - Ao clicar em **Finalizar / Arquivar Paciente**, **todos os dados do paciente são mantidos intactos** e o card é movido imediatamente para a aba/seção **"📁 Pacientes Arquivados"** no final da página (e marcado como `(Finalizado)` no Financeiro).
-  - Dentro da aba **Pacientes Arquivados**, cada card possui botões diretos para **🔄 Desarquivar** (retorna à lista de ativos) e **🗑️ Excluir Definitivamente**.
+  - Ao clicar em **Finalizar / Arquivar Paciente**, todos os dados são mantidos intactos e o card é movido para a seção **"📁 Pacientes Arquivados"** no final da página.
   - Pacientes ativos não podem ser excluídos diretamente; a **Exclusão Definitiva** só é permitida após o paciente estar arquivado e exige confirmação explícita (`confirm(...)`).
 
-### Aba 2 — Evoluções Clínicas (`📋 Evoluções`)
-- **Layout Limpo e Ordenação:** Apenas um botão grande **"+ Nova Evolução"** abaixo do filtro; painel de filtros recolhido por padrão com botão **"▼ Expandir filtros"** e dois botões de ordenação (**"▼ Do mais novo pro mais antigo"** e **"▲ Do mais antigo para o mais novo"**).
-- **Registro Estruturado:** Campos alinhados para Data, Horário, `PA`, `FC`, `Estado Clínico Geral` e `Condutas Fisioterapêuticas`, com gravação na planilha (`Evolucoes`) e persistência local (`ft_local_evolutions`).
-- **Histórico de Evoluções do Paciente (`openPatientEvolutions`):** Sem botão redundante de nova evolução; possui caixas de seleção (**"Selecionar todas"** ou seleção manual uma a uma) para exportar múltiplas evoluções concatenadas em um PDF único (`exportSelectedPatientEvolutionsPDF`).
+### Aba 2 — Agenda e Integração com Google Agenda (`📅 Agenda`) (`v27–v29`)
+- **E-mail Padrão Configurado (`DEFAULT_CALENDAR_ID = 'scarletsantos7@gmail.com'`):**
+  - Definido como padrão tanto no aplicativo (`atendimentos.html` via `getUserCalendarId()` e `init()`) quanto no servidor da planilha (`Code.gs` via `resolveUserCalendar_()`), permitindo também alterar ou testar a conexão em **⚙️ Configurar Agenda**.
+- **Agendamento Único ou Escala da Semana / Mês (`openScheduleModal` / `submitSchedule`):**
+  - Permite agendar uma sessão avulsa ou gerar em lote toda a escala da semana, quinzena, mês atual ou próximo mês escolhendo os dias da semana (`Seg` a `Dom`).
+- **Sincronização Automática com Google Agenda (`CalendarApp` em `Code.gs`):**
+  - Cria automaticamente os eventos no Google Agenda com nome do paciente, endereço, telefone e observações (`create_schedule`, `create_schedules_batch`), atualiza data/hora ao remarcar (`update_schedule`) e remove do Google Agenda ao cancelar (`delete_schedule`).
+  - Inclui também atalho **"📅 Abrir no Google Agenda"** por sessão e exportação de arquivo `.ics` (**"📲 Exportar Agenda"**).
+- **Prevenção de Conflitos e Vínculo Bidirecional entre Agenda, Check-ins e Lançamentos Manuais (`v28`):**
+  - **No modal "Novo Atendimento / Check-in" (`openNewEntry` / `onNewEntryPatientOrDateChange`):** Detecta automaticamente se o paciente tem agendamento pendente na data escolhida (ou em datas próximas para reposição/antecipação), pré-preenche horário/valor e vincula o lançamento ao agendamento (`status = 'Realizado'`, `atendimentoId = entry.id`), além de exibir alerta amarelo caso já exista atendimento lançado no mesmo dia.
+  - **No modal "Nova Evolução Clínica" (`updateNewEvoScheduleUI` / `submitNewEvolution`):** Detecta agendamento pendente na data da evolução e oferece opção pré-marcada para confirmar o Check-in e lançar no financeiro simultaneamente.
+  - **No Check-in da Agenda e na geração de escala (`completeScheduleCheckin` / `submitSchedule` / `reconcileSchedulesWithEntries`):** Se já houver um atendimento lançado manualmente no mesmo dia para o paciente, vincula ao lançamento existente sem duplicar cobrança; se excluir o atendimento financeiro (`deleteEntry`), o agendamento volta para `Agendado`.
 
-### Aba 3 — Financeiro (`💰 Financeiro`)
-- **Comprovantes Mensais Múltiplos (`openMonthlyReceipt` / `submitMonthlyReceipt`):** Permite selecionar um ou mais pacientes simultaneamente para gerar comprovantes conjuntos em um único PDF.
-- **Relatório Financeiro Avançado (`openReports`):** Filtro por **Ano** e por **Mês** (`Ano Completo` ou `Janeiro..Dezembro`), valores ocultos por padrão com botão `🙈 / 👁️`, gráfico mensal empilhado (Recebido vs. Pendente), ranking por paciente, distribuição por forma de pagamento e calendário de dias trabalhados.
+### Aba 3 — Evoluções Clínicas (`📋 Evoluções`)
+- **Layout Limpo e Ordenação:** Botão **"+ Nova Evolução"**, filtros recolhidos por padrão e ordenação crescente/decrescente.
+- **Histórico de Evoluções do Paciente (`openPatientEvolutions`):** Seleção individual ou **"Selecionar todas"** para exportar múltiplas evoluções em um PDF único (`exportSelectedPatientEvolutionsPDF`).
+
+### Aba 4 — Financeiro e Previsões (`💰 Financeiro`) (`v25–v28`)
+- **Painel de Previsão Mensal (`#finForecastCard` em `renderList`):**
+  - Separa os KPIs principais de **Ganho Real (Sessões já realizadas: Recebido vs. A Receber)** do quadro de previsão do mês (**Ganho Real (Feito)**, **Previsto (Agendado)** e **Ganho Possível Total**), listando também as sessões agendadas do mês com botão de **✓ Check-in**.
+- **Relatório Financeiro Geral Interativo (`openReports` / `renderReportBody` / `renderWorkCalendar`):**
+  - **Previsão Anual/Mensal:** Quadro comparativo entre **Ganho Real (Trabalhado)**, **Previsto na Agenda (A Realizar)** e **Ganho Possível**.
+  - **Gráfico de 12 Meses Empilhado:** Exibe barras com 3 camadas (*Recebido*, *A Receber já feito* e *Previsto na Agenda tracejado em azul*).
+  - **Todos os Pacientes no Ranking (Interativo):** Lista 100% dos pacientes com sessões realizadas ou agendadas no período (sem limite de 6), mostrando ganho real e ganho possível; ao clicar em qualquer paciente, expande a lista de sessões realizadas e agendadas com botões diretos para editar, alternar Pago/Pendente, excluir ou fazer Check-in.
+  - **Calendário Interativo de Dias Trabalhados e Agendados:** Marca dias trabalhados (`✓` verde) e dias agendados (`📅` azul); ao clicar em qualquer dia, exibe todos os pacientes atendidos e agendados naquela data com atalhos de edição e Check-in.

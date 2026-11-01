@@ -15,7 +15,7 @@ var PAC_HEADERS = [
   'ID', 'Nome', 'Telefone', 'ValorPadrao', 'FormaPagamento', 'CriadoEm',
   'Endereco', 'Bairro', 'Cidade', 'DataNascimento', 'Contato02',
   'Documento', 'TCLE', 'Contrato', 'FrequenciaSemanal',
-  'DiagClinico', 'DiagFuncional', 'Objetivos', 'Arquivado'
+  'DiagClinico', 'DiagFuncional', 'Objetivos', 'Arquivado', 'Foto'
 ];
 var EVO_HEADERS = ['ID', 'PacienteID', 'PacienteNome', 'Data', 'Hora', 'PA', 'FC', 'EstadoClinico', 'Condutas', 'CriadoEm'];
 var EXE_HEADERS = ['ID', 'Nome', 'Tipo', 'SeriesPadrao', 'RepsPadrao', 'Observacao', 'Imagem', 'CriadoEm'];
@@ -228,7 +228,8 @@ function doPost(e) {
         body.diagClinico || '',
         body.diagFuncional || '',
         body.objetivos || '',
-        body.arquivado || 'Não'
+        body.arquivado || 'Não',
+        body.foto || ''
       ]);
 
     } else if (body.action === 'update_patient') {
@@ -250,6 +251,7 @@ function doPost(e) {
       if (body.diagFuncional !== undefined) updateFieldById_(pacSheet, body.id, 'DiagFuncional', body.diagFuncional);
       if (body.objetivos !== undefined) updateFieldById_(pacSheet, body.id, 'Objetivos', body.objetivos);
       if (body.arquivado !== undefined) updateFieldById_(pacSheet, body.id, 'Arquivado', body.arquivado);
+      if (body.foto !== undefined) updateFieldById_(pacSheet, body.id, 'Foto', body.foto);
 
     } else if (body.action === 'delete_patient') {
       deleteRowById_(getPacSheet_(), body.id);
@@ -367,7 +369,8 @@ function doPost(e) {
             p.diagClinico || '',
             p.diagFuncional || '',
             p.objetivos || '',
-            p.arquivado || 'Não'
+            p.arquivado || 'Não',
+            p.foto || ''
           ];
         });
         var sP = getPacSheet_();

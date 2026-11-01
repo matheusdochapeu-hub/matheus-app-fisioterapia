@@ -1365,7 +1365,7 @@ async function loadData(){
       };
     });
 
-    evolutions = (data.evolucoes || []).map(function(r){
+    var sheetEvos = (data.evolucoes || []).map(function(r){
       return {
         id: String(r.ID),
         pacienteId: String(r.PacienteID || ''),
@@ -1379,6 +1379,11 @@ async function loadData(){
         criadoEm: r.CriadoEm || ''
       };
     });
+    var localEvos = getLocalEvolutions();
+    var evoMap = {};
+    sheetEvos.forEach(function(ev){ evoMap[ev.id] = ev; });
+    localEvos.forEach(function(ev){ evoMap[ev.id] = ev; });
+    evolutions = Object.keys(evoMap).map(function(k){ return evoMap[k]; });
 
     exercises = data.exercicios || [];
     routines = data.rotinas || [];
@@ -1392,6 +1397,19 @@ async function loadData(){
     showError('Não foi possível carregar os dados da planilha. Confira sua conexão ou o link configurado.');
   }
   document.getElementById('loadingState').classList.add('hidden');
+}
+
+function getLocalEvolutions(){
+  try{
+    var raw = localStorage.getItem('ft_local_evolutions');
+    return raw ? JSON.parse(raw) : [];
+  }catch(e){ return []; }
+}
+
+function saveLocalEvolutions(){
+  try{
+    localStorage.setItem('ft_local_evolutions', JSON.stringify(evolutions));
+  }catch(e){}
 }
 
 function getLocalPatientMeta(id){
@@ -2007,6 +2025,7 @@ async function deletePatient(id){
   var oldEvolutions = evolutions.slice();
   patients.splice(idx, 1);
   evolutions = evolutions.filter(function(ev){ return ev.pacienteId !== id; });
+  saveLocalEvolutions();
   removeLocalPatientMeta(id);
   renderPatientsTab();
   populatePatientFilter();
@@ -2022,6 +2041,7 @@ async function deletePatient(id){
     patients.splice(idx, 0, removed);
     saveLocalPatientMeta(removed);
     evolutions = oldEvolutions;
+    saveLocalEvolutions();
     renderPatientsTab();
     populatePatientFilter();
     populateEvolutionsFilters();
@@ -2681,6 +2701,7 @@ async function submitNewEvolution(){
   };
 
   evolutions.unshift(newEv);
+  saveLocalEvolutions();
   populateEvolutionsFilters();
   renderEvolutionsTab();
   closeModal();
@@ -2700,9 +2721,7 @@ async function submitNewEvolution(){
       condutas: condutas
     });
   }catch(err){
-    evolutions = evolutions.filter(function(x){ return x.id !== id; });
-    renderEvolutionsTab();
-    showError('Falha ao salvar evolução na planilha: ' + err.message);
+    console.warn('Evolução mantida localmente (aguardando atualização do Code.gs na planilha):', err);
   }
 }
 
@@ -2772,6 +2791,7 @@ async function submitEditEvolution(id){
   ev.fc = fc;
   ev.estadoClinico = estado;
   ev.condutas = condutas;
+  saveLocalEvolutions();
 
   renderEvolutionsTab();
   closeModal();
@@ -2789,9 +2809,7 @@ async function submitEditEvolution(id){
       condutas: condutas
     });
   }catch(err){
-    Object.assign(ev, old);
-    renderEvolutionsTab();
-    showError('Falha ao atualizar evolução na planilha.');
+    console.warn('Edição de evolução mantida localmente:', err);
   }
 }
 
@@ -2801,6 +2819,7 @@ async function deleteEvolution(id){
   if(idx === -1) return;
   var removed = evolutions[idx];
   evolutions.splice(idx, 1);
+  saveLocalEvolutions();
   renderEvolutionsTab();
   closeModal();
   showToast('Evolução excluída.', 'ok');
@@ -2808,9 +2827,7 @@ async function deleteEvolution(id){
   try{
     await postAction({ action: 'delete_evolution', id: id });
   }catch(err){
-    evolutions.splice(idx, 0, removed);
-    renderEvolutionsTab();
-    showError('Não foi possível excluir da planilha.');
+    console.warn('Exclusão de evolução mantida localmente:', err);
   }
 }
 

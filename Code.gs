@@ -212,17 +212,40 @@ function autorizarGoogleAgenda() {
   Logger.log('Google Agenda autorizado com sucesso: ' + (cal ? cal.getName() : 'OK'));
 }
 
+function pad2_(n) {
+  return (n < 10 ? '0' : '') + n;
+}
+
 function parseScheduleDates_(dataStr, horaStr, duracaoMin) {
   var dParts = String(dataStr || '').split('-');
   if (dParts.length !== 3) return null;
   var hParts = String(horaStr || '09:00').split(':');
   var y = parseInt(dParts[0], 10);
-  var m = parseInt(dParts[1], 10) - 1;
+  var m = parseInt(dParts[1], 10);
   var d = parseInt(dParts[2], 10);
   var hh = parseInt(hParts[0] || '9', 10);
   var mm = parseInt(hParts[1] || '0', 10);
-  var start = new Date(y, m, d, hh, mm, 0);
-  if (isNaN(start.getTime())) return null;
+  if (isNaN(y) || isNaN(m) || isNaN(d) || isNaN(hh) || isNaN(mm)) return null;
+
+  var tz = 'America/Sao_Paulo';
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (ss && ss.getSpreadsheetTimeZone()) {
+      tz = ss.getSpreadsheetTimeZone();
+    }
+  } catch (e) {}
+
+  var dateFormatted = dParts[0] + '-' + pad2_(m) + '-' + pad2_(d) + ' ' + pad2_(hh) + ':' + pad2_(mm) + ':00';
+  var start = null;
+  try {
+    start = Utilities.parseDate(dateFormatted, tz, 'yyyy-MM-dd HH:mm:ss');
+  } catch (e2) {}
+
+  if (!start || isNaN(start.getTime())) {
+    start = new Date(y, m - 1, d, hh, mm, 0);
+  }
+  if (!start || isNaN(start.getTime())) return null;
+
   var dur = parseInt(duracaoMin, 10);
   if (!dur || dur <= 0) dur = 50;
   var end = new Date(start.getTime() + dur * 60000);
@@ -233,18 +256,34 @@ var DEFAULT_CALENDAR_ID = 'scarletsantos7@gmail.com';
 
 function resolveUserCalendar_(calendarId) {
   var cid = String(calendarId || DEFAULT_CALENDAR_ID || '').trim().toLowerCase();
+  var defaultCal = null;
+  try { defaultCal = CalendarApp.getDefaultCalendar(); } catch (e) {}
+  var effectiveEmail = '';
+  try { effectiveEmail = Session.getEffectiveUser().getEmail().toLowerCase(); } catch (e2) {}
+
+  // Se o e-mail informado for o da própria conta do Apps Script executando
+  if (defaultCal && (defaultCal.getId().toLowerCase() === cid || (effectiveEmail && effectiveEmail === cid))) {
+    return { cal: defaultCal, guestEmail: null, calendarId: cid, isOwner: true };
+  }
+
   if (cid && cid !== 'primary') {
     var customCal = null;
     try {
       customCal = CalendarApp.getCalendarById(cid);
-    } catch (e) {}
+    } catch (e3) {}
     if (customCal) {
-      return { cal: customCal, guestEmail: null, calendarId: cid };
+      return { cal: customCal, guestEmail: null, calendarId: cid, isOwner: false };
     }
-    // Se a agenda pertence a outro Gmail ainda não compartilhado diretamente, envia convite automático para a agenda do usuário
-    return { cal: CalendarApp.getDefaultCalendar(), guestEmail: cid.indexOf('@') > -1 ? cid : null, calendarId: cid };
+    // Se a agenda pertence a outro Gmail não compartilhado diretamente, adiciona como convidado
+    var isSelf = (effectiveEmail && effectiveEmail === cid) || (defaultCal && defaultCal.getId().toLowerCase() === cid);
+    return {
+      cal: defaultCal,
+      guestEmail: (!isSelf && cid.indexOf('@') > -1) ? cid : null,
+      calendarId: cid,
+      isOwner: isSelf
+    };
   }
-  return { cal: CalendarApp.getDefaultCalendar(), guestEmail: null, calendarId: 'primary' };
+  return { cal: defaultCal, guestEmail: null, calendarId: 'primary', isOwner: true };
 }
 
 /** Preenche automaticamente endereço, telefone e NomeFantasia do paciente caso não venham no payload. */
@@ -319,6 +358,12 @@ function createCalendarEventForSchedule_(item) {
 function updateCalendarEventForSchedule_(item) {
   try {
     enrichScheduleItemWithPatient_(item);
+    if (item.status === 'Cancelado') {
+      if (item.calendarEventId) {
+        deleteCalendarEventForSchedule_(item.calendarEventId, item.calendarId);
+      }
+      return { eventId: '', warning: '' };
+    }
     if (!item.calendarEventId) {
       return createCalendarEventForSchedule_(item);
     }
@@ -506,11 +551,14 @@ function doPost(e) {
       var resolvedTest = resolveUserCalendar_(body.calendarId);
       if (!resolvedTest.cal) {
         result.success = false;
-        result.error = 'Não foi possível acessar o Google Agenda. Autorize o CalendarApp no editor do Apps Script.';
+        result.error = 'Não foi possível acessar o Google Agenda. Autorize o CalendarApp no editor do Apps Script executando a função autorizarGoogleAgenda.';
       } else {
         result.calendarName = resolvedTest.cal.getName();
         result.mode = resolvedTest.guestEmail ? 'invite' : 'direct';
         result.calendarId = resolvedTest.calendarId;
+        result.message = resolvedTest.guestEmail
+          ? ('Conectado! Os eventos serão criados e enviados com convite direto para ' + resolvedTest.guestEmail)
+          : ('Conectado diretamente à agenda "' + (resolvedTest.cal.getName() || 'Principal') + '" (' + resolvedTest.calendarId + ')');
       }
 
     } else if (body.action === 'create_schedule') {
@@ -602,8 +650,8 @@ function doPost(e) {
         calendarId: body.calendarId || existingRow.CalendarId || DEFAULT_CALENDAR_ID || 'primary'
       };
       var updCal = updateCalendarEventForSchedule_(mergedItem);
-      if (updCal.eventId && updCal.eventId !== existingRow.CalendarEventId) {
-        updateFieldById_(sAgUpd, body.id, 'CalendarEventId', updCal.eventId);
+      if (updCal.eventId !== undefined && updCal.eventId !== existingRow.CalendarEventId) {
+        updateFieldById_(sAgUpd, body.id, 'CalendarEventId', updCal.eventId || '');
       }
       result.calendarEventId = updCal.eventId || '';
       if (updCal.warning) result.calendarWarning = updCal.warning;

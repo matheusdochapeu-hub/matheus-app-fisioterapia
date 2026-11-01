@@ -225,7 +225,9 @@
     background:linear-gradient(135deg,var(--primary-soft),var(--avatar-2));
     color:var(--primary-deep);font-family:'Fraunces',serif;font-weight:700;font-size:14px;
     display:flex;align-items:center;justify-content:center;flex-shrink:0;letter-spacing:.5px;
+    overflow:hidden;position:relative;
   }
+  .avatar-img{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block;}
   .entry-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;}
   .entry-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
   .entry-top .avatar{margin-right:2px;}
@@ -514,6 +516,11 @@
 
   <!-- Configuração Inicial -->
   <div id="setupScreen" class="hidden setup-box">
+    <div style="display:flex;align-items:center;justify-content:flex-start;margin-bottom:10px;">
+      <button id="setupTopBackBtn" class="btn ghost small hidden" onclick="cancelSetup()" style="display:inline-flex;align-items:center;gap:6px;">
+        &#8592; Voltar para a tela inicial
+      </button>
+    </div>
     <div class="stamp" style="margin:0 auto 18px;width:60px;height:60px;font-size:24px;border-radius:19px;">FT</div>
     <h1 id="setupTitle" style="text-align:center;font-size:23px;color:var(--primary-deep);margin-bottom:8px;">Bem-vinda!</h1>
     <p id="setupIntro" style="text-align:center;color:var(--ink-soft);font-size:13.5px;margin:0 0 16px;">Preencha seus dados para começar. Eles aparecem nos recibos e relatórios.</p>
@@ -818,6 +825,40 @@ function formatFileSize(bytes){
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
+/* Renderiza avatar com foto ou iniciais */
+function renderPatientAvatar(p, fallbackName){
+  if(p && p.foto){
+    return '<div class="avatar has-photo"><img src="'+escapeHtml(p.foto)+'" class="avatar-img" alt="Foto"></div>';
+  }
+  var nm = (p && p.nome) || fallbackName || '';
+  return '<div class="avatar">'+initials(nm)+'</div>';
+}
+
+/* Comprime e recorta foto para miniatura quadrada (160x160) */
+function compressPatientPhoto(file, callback){
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var img = new Image();
+    img.onload = function(){
+      var max = 160;
+      var w = img.width, h = img.height;
+      var cropSize = Math.min(w, h);
+      var sx = (w - cropSize) / 2;
+      var sy = (h - cropSize) / 2;
+
+      var canvas = document.createElement('canvas');
+      canvas.width = max;
+      canvas.height = max;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, sx, sy, cropSize, cropSize, 0, 0, max, max);
+      var dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      callback(dataUrl);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
 /* ============================================================
    BANCO DE DADOS LOCAL (IndexedDB) PARA EXAMES & DOCUMENTOS
    ============================================================ */
@@ -1001,6 +1042,10 @@ window.addEventListener('popstate', function(){
   var root = document.getElementById('modalRoot');
   if(root && root.innerHTML.trim() !== ''){
     closeModal(true);
+    return;
+  }
+  if(_settingsOpen){
+    cancelSetup(true);
   }
 });
 
@@ -1100,6 +1145,7 @@ async function loadData(){
         diagFuncional: r.DiagFuncional || '',
         objetivos: r.Objetivos || '',
         arquivado: r.Arquivado || 'Não',
+        foto: r.Foto || localStorage.getItem('ft_avatar_' + r.ID) || '',
         criadoEm: r.CriadoEm || ''
       };
     });
@@ -1191,7 +1237,7 @@ function renderPatientsTab(){
 
     return '<div class="patient-card '+(isArchived ? 'archived' : '')+'" id="pcard_'+p.id+'">' +
       '<div class="p-card-main" onclick="togglePatientCascade(\''+p.id+'\')">' +
-        '<div class="avatar">'+initials(p.nome)+'</div>' +
+        renderPatientAvatar(p) +
         '<div class="p-meta">' +
           '<div class="p-name-row">' +
             '<div class="p-card-name">'+escapeHtml(p.nome)+'</div>' +
@@ -1288,11 +1334,39 @@ function openPatientForm(patientId){
   var p = patientId ? patients.find(function(x){ return x.id === patientId; }) : null;
   var isEdit = !!p;
 
+  var currentPhoto = (p && p.foto) || '';
+  var photoPreviewHtml = currentPhoto
+    ? '<img src="' + escapeHtml(currentPhoto) + '" class="avatar-img" id="pFormPhotoImg" alt="Foto">'
+    : '<span id="pFormPhotoInitials" style="font-size:18px;">' + initials(p ? p.nome : '?') + '</span>';
+
   var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
     '<div class="modal">' +
       '<div class="grabber"></div>' +
       '<h2>' + (isEdit ? 'Ficha do Paciente' : 'Novo Paciente') + '</h2>' +
       '<p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 10px;">Dados cadastrais completos e prontuário fisioterapêutico (CREFITO-3).</p>' +
+
+      '<div class="form-section-title">Foto do Paciente</div>' +
+      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;background:var(--bg);padding:10px 12px;border-radius:var(--radius-sm);border:1px solid var(--line);">' +
+        '<div id="pFormPhotoPreview" class="avatar" style="width:56px;height:56px;border-radius:16px;cursor:pointer;position:relative;border:2px dashed var(--line);flex-shrink:0;" onclick="document.getElementById(\'pFormPhotoInput\').click()" title="Toque para adicionar/alterar foto">' +
+          photoPreviewHtml +
+        '</div>' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div style="font-weight:600;font-size:13px;color:var(--ink);margin-bottom:2px;">Foto de Perfil</div>' +
+          '<div style="font-size:11px;color:var(--ink-soft);margin-bottom:6px;">Aparecerá na lista de pacientes no lugar das iniciais.</div>' +
+          '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+            '<label class="btn ghost small" style="cursor:pointer;padding:4px 8px;font-size:11.5px;display:inline-flex;align-items:center;gap:4px;">' +
+              '<span>📁 Galeria</span>' +
+              '<input type="file" id="pFormPhotoInput" accept="image/*" class="hidden" onchange="handlePatientPhotoSelect(event)">' +
+            '</label>' +
+            '<label class="btn ghost small" style="cursor:pointer;padding:4px 8px;font-size:11.5px;display:inline-flex;align-items:center;gap:4px;">' +
+              '<span>📷 Câmera</span>' +
+              '<input type="file" accept="image/*" capture="environment" class="hidden" onchange="handlePatientPhotoSelect(event)">' +
+            '</label>' +
+            '<button type="button" id="pFormPhotoRemoveBtn" class="btn ghost small '+(currentPhoto?'':'hidden')+'" style="color:var(--danger);padding:4px 8px;font-size:11.5px;" onclick="removePatientPhotoPreview()">Remover</button>' +
+          '</div>' +
+          '<input type="hidden" id="pFormPhotoData" value="'+escapeHtml(currentPhoto)+'">' +
+        '</div>' +
+      '</div>' +
 
       '<div class="form-section-title">Identificação Básica</div>' +
       '<label>Nome completo *</label>' +
@@ -1401,6 +1475,44 @@ function openPatientForm(patientId){
     '</div>' +
   '</div>';
   openModal(html);
+
+  var nameInp = document.getElementById('pFormNome');
+  if(nameInp){
+    nameInp.addEventListener('input', function(){
+      var photoData = document.getElementById('pFormPhotoData');
+      if(!photoData || !photoData.value){
+        var initialsEl = document.getElementById('pFormPhotoInitials');
+        if(initialsEl) initialsEl.textContent = initials(this.value);
+      }
+    });
+  }
+}
+
+function handlePatientPhotoSelect(event){
+  var file = event.target.files && event.target.files[0];
+  if(!file) return;
+  showToast('Processando foto...', 'ok');
+  compressPatientPhoto(file, function(dataUrl){
+    var hiddenInput = document.getElementById('pFormPhotoData');
+    var preview = document.getElementById('pFormPhotoPreview');
+    var removeBtn = document.getElementById('pFormPhotoRemoveBtn');
+    if(hiddenInput) hiddenInput.value = dataUrl;
+    if(preview) preview.innerHTML = '<img src="' + escapeHtml(dataUrl) + '" class="avatar-img" id="pFormPhotoImg" alt="Foto">';
+    if(removeBtn) removeBtn.classList.remove('hidden');
+    showToast('Foto adicionada!', 'ok');
+  });
+}
+
+function removePatientPhotoPreview(){
+  var hiddenInput = document.getElementById('pFormPhotoData');
+  var preview = document.getElementById('pFormPhotoPreview');
+  var removeBtn = document.getElementById('pFormPhotoRemoveBtn');
+  var nameInput = document.getElementById('pFormNome');
+  if(hiddenInput) hiddenInput.value = '';
+  var nm = nameInput ? nameInput.value.trim() : '';
+  if(preview) preview.innerHTML = '<span id="pFormPhotoInitials" style="font-size:18px;">' + initials(nm) + '</span>';
+  if(removeBtn) removeBtn.classList.add('hidden');
+  showToast('Foto removida.', 'ok');
 }
 
 async function submitPatientForm(existingId){
@@ -1422,6 +1534,7 @@ async function submitPatientForm(existingId){
   var diagClinico = document.getElementById('pFormDiagClinico').value.trim();
   var diagFuncional = document.getElementById('pFormDiagFuncional').value.trim();
   var objetivos = document.getElementById('pFormObjetivos').value.trim();
+  var foto = (document.getElementById('pFormPhotoData') ? document.getElementById('pFormPhotoData').value : '').trim();
 
   var btn = document.getElementById('savePatientFormBtn');
   if(btn){ btn.disabled = true; btn.textContent = 'Gravando...'; }
@@ -1446,10 +1559,18 @@ async function submitPatientForm(existingId){
       patients[idx].diagClinico = diagClinico;
       patients[idx].diagFuncional = diagFuncional;
       patients[idx].objetivos = objetivos;
+      patients[idx].foto = foto;
+
+      if(foto){
+        try{ localStorage.setItem('ft_avatar_' + existingId, foto); }catch(e){}
+      } else {
+        try{ localStorage.removeItem('ft_avatar_' + existingId); }catch(e){}
+      }
 
       renderPatientsTab();
       populatePatientFilter();
       populateEvolutionsFilters();
+      renderList();
       closeModal();
       showToast('Dados atualizados com sucesso.', 'ok');
 
@@ -1473,11 +1594,19 @@ async function submitPatientForm(existingId){
           diagClinico: diagClinico,
           diagFuncional: diagFuncional,
           objetivos: objetivos,
-          arquivado: patients[idx].arquivado || 'Não'
+          arquivado: patients[idx].arquivado || 'Não',
+          foto: foto
         });
       }catch(err){
         patients[idx] = oldData;
+        if(oldData.foto){
+          try{ localStorage.setItem('ft_avatar_' + existingId, oldData.foto); }catch(e){}
+        } else {
+          try{ localStorage.removeItem('ft_avatar_' + existingId); }catch(e){}
+        }
         renderPatientsTab();
+        populatePatientFilter();
+        renderList();
         showError('Falha ao atualizar paciente na planilha: ' + err.message);
       }
     }
@@ -1502,12 +1631,17 @@ async function submitPatientForm(existingId){
       diagFuncional: diagFuncional,
       objetivos: objetivos,
       arquivado: 'Não',
+      foto: foto,
       criadoEm: new Date().toISOString()
     };
+    if(foto){
+      try{ localStorage.setItem('ft_avatar_' + newId, foto); }catch(e){}
+    }
     patients.push(newPatient);
     renderPatientsTab();
     populatePatientFilter();
     populateEvolutionsFilters();
+    renderList();
     closeModal();
     showToast('Paciente cadastrado com sucesso!', 'ok');
 
@@ -1515,7 +1649,9 @@ async function submitPatientForm(existingId){
       await postAction(Object.assign({ action: 'create_patient' }, newPatient));
     }catch(err){
       patients = patients.filter(function(x){ return x.id !== newId; });
+      try{ localStorage.removeItem('ft_avatar_' + newId); }catch(e){}
       renderPatientsTab();
+      renderList();
       showError('Falha ao gravar paciente na planilha: ' + err.message);
     }
   }
@@ -1529,9 +1665,11 @@ async function deletePatient(id){
   var idx = patients.findIndex(function(x){ return x.id === id; });
   var removed = patients[idx];
   patients.splice(idx, 1);
+  try{ localStorage.removeItem('ft_avatar_' + id); }catch(e){}
   renderPatientsTab();
   populatePatientFilter();
   populateEvolutionsFilters();
+  renderList();
   closeModal();
   showToast('Paciente excluído.', 'ok');
 
@@ -1734,8 +1872,13 @@ function openPatientFinancial(patientId){
   var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
     '<div class="modal">' +
       '<div class="grabber"></div>' +
-      '<h2>Financeiro · ' + escapeHtml(p.nome) + '</h2>' +
-      '<p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 10px;">Filtre o período das sessões para consultar ou gerar extrato.</p>' +
+      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">' +
+        '<div style="width:46px;height:46px;border-radius:14px;overflow:hidden;flex-shrink:0;">' + renderPatientAvatar(p) + '</div>' +
+        '<div style="min-width:0;">' +
+          '<h2 style="margin:0 0 2px;font-size:18px;">Financeiro · ' + escapeHtml(p.nome) + '</h2>' +
+          '<p style="font-size:12px;color:var(--ink-soft);margin:0;">Filtre o período das sessões para consultar ou gerar extrato.</p>' +
+        '</div>' +
+      '</div>' +
 
       '<!-- Seletor de Tipo de Período -->' +
       '<div class="period-tabs">' +
@@ -2517,7 +2660,7 @@ function renderList(){
     return '<div class="entry">' +
       '<div class="entry-body">' +
         '<div class="entry-top">' +
-          '<div class="avatar">'+initials(e.nome)+'</div>' +
+          renderPatientAvatar(pObj, e.nome) +
           '<div class="info">' +
             '<div class="name">'+escapeHtml(e.nome)+archBadge+'</div>' +
             '<div class="date">'+formatDateBR(e.data)+(e.hora ? ' &middot; '+escapeHtml(e.hora) : '')+'</div>' +
@@ -3485,6 +3628,12 @@ async function saveSetup(){
     return;
   }
 
+  if(_settingsOpen){
+    _settingsOpen = false;
+    try { history.back(); } catch(e){}
+  }
+  var topBackBtn = document.getElementById('setupTopBackBtn');
+  if(topBackBtn) topBackBtn.classList.add('hidden');
   document.getElementById('setupScreen').classList.add('hidden');
   document.getElementById('mainScreen').classList.remove('hidden');
   document.getElementById('fab').classList.remove('hidden');
@@ -3493,12 +3642,16 @@ async function saveSetup(){
   await loadData();
 }
 
+var _settingsOpen = false;
+
 function openSettings(){
   document.getElementById('mainScreen').classList.add('hidden');
   document.getElementById('fab').classList.add('hidden');
   document.getElementById('setupScreen').classList.remove('hidden');
   document.getElementById('setupTitle').textContent = 'Configurações';
   document.getElementById('setupIntro').textContent = 'Atualize seus dados cadastrais e link da planilha.';
+  var topBackBtn = document.getElementById('setupTopBackBtn');
+  if(topBackBtn) topBackBtn.classList.remove('hidden');
   document.getElementById('setupCancelBtn').classList.remove('hidden');
   document.getElementById('backupBox').classList.remove('hidden');
   document.getElementById('diagBox').classList.remove('hidden');
@@ -3509,13 +3662,35 @@ function openSettings(){
     document.getElementById('scriptUrlInput').value = (config && config.scriptUrl) || SCRIPT_URL || '';
   }
   window.scrollTo(0, 0);
+
+  if(!_settingsOpen){
+    _settingsOpen = true;
+    try {
+      history.pushState({ screen: 'settings' }, '');
+    } catch(e){}
+  }
 }
 
-function cancelSetup(){
+function cancelSetup(fromPopstate){
+  if(!config || !config.providerName) return;
+
+  _settingsOpen = false;
+  var topBackBtn = document.getElementById('setupTopBackBtn');
+  if(topBackBtn) topBackBtn.classList.add('hidden');
   document.getElementById('setupScreen').classList.add('hidden');
   document.getElementById('setupError').classList.add('hidden');
   document.getElementById('mainScreen').classList.remove('hidden');
   document.getElementById('fab').classList.remove('hidden');
+  window.scrollTo(0, 0);
+
+  // Mantém as configurações originais salvas e restaura os inputs
+  document.getElementById('providerNameInput').value = (config && config.providerName) || '';
+  document.getElementById('providerDocInput').value = (config && config.providerDoc) || '';
+  document.getElementById('providerContactInput').value = (config && config.providerContact) || '';
+
+  if(!fromPopstate){
+    try { history.back(); } catch(e){}
+  }
 }
 
 async function runDiagnostico(){

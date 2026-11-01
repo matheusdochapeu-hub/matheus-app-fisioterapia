@@ -618,6 +618,41 @@ function doPost(e) {
       }
       deleteRowById_(sAgDel, body.id);
 
+    } else if (body.action === 'calc_routes_batch') {
+      var pairs = Array.isArray(body.pairs) ? body.pairs : [];
+      var routesOut = {};
+      for (var rIdx = 0; rIdx < pairs.length; rIdx++) {
+        var pair = pairs[rIdx];
+        if (!pair || !pair.key || !pair.origin || !pair.destination) continue;
+        try {
+          var finder = Maps.newDirectionFinder()
+            .setLanguage('pt-BR')
+            .setOrigin(String(pair.origin))
+            .setDestination(String(pair.destination))
+            .setMode(Maps.DirectionFinder.Mode.DRIVING);
+          var dirs = finder.getDirections();
+          if (dirs && dirs.routes && dirs.routes.length > 0 && dirs.routes[0].legs && dirs.routes[0].legs.length > 0) {
+            var leg = dirs.routes[0].legs[0];
+            var distMeters = (leg.distance && typeof leg.distance.value === 'number') ? leg.distance.value : 0;
+            var durSeconds = (leg.duration && typeof leg.duration.value === 'number') ? leg.duration.value : 0;
+            routesOut[pair.key] = {
+              ok: true,
+              distanceKm: Math.round((distMeters / 1000) * 10) / 10,
+              durationMin: Math.max(1, Math.round(durSeconds / 60)),
+              distanceText: (leg.distance && leg.distance.text) || '',
+              durationText: (leg.duration && leg.duration.text) || '',
+              startAddress: leg.start_address || pair.origin,
+              endAddress: leg.end_address || pair.destination
+            };
+          } else {
+            routesOut[pair.key] = { ok: false, error: 'Rota não encontrada' };
+          }
+        } catch (mapErr) {
+          routesOut[pair.key] = { ok: false, error: mapErr.message || String(mapErr) };
+        }
+      }
+      result.routes = routesOut;
+
     /* ---------- Evoluções Clínicas ---------- */
     } else if (body.action === 'create_evolution') {
       getEvoSheet_().appendRow([

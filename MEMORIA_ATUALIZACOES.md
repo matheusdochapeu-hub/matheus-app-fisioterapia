@@ -91,3 +91,17 @@ Versão do Service Worker: `atend-v31` (`sw.js`)
 3. **Atualização imediata da aba Agenda ao clicar no botão de privacidade (`toggleHideFinancials`):** Adicionada chamada a `renderAgendaTab()` dentro de `toggleHideFinancials()` para ocultar/exibir os valores das sessões agendadas instantaneamente.
 4. **Botão e função de exportação de PDF da Ficha Cadastral / Prontuário CREFITO-3 (`exportPatientFichaPDF`):** Adicionado o botão **"📄 Exportar Ficha (PDF)"** no modal de edição do paciente (`openPatientForm`), gerando o PDF completo com dados cadastrais e prontuário CREFITO-3 utilizando exclusivamente o Nome Completo oficial (`getPatientLegalName`).
 5. **Propagação em memória ao renomear paciente (`submitPatientForm`):** Quando o nome completo de um paciente é alterado, o app agora atualiza imediatamente em memória os registros vinculados em `entries`, `evolutions` e `schedules`, mantendo consistência instantânea sem exigir recarregamento.
+
+---
+
+## 5. Histórico Cronológico Recente e Diretriz Permanente de Salvamento
+> **Diretriz Permanente:** Toda e qualquer alteração feita no código (`atendimentos.html`, `Code.gs`, `sw.js`, testes) **deve sempre** incrementar o `CACHE_VERSION` em `sw.js`, ser registrada imediatamente em `MEMORIA_ATUALIZACOES.md` (e no artefato `memoria_atualizacoes.md`) e ser sincronizada no GitHub (`scripts/sync-github.js`).
+
+- **`atend-v25`:** Ranking completo de todos os pacientes no Relatório Financeiro com expansão clicável e edição direta de lançamentos.
+- **`atend-v26`:** Calendário de dias trabalhados clicável no Relatório Financeiro para ver e editar pacientes atendidos em cada data.
+- **`atend-v27`:** Criação da aba **📅 Agenda**, integração nativa com Google Agenda (`CalendarApp` em `Code.gs`), agendamento avulso ou escala semanal/mensal e Check-in com 1 toque.
+- **`atend-v28`:** Prevenção de conflitos e vínculo bidirecional entre agendamentos, check-ins e lançamentos manuais, além de quadros de **Previsão Financeira (Ganho Real vs. Ganho Possível)** na aba Financeiro, no Relatório Financeiro e no Financeiro Individual do Paciente.
+- **`atend-v29`:** Configuração de `scarletsantos7@gmail.com` como e-mail padrão fixo do Google Agenda no front-end (`DEFAULT_CALENDAR_ID`) e no back-end (`resolveUserCalendar_`).
+- **`atend-v30`:** Auditoria completa Back-end & Front-end (correção de `eventMap`/`calendarSyncedCount` em lote, enriquecimento automático de endereço/telefone no Google Agenda, exclusão de eventos do Google Agenda ao excluir paciente, coluna `OldNome` e propagação de troca de nome nas abas da planilha e em memória, variáveis CSS `--ok`/`--ok-bg`/`--err`, IDs `#repBody`/`#pFinSessionsList` no Check-in, exportação de PDF da Ficha Cadastral CREFITO-3 e restauração de agendamentos no `bulk_import`).
+- **`atend-v31`:** Destaque por cor nos botões de **"Período Rápido"** (`.preset-chip.active`) ao selecionar e suporte a **horários diferentes por dia da semana** (`#schedDowTimesBox`, ex.: Terça às `14:00` e Quinta às `10:00`) com verificação detalhada de cada data e horário na pré-visualização da escala.
+

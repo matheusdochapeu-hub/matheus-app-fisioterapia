@@ -36,6 +36,7 @@ const FILES_TO_SYNC = [
   'plans/004-bulk-import-and-eliminate-n-plus-one.md',
   'plans/005-protect-script-url-and-credentials.md',
   'plans/README.md',
+  'MEMORIA_ATUALIZACOES.md',
   'scripts/sync-github.js'
 ];
 

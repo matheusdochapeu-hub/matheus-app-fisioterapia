@@ -203,8 +203,10 @@ function parseScheduleDates_(dataStr, horaStr, duracaoMin) {
   return { start: start, end: end };
 }
 
+var DEFAULT_CALENDAR_ID = 'scarletsantos7@gmail.com';
+
 function resolveUserCalendar_(calendarId) {
-  var cid = String(calendarId || '').trim();
+  var cid = String(calendarId || DEFAULT_CALENDAR_ID || '').trim().toLowerCase();
   if (cid && cid !== 'primary') {
     var customCal = null;
     try {

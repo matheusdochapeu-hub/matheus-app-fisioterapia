@@ -104,8 +104,12 @@ describe('renderPatientAvatar', () => {
   });
 });
 
-const scheduleMatchesPatient = extractFn('scheduleMatchesPatient');
-const isSchedulePendingForecast = extractFn('isSchedulePendingForecast');
+const scheduleMatchesPatient = extractFnWithScope('scheduleMatchesPatient', {
+  findPatientByName: () => null
+});
+const isSchedulePendingForecast = extractFnWithScope('isSchedulePendingForecast', {
+  entries: [{ id: 'e123' }]
+});
 
 describe('scheduleMatchesPatient and isSchedulePendingForecast', () => {
   test('matches schedule by pacienteId, legal name, or nomeFantasia', () => {

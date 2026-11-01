@@ -27,6 +27,12 @@ describe('parseValor', () => {
     assert.equal(parseValor(null), 0);
     assert.equal(parseValor(''), 0);
   });
+
+  test('guards against accidental ISO timestamps and dates (returns 0)', () => {
+    assert.equal(parseValor('2026-08-10T18:54:17.973Z'), 0);
+    assert.equal(parseValor('2026-10-30'), 0);
+    assert.equal(parseValor('2026-09-17'), 0);
+  });
 });
 
 describe('formatDateBR', () => {

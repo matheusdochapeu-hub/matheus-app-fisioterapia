@@ -9,6 +9,7 @@ var SHEET_PAC = 'Pacientes';
 var SHEET_EVO = 'Evolucoes';
 var SHEET_EXE = 'Exercicios';
 var SHEET_ROT = 'Rotinas';
+var SHEET_AGEND = 'Agendamentos';
 
 var ATEND_HEADERS = ['ID', 'Paciente', 'Data', 'Hora', 'Valor', 'Status', 'DataPagamento', 'Latitude', 'Longitude', 'CriadoEm'];
 var PAC_HEADERS = [
@@ -20,6 +21,10 @@ var PAC_HEADERS = [
 var EVO_HEADERS = ['ID', 'PacienteID', 'PacienteNome', 'Data', 'Hora', 'PA', 'FC', 'EstadoClinico', 'Condutas', 'CriadoEm'];
 var EXE_HEADERS = ['ID', 'Nome', 'Tipo', 'SeriesPadrao', 'RepsPadrao', 'Observacao', 'Imagem', 'CriadoEm'];
 var ROT_HEADERS = ['ID', 'PacienteID', 'PacienteNome', 'ExercicioID', 'Ordem', 'Series', 'Reps', 'Observacao', 'CriadoEm', 'Rotulo'];
+var AGEND_HEADERS = [
+  'ID', 'PacienteID', 'PacienteNome', 'Data', 'Hora', 'DuracaoMin',
+  'Valor', 'Status', 'Observacao', 'CalendarEventId', 'CalendarId', 'AtendimentoId', 'CriadoEm'
+];
 
 function ensureHeaders_(sheet, expectedHeaders) {
   var currentHeaders = sheet.getRange(1, 1, 1, expectedHeaders.length).getValues()[0];
@@ -47,6 +52,7 @@ function getPacSheet_()   { return getSheet_(SHEET_PAC, PAC_HEADERS); }
 function getEvoSheet_()   { return getSheet_(SHEET_EVO, EVO_HEADERS); }
 function getExeSheet_()   { return getSheet_(SHEET_EXE, EXE_HEADERS); }
 function getRotSheet_()   { return getSheet_(SHEET_ROT, ROT_HEADERS); }
+function getAgendSheet_() { return getSheet_(SHEET_AGEND, AGEND_HEADERS); }
 
 function getTimeZone_() {
   try {
@@ -82,6 +88,22 @@ function sheetToObjects_(sheet) {
     rows.push(obj);
   }
   return rows;
+}
+
+function getRowObjectById_(sheet, id) {
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return null;
+  var headers = data[0];
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(id)) {
+      var obj = {};
+      for (var j = 0; j < headers.length; j++) {
+        obj[headers[j]] = formatCellValue_(headers[j], data[i][j]);
+      }
+      return obj;
+    }
+  }
+  return null;
 }
 
 function deleteRowById_(sheet, id) {
@@ -154,13 +176,152 @@ function updateAtendField_(id, colName, value) {
   updateFieldById_(getAtendSheet_(), id, colName, value);
 }
 
+/* ---------- Integração Google Agenda (CalendarApp) ---------- */
+/**
+ * Execute esta função uma vez pelo botão "Executar" no editor do Apps Script
+ * para autorizar o acesso automático ao Google Agenda (CalendarApp).
+ */
+function autorizarGoogleAgenda() {
+  var cal = CalendarApp.getDefaultCalendar();
+  Logger.log('Google Agenda autorizado com sucesso: ' + (cal ? cal.getName() : 'OK'));
+}
+
+function parseScheduleDates_(dataStr, horaStr, duracaoMin) {
+  var dParts = String(dataStr || '').split('-');
+  if (dParts.length !== 3) return null;
+  var hParts = String(horaStr || '09:00').split(':');
+  var y = parseInt(dParts[0], 10);
+  var m = parseInt(dParts[1], 10) - 1;
+  var d = parseInt(dParts[2], 10);
+  var hh = parseInt(hParts[0] || '9', 10);
+  var mm = parseInt(hParts[1] || '0', 10);
+  var start = new Date(y, m, d, hh, mm, 0);
+  if (isNaN(start.getTime())) return null;
+  var dur = parseInt(duracaoMin, 10);
+  if (!dur || dur <= 0) dur = 50;
+  var end = new Date(start.getTime() + dur * 60000);
+  return { start: start, end: end };
+}
+
+function resolveUserCalendar_(calendarId) {
+  var cid = String(calendarId || '').trim();
+  if (cid && cid !== 'primary') {
+    var customCal = null;
+    try {
+      customCal = CalendarApp.getCalendarById(cid);
+    } catch (e) {}
+    if (customCal) {
+      return { cal: customCal, guestEmail: null, calendarId: cid };
+    }
+    // Se a agenda pertence a outro Gmail ainda não compartilhado diretamente, envia convite automático para a agenda do usuário
+    return { cal: CalendarApp.getDefaultCalendar(), guestEmail: cid.indexOf('@') > -1 ? cid : null, calendarId: cid };
+  }
+  return { cal: CalendarApp.getDefaultCalendar(), guestEmail: null, calendarId: 'primary' };
+}
+
+function createCalendarEventForSchedule_(item) {
+  try {
+    var dates = parseScheduleDates_(item.data, item.hora, item.duracaoMin);
+    if (!dates) return { eventId: '', warning: 'Data/hora inválida para o Google Agenda.' };
+    var resolved = resolveUserCalendar_(item.calendarId);
+    if (!resolved.cal) return { eventId: '', warning: 'Agenda não encontrada.' };
+
+    var prefix = item.status === 'Realizado' ? '✓ ' : '';
+    var title = prefix + 'Fisioterapia: ' + (item.pacienteDisplay || item.pacienteNome || 'Paciente');
+    var descLines = ['Paciente: ' + (item.pacienteNome || item.pacienteDisplay || '')];
+    if (item.telefone) descLines.push('Telefone: ' + item.telefone);
+    if (item.observacao) descLines.push('Observações: ' + item.observacao);
+    descLines.push('Sincronizado pelo App Fisioterapia.');
+
+    var opts = {
+      location: item.endereco || '',
+      description: descLines.join('\n')
+    };
+    if (resolved.guestEmail) {
+      opts.guests = resolved.guestEmail;
+      opts.sendInvites = true;
+    }
+
+    var ev = null;
+    try {
+      ev = resolved.cal.createEvent(title, dates.start, dates.end, opts);
+    } catch (writeErr) {
+      // Fallback caso o usuário tenha compartilhado a agenda apenas como leitura: cria na agenda principal e convida o e-mail dele
+      if (item.calendarId && String(item.calendarId).indexOf('@') > -1) {
+        opts.guests = String(item.calendarId).trim();
+        opts.sendInvites = true;
+        ev = CalendarApp.getDefaultCalendar().createEvent(title, dates.start, dates.end, opts);
+      } else {
+        throw writeErr;
+      }
+    }
+
+    try { ev.addPopupReminder(30); } catch (remErr) {}
+    return { eventId: ev.getId(), warning: '' };
+  } catch (err) {
+    return { eventId: '', warning: err.message || String(err) };
+  }
+}
+
+function updateCalendarEventForSchedule_(item) {
+  try {
+    if (!item.calendarEventId) {
+      return createCalendarEventForSchedule_(item);
+    }
+    var dates = parseScheduleDates_(item.data, item.hora, item.duracaoMin);
+    if (!dates) return { eventId: item.calendarEventId, warning: '' };
+    var resolved = resolveUserCalendar_(item.calendarId);
+    var ev = null;
+    if (resolved.cal) {
+      try { ev = resolved.cal.getEventById(item.calendarEventId); } catch (e) {}
+    }
+    if (!ev) {
+      try { ev = CalendarApp.getDefaultCalendar().getEventById(item.calendarEventId); } catch (e2) {}
+    }
+    if (!ev) {
+      return createCalendarEventForSchedule_(item);
+    }
+
+    var prefix = item.status === 'Realizado' ? '✓ ' : '';
+    var title = prefix + 'Fisioterapia: ' + (item.pacienteDisplay || item.pacienteNome || 'Paciente');
+    var descLines = ['Paciente: ' + (item.pacienteNome || item.pacienteDisplay || '')];
+    if (item.telefone) descLines.push('Telefone: ' + item.telefone);
+    if (item.observacao) descLines.push('Observações: ' + item.observacao);
+    descLines.push('Sincronizado pelo App Fisioterapia.');
+
+    ev.setTitle(title);
+    ev.setTime(dates.start, dates.end);
+    if (item.endereco !== undefined) ev.setLocation(item.endereco || '');
+    ev.setDescription(descLines.join('\n'));
+    return { eventId: ev.getId(), warning: '' };
+  } catch (err) {
+    return { eventId: item.calendarEventId || '', warning: err.message || String(err) };
+  }
+}
+
+function deleteCalendarEventForSchedule_(eventId, calendarId) {
+  if (!eventId) return;
+  try {
+    var resolved = resolveUserCalendar_(calendarId);
+    var ev = null;
+    if (resolved.cal) {
+      try { ev = resolved.cal.getEventById(eventId); } catch (e) {}
+    }
+    if (!ev) {
+      try { ev = CalendarApp.getDefaultCalendar().getEventById(eventId); } catch (e2) {}
+    }
+    if (ev) ev.deleteEvent();
+  } catch (err) {}
+}
+
 function doGet(e) {
   var result = {
     atendimentos: sheetToObjects_(getAtendSheet_()),
     pacientes: sheetToObjects_(getPacSheet_()),
     evolucoes: sheetToObjects_(getEvoSheet_()),
     exercicios: sheetToObjects_(getExeSheet_()),
-    rotinas: sheetToObjects_(getRotSheet_())
+    rotinas: sheetToObjects_(getRotSheet_()),
+    agendamentos: sheetToObjects_(getAgendSheet_())
   };
   return ContentService.createTextOutput(JSON.stringify(result))
     .setMimeType(ContentService.MimeType.JSON);
@@ -259,9 +420,121 @@ function doPost(e) {
 
     } else if (body.action === 'delete_patient') {
       deleteRowById_(getPacSheet_(), body.id);
-      // Remove em cascata rotinas e evoluções vinculadas à paciente (coluna PacienteID = índice 1)
+      // Remove em cascata rotinas, evoluções e agendamentos vinculados à paciente (coluna PacienteID = índice 1)
       deleteRowsByField_(getRotSheet_(), 1, body.id);
       deleteRowsByField_(getEvoSheet_(), 1, body.id);
+      deleteRowsByField_(getAgendSheet_(), 1, body.id);
+
+    /* ---------- Agendamentos & Google Agenda (CalendarApp) ---------- */
+    } else if (body.action === 'test_calendar') {
+      var resolvedTest = resolveUserCalendar_(body.calendarId);
+      if (!resolvedTest.cal) {
+        result.success = false;
+        result.error = 'Não foi possível acessar o Google Agenda. Autorize o CalendarApp no editor do Apps Script.';
+      } else {
+        result.calendarName = resolvedTest.cal.getName();
+        result.mode = resolvedTest.guestEmail ? 'invite' : 'direct';
+        result.calendarId = resolvedTest.calendarId;
+      }
+
+    } else if (body.action === 'create_schedule') {
+      var calRes = createCalendarEventForSchedule_(body);
+      var evId = calRes.eventId || '';
+      getAgendSheet_().appendRow([
+        body.id,
+        body.pacienteId || '',
+        body.pacienteNome || '',
+        body.data || '',
+        body.hora || '',
+        body.duracaoMin || 50,
+        body.valor !== undefined ? body.valor : '',
+        body.status || 'Agendado',
+        body.observacao || '',
+        evId,
+        body.calendarId || 'primary',
+        body.atendimentoId || '',
+        new Date().toISOString()
+      ]);
+      result.calendarEventId = evId;
+      if (calRes.warning) result.calendarWarning = calRes.warning;
+
+    } else if (body.action === 'create_schedules_batch') {
+      var items = Array.isArray(body.items) ? body.items : [];
+      var nowBatch = new Date().toISOString();
+      var eventIds = {};
+      var warnings = [];
+      var rowsToAdd = items.map(function(it) {
+        var cRes = createCalendarEventForSchedule_(it);
+        var cId = cRes.eventId || '';
+        eventIds[it.id] = cId;
+        if (cRes.warning && warnings.indexOf(cRes.warning) === -1) warnings.push(cRes.warning);
+        return [
+          it.id,
+          it.pacienteId || '',
+          it.pacienteNome || '',
+          it.data || '',
+          it.hora || '',
+          it.duracaoMin || 50,
+          it.valor !== undefined ? it.valor : '',
+          it.status || 'Agendado',
+          it.observacao || '',
+          cId,
+          it.calendarId || 'primary',
+          it.atendimentoId || '',
+          nowBatch
+        ];
+      });
+      if (rowsToAdd.length > 0) {
+        var sAg = getAgendSheet_();
+        sAg.getRange(sAg.getLastRow() + 1, 1, rowsToAdd.length, AGEND_HEADERS.length).setValues(rowsToAdd);
+      }
+      result.eventIds = eventIds;
+      if (warnings.length > 0) result.calendarWarning = warnings.join('; ');
+
+    } else if (body.action === 'update_schedule') {
+      var sAgUpd = getAgendSheet_();
+      var existingRow = getRowObjectById_(sAgUpd, body.id) || {};
+      if (body.pacienteId !== undefined) updateFieldById_(sAgUpd, body.id, 'PacienteID', body.pacienteId);
+      if (body.pacienteNome !== undefined) updateFieldById_(sAgUpd, body.id, 'PacienteNome', body.pacienteNome);
+      if (body.data !== undefined) updateFieldById_(sAgUpd, body.id, 'Data', body.data);
+      if (body.hora !== undefined) updateFieldById_(sAgUpd, body.id, 'Hora', body.hora);
+      if (body.duracaoMin !== undefined) updateFieldById_(sAgUpd, body.id, 'DuracaoMin', body.duracaoMin);
+      if (body.valor !== undefined) updateFieldById_(sAgUpd, body.id, 'Valor', body.valor);
+      if (body.status !== undefined) updateFieldById_(sAgUpd, body.id, 'Status', body.status);
+      if (body.observacao !== undefined) updateFieldById_(sAgUpd, body.id, 'Observacao', body.observacao);
+      if (body.atendimentoId !== undefined) updateFieldById_(sAgUpd, body.id, 'AtendimentoId', body.atendimentoId);
+      if (body.calendarId !== undefined) updateFieldById_(sAgUpd, body.id, 'CalendarId', body.calendarId);
+
+      var mergedItem = {
+        id: body.id,
+        pacienteNome: body.pacienteNome !== undefined ? body.pacienteNome : existingRow.PacienteNome,
+        pacienteDisplay: body.pacienteDisplay || body.pacienteNome || existingRow.PacienteNome,
+        data: body.data !== undefined ? body.data : existingRow.Data,
+        hora: body.hora !== undefined ? body.hora : existingRow.Hora,
+        duracaoMin: body.duracaoMin !== undefined ? body.duracaoMin : existingRow.DuracaoMin,
+        status: body.status !== undefined ? body.status : existingRow.Status,
+        observacao: body.observacao !== undefined ? body.observacao : existingRow.Observacao,
+        endereco: body.endereco || '',
+        telefone: body.telefone || '',
+        calendarEventId: body.calendarEventId || existingRow.CalendarEventId || '',
+        calendarId: body.calendarId || existingRow.CalendarId || 'primary'
+      };
+      var updCal = updateCalendarEventForSchedule_(mergedItem);
+      if (updCal.eventId && updCal.eventId !== existingRow.CalendarEventId) {
+        updateFieldById_(sAgUpd, body.id, 'CalendarEventId', updCal.eventId);
+      }
+      result.calendarEventId = updCal.eventId || '';
+      if (updCal.warning) result.calendarWarning = updCal.warning;
+
+    } else if (body.action === 'delete_schedule') {
+      var sAgDel = getAgendSheet_();
+      var rowDel = getRowObjectById_(sAgDel, body.id);
+      var evIdToDel = body.calendarEventId || (rowDel && rowDel.CalendarEventId) || '';
+      var calIdToDel = body.calendarId || (rowDel && rowDel.CalendarId) || 'primary';
+      if (evIdToDel) {
+        deleteCalendarEventForSchedule_(evIdToDel, calIdToDel);
+      }
+      deleteRowById_(sAgDel, body.id);
 
     /* ---------- Evoluções Clínicas ---------- */
     } else if (body.action === 'create_evolution') {

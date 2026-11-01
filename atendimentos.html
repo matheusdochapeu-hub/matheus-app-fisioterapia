@@ -649,28 +649,45 @@
     border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:12px;
     box-shadow:var(--shadow-soft);
   }
+  .gcal-banner.disconnected{border-left:4px solid var(--accent);}
+  .gcal-banner:not(.disconnected){border-left:4px solid var(--success);}
   .gcal-status{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink);min-width:0;flex:1;}
   .gcal-dot{width:9px;height:9px;border-radius:50%;background:var(--accent);flex-shrink:0;}
   .gcal-dot.linked{background:var(--success);}
+  .gcal-sync-tag{
+    display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:600;
+    background:var(--bg-tint);color:var(--primary-deep);border:1px solid var(--line);
+    padding:2px 7px;border-radius:99px;
+  }
   .sched-day-group{margin-bottom:14px;}
   .sched-day-header{
-    font-size:12px;font-weight:700;color:var(--primary-deep);text-transform:uppercase;
-    letter-spacing:.4px;padding:6px 10px;background:var(--bg-tint);border-radius:var(--radius-xs);
-    margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;
+    font-size:12px;font-weight:700;color:var(--primary-deep);
+    padding:8px 12px;background:var(--bg-tint);border-radius:var(--radius-xs);
+    margin-bottom:10px;border:1px solid var(--line);
   }
   .sched-card{
-    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm);
-    padding:12px 14px;margin-bottom:8px;box-shadow:var(--shadow-soft);
-    display:flex;flex-direction:column;gap:8px;
+    background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--primary);
+    border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:8px;box-shadow:var(--shadow-soft);
+    display:flex;flex-direction:column;gap:6px;
   }
   .sched-card.done{border-left:4px solid var(--success);background:linear-gradient(to right,var(--success-soft),var(--surface) 30%);}
-  .sched-card.pending{border-left:4px solid var(--primary);}
-  .sched-top{display:flex;align-items:center;justify-content:space-between;gap:10px;}
-  .sched-time-pill{
+  .sched-card.canceled{border-left:4px solid var(--danger);opacity:0.75;}
+  .sched-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+  .sched-time{
     background:var(--primary-soft);color:var(--primary-deep);font-family:'IBM Plex Mono',monospace;
-    font-size:12px;font-weight:700;padding:4px 8px;border-radius:8px;white-space:nowrap;
+    font-size:12px;font-weight:700;padding:3px 8px;border-radius:6px;
   }
-  .sched-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;border-top:1px dashed var(--line);padding-top:8px;}
+  .sched-patient{font-size:14.5px;font-weight:700;color:var(--ink);}
+  .sched-meta{font-size:12px;color:var(--ink-soft);line-height:1.4;}
+  .sched-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-start;border-top:1px dashed var(--line);padding-top:8px;margin-top:2px;}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-size:11.5px;}
+  .cal-dow{font-weight:700;color:var(--ink-soft);padding:4px 0;font-size:11px;}
+  .cal-day{
+    min-height:38px;display:flex;align-items:center;justify-content:center;
+    border:1px solid var(--line);border-radius:var(--radius-xs);background:var(--bg);
+    font-size:11.5px;color:var(--ink);transition:all .12s ease;user-select:none;
+  }
+  .cal-day.empty{background:transparent;border-color:transparent;pointer-events:none;}
   .dow-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:6px;}
   .dow-chip{
     display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -679,9 +696,29 @@
   }
   .dow-chip input{display:none;}
   .dow-chip.active{background:var(--primary);color:#fff;border-color:var(--primary-deep);font-weight:700;}
+  .row-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;}
+  .forecast-card{
+    background:linear-gradient(145deg,var(--surface),var(--bg-tint));
+    border:1px solid var(--line-strong);border-radius:var(--radius-sm);
+    padding:12px 14px;margin-bottom:14px;box-shadow:var(--shadow-soft);
+  }
+  .forecast-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;}
+  .forecast-item{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-xs);
+    padding:8px 10px;display:flex;flex-direction:column;gap:2px;
+  }
+  .forecast-item.highlight{
+    background:var(--primary-soft);border-color:var(--primary);
+  }
+  .forecast-item .f-lbl{font-size:10px;font-weight:700;text-transform:uppercase;color:var(--ink-soft);letter-spacing:.3px;}
+  .forecast-item .f-val{font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:var(--ink);}
+  .forecast-item.highlight .f-val{color:var(--primary-deep);}
+  .forecast-item .f-sub{font-size:10.5px;color:var(--ink-soft);}
+  .bar-sub-prev{width:100%;background:repeating-linear-gradient(45deg,#6b8cae,#6b8cae 3px,#8faec9 3px,#8faec9 6px);transition:height .25s ease;opacity:0.85;}
   @media (max-width: 480px){
     .main-tab{padding:9px 4px;font-size:11.5px;gap:4px;}
     .main-tab .tab-ic{width:14px;height:14px;}
+    .forecast-grid{grid-template-columns:1fr;}
   }
 
   @keyframes spin{to{transform:rotate(360deg);}}
@@ -802,21 +839,27 @@
 
     <!-- ABA NOVA: AGENDA & GOOGLE AGENDA -->
     <div id="tabAgendaView" class="tab-view hidden">
-      <div class="gcal-banner">
-        <div class="gcal-status">
-          <span id="gcalStatusDot" class="gcal-dot"></span>
-          <div style="min-width:0;">
-            <div style="font-weight:700;color:var(--primary-deep);font-size:12.5px;">Sincronização Google Agenda</div>
-            <div id="gcalStatusText" style="font-size:11.5px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Agenda padrão da planilha</div>
-          </div>
+      <div id="gcalBannerBox" class="gcal-banner disconnected">
+        <div class="gcal-status" style="flex-direction:column;align-items:flex-start;gap:2px;">
+          <div id="gcalBannerTitle" style="font-weight:700;color:var(--primary-deep);font-size:12.5px;">Sincronização com Google Agenda</div>
+          <div id="gcalBannerDesc" style="font-size:11.5px;color:var(--ink-soft);">Vincule seu e-mail do Google Agenda para criar e atualizar seus atendimentos automaticamente no celular.</div>
         </div>
-        <button class="btn small ghost" onclick="openCalendarSettingsModal()">&#128279; Vincular Minha Agenda</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button id="gcalBannerBtn" class="btn small ghost" style="width:auto;" onclick="openCalendarSettingsModal()">&#128279; Vincular Minha Agenda</button>
+          <button id="agendaExportIcsBtn" class="btn small ghost" style="width:auto;display:none;" onclick="exportSchedulesICS()" title="Baixar arquivo de calendário (.ics)">&#128197; Exportar .ICS</button>
+        </div>
       </div>
 
       <div class="month-nav">
         <button onclick="shiftAgendaMonth(-1)" aria-label="Mês anterior">&lsaquo;</button>
         <div class="label" id="agendaMonthLabel">-</div>
         <button onclick="shiftAgendaMonth(1)" aria-label="Próximo mês">&rsaquo;</button>
+      </div>
+
+      <div class="month-stats" style="margin-bottom:12px;">
+        <div class="chip"><span class="n" id="agendaKpiTotal">0</span><span class="t">agendados<br>no mês</span></div>
+        <div class="chip"><span class="n" id="agendaKpiPending" style="color:var(--accent-ink);">0</span><span class="t">a realizar<br>(previstos)</span></div>
+        <div class="chip"><span class="n" id="agendaKpiDone" style="color:var(--success);">0</span><span class="t">realizados<br>(check-in)</span></div>
       </div>
 
       <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
@@ -826,24 +869,26 @@
       <div class="card" style="padding:12px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
           <span style="font-size:11.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;">Calendário de Agendamentos</span>
-          <button id="agendaClearDayBtn" class="rep-entry-btn hidden" onclick="selectAgendaDay(null)">Ver mês todo</button>
+          <span style="font-size:11px;color:var(--ink-faint);">Toque em um dia para filtrar</span>
         </div>
-        <div id="agendaCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-size:11px;"></div>
+        <div id="agendaCalendarGrid"></div>
       </div>
 
       <div class="filter-row" style="margin-bottom:10px;">
-        <label class="filter-label" for="agendaPatientFilter">Paciente</label>
-        <select id="agendaPatientFilter" onchange="renderAgendaTab()">
+        <label class="filter-label" for="agendaFilterPatient">Paciente</label>
+        <select id="agendaFilterPatient" onchange="renderAgendaTab()">
           <option value="">Todos os pacientes</option>
         </select>
-        <select id="agendaStatusFilter" onchange="renderAgendaTab()" style="max-width:135px;">
-          <option value="all">Todos</option>
-          <option value="Agendado">Agendados</option>
+        <select id="agendaFilterStatus" onchange="renderAgendaTab()" style="max-width:140px;">
+          <option value="">Todos status</option>
+          <option value="Agendado">Agendados (Previstos)</option>
           <option value="Realizado">Realizados</option>
+          <option value="Cancelado">Cancelados</option>
         </select>
       </div>
 
-      <div id="agendaListContainer"></div>
+      <div id="agendaDayHeader" class="sched-day-header"></div>
+      <div id="agendaDayList"></div>
     </div>
 
     <!-- ABA 2: EVOLUÇÕES CLÍNICAS (PRONTUÁRIOS) -->
@@ -928,19 +973,45 @@
 
       <div class="summary-grid">
         <div class="metric">
-          <div class="label">&#10003; Recebido no mês</div>
+          <div class="label">&#10003; Recebido (Pago)</div>
           <div class="value" id="metricRecebido">R$ ••••••</div>
         </div>
         <div class="metric accent">
-          <div class="label">&#8987; A receber</div>
+          <div class="label">&#8987; A receber (Realizado)</div>
           <div class="value" id="metricPendente">R$ ••••••</div>
         </div>
       </div>
 
       <div class="month-stats">
-        <div class="chip"><span class="n" id="statSessoes">0</span><span class="t">sessões<br>no mês</span></div>
+        <div class="chip"><span class="n" id="statSessoes">0</span><span class="t">sessões<br>realizadas</span></div>
         <div class="chip"><span class="n" id="statPacientes">0</span><span class="t">pacientes<br>atendidas</span></div>
-        <div class="chip"><span class="n" id="statTotal">R$ ••••••</span><span class="t">total<br>do mês</span></div>
+        <div class="chip"><span class="n" id="statTotal">R$ ••••••</span><span class="t">ganho real<br>(realizado)</span></div>
+      </div>
+
+      <div id="finForecastCard" class="forecast-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <div style="font-size:12px;font-weight:700;color:var(--primary-deep);display:flex;align-items:center;gap:6px;">
+            <span>&#128200; Previsão do Mês (Ganho Real vs. Ganho Possível)</span>
+          </div>
+          <button type="button" class="rep-entry-btn" onclick="switchMainTab('agenda')" title="Ver agendamentos na aba Agenda">Ver Agenda &rarr;</button>
+        </div>
+        <div class="forecast-grid">
+          <div class="forecast-item">
+            <span class="f-lbl">Ganho Real (Feito)</span>
+            <span class="f-val" id="finRealVal">R$ ••••••</span>
+            <span class="f-sub" id="finRealSub">0 sessões realizadas</span>
+          </div>
+          <div class="forecast-item">
+            <span class="f-lbl">Previsto (Agendado)</span>
+            <span class="f-val" id="finScheduledVal" style="color:var(--accent-ink);">R$ ••••••</span>
+            <span class="f-sub" id="finScheduledSub">0 sessões a realizar</span>
+          </div>
+          <div class="forecast-item highlight">
+            <span class="f-lbl">Ganho Possível Total</span>
+            <span class="f-val" id="finPossibleVal">R$ ••••••</span>
+            <span class="f-sub" id="finPossibleSub">Realizado + Agendado</span>
+          </div>
+        </div>
       </div>
 
       <div class="action-bar">
@@ -1524,6 +1595,7 @@ async function loadData(){
     sheetScheds.forEach(function(sc){ schedMap[sc.id] = sc; });
     localScheds.forEach(function(sc){ schedMap[sc.id] = sc; });
     schedules = Object.keys(schedMap).map(function(k){ return schedMap[k]; });
+    reconcileSchedulesWithEntries();
 
     exercises = data.exercicios || [];
     routines = data.rotinas || [];
@@ -1552,6 +1624,78 @@ function saveLocalSchedules(){
   try{
     localStorage.setItem('ft_local_schedules', JSON.stringify(schedules));
   }catch(e){}
+}
+
+/* Verifica se um agendamento pertence a determinado paciente */
+function scheduleMatchesPatient(sc, pObj){
+  if(!sc || !pObj) return false;
+  if(sc.pacienteId && sc.pacienteId === pObj.id) return true;
+  if(sc.pacienteNome){
+    var found = findPatientByName(sc.pacienteNome);
+    if(found && found.id === pObj.id) return true;
+  }
+  return false;
+}
+
+/* Valor efetivo do agendamento (usa valor do agendamento ou valorPadrao da ficha do paciente) */
+function getScheduleEffectiveValor(sc){
+  if(!sc) return 0;
+  var v = parseValor(sc.valor);
+  if(v > 0) return v;
+  var pObj = getSchedulePatientObj(sc);
+  return pObj ? parseValor(pObj.valorPadrao) : 0;
+}
+
+/* Reconcilia agendamentos com lançamentos financeiros (evita duplicidades e mantém vínculo) */
+function reconcileSchedulesWithEntries(){
+  var usedEntryIds = {};
+  var changed = false;
+
+  // 1) Marca entradas já vinculadas explicitamente por atendimentoId
+  schedules.forEach(function(sc){
+    if(sc.atendimentoId){
+      var exists = entries.find(function(e){ return e.id === sc.atendimentoId; });
+      if(exists){
+        usedEntryIds[exists.id] = sc.id;
+        if(sc.status !== 'Realizado' && sc.status !== 'Cancelado'){
+          sc.status = 'Realizado';
+          changed = true;
+        }
+      }
+    }
+  });
+
+  // 2) Se há um agendamento 'Agendado' no mesmo dia de um atendimento já lançado para o mesmo paciente (sem vínculo), vincula automaticamente
+  schedules.forEach(function(sc){
+    if(sc.status === 'Cancelado' || sc.atendimentoId) return;
+    var pObj = getSchedulePatientObj(sc);
+    var matchEntry = entries.find(function(e){
+      if(usedEntryIds[e.id]) return false;
+      if(e.data !== sc.data) return false;
+      if(pObj) return entryMatchesPatient(e, pObj);
+      return String(e.nome || '').trim().toLowerCase() === String(sc.pacienteNome || '').trim().toLowerCase();
+    });
+    if(matchEntry){
+      sc.atendimentoId = matchEntry.id;
+      sc.status = 'Realizado';
+      usedEntryIds[matchEntry.id] = sc.id;
+      changed = true;
+    }
+  });
+
+  if(changed) saveLocalSchedules();
+}
+
+/* Retorna true se o agendamento é uma previsão futura pendente (ainda não realizado nem cancelado) */
+function isSchedulePendingForecast(sc){
+  if(!sc) return false;
+  var st = sc.status || 'Agendado';
+  if(st !== 'Agendado') return false;
+  if(sc.atendimentoId){
+    var linked = entries.find(function(e){ return e.id === sc.atendimentoId; });
+    if(linked) return false;
+  }
+  return true;
 }
 
 function getLocalEvolutions(){
@@ -2444,14 +2588,16 @@ function openPatientFinancial(patientId, keepFilters){
       '<div id="pFinFilterControls" style="margin-bottom:12px;"></div>' +
 
       '<div class="rep-kpis">' +
-        '<div class="rep-kpi"><div class="t">FATURADO</div><div class="v" id="pFinKpiTotal">R$ 0,00</div></div>' +
+        '<div class="rep-kpi"><div class="t">GANHO REAL (FEITO)</div><div class="v" id="pFinKpiTotal">R$ 0,00</div></div>' +
         '<div class="rep-kpi rec"><div class="t">RECEBIDO</div><div class="v" id="pFinKpiRec">R$ 0,00</div></div>' +
-        '<div class="rep-kpi pen"><div class="t">A RECEBER</div><div class="v" id="pFinKpiPen">R$ 0,00</div></div>' +
-        '<div class="rep-kpi"><div class="t">SESSÕES</div><div class="v" id="pFinKpiSess">0</div></div>' +
+        '<div class="rep-kpi pen"><div class="t">A RECEBER (FEITO)</div><div class="v" id="pFinKpiPen">R$ 0,00</div></div>' +
+        '<div class="rep-kpi"><div class="t">SESSÕES FEITAS</div><div class="v" id="pFinKpiSess">0</div></div>' +
       '</div>' +
 
-      '<div class="rep-section-title">Sessões do Período</div>' +
-      '<div id="pFinSessionsList" style="max-height:220px;overflow-y:auto;border:1px solid var(--line);border-radius:var(--radius-sm);padding:8px;background:var(--surface);"></div>' +
+      '<div id="pFinForecastBox" style="margin-bottom:12px;"></div>' +
+
+      '<div class="rep-section-title">Sessões do Período (Realizadas & Previstas)</div>' +
+      '<div id="pFinSessionsList" style="max-height:240px;overflow-y:auto;border:1px solid var(--line);border-radius:var(--radius-sm);padding:8px;background:var(--surface);"></div>' +
 
       '<div class="btn-row">' +
         '<button class="btn accent" style="flex:1;" onclick="generatePatientStatementPDF(\''+p.id+'\')">&#128196; Gerar Extrato (PDF)</button>' +
@@ -2472,6 +2618,19 @@ function setPatientFinMode(patientId, mode){
   renderPatientFinancialDetails(patientId);
 }
 
+function filterDateByPatientFinPeriod(dateStr){
+  if(pFinPeriodMode === 'all') return true;
+  var d = new Date(dateStr + 'T00:00:00');
+  if(isNaN(d.getTime())) return false;
+  if(pFinPeriodMode === 'year') return d.getFullYear() === pFinSelectedYear;
+  if(pFinPeriodMode === 'month') return d.getFullYear() === pFinSelectedYear && d.getMonth() === pFinSelectedMonth;
+  if(pFinPeriodMode === 'multi'){
+    var key = d.getFullYear() + '-' + pad(d.getMonth() + 1);
+    return !!pFinMultiMonths[key];
+  }
+  return true;
+}
+
 function getPatientFilteredSessions(patientOrName){
   var pObj = (patientOrName && typeof patientOrName === 'object') ? patientOrName : findPatientByName(patientOrName);
   var pEntries = entries.filter(function(e){
@@ -2479,21 +2638,18 @@ function getPatientFilteredSessions(patientOrName){
   }).sort(function(a,b){ return String(b.data).localeCompare(String(a.data)); });
 
   if(pFinPeriodMode === 'all') return pEntries;
+  return pEntries.filter(function(e){ return filterDateByPatientFinPeriod(e.data); });
+}
 
-  return pEntries.filter(function(e){
-    var d = new Date(e.data + 'T00:00:00');
-    if(isNaN(d.getTime())) return false;
-    if(pFinPeriodMode === 'year'){
-      return d.getFullYear() === pFinSelectedYear;
-    }
-    if(pFinPeriodMode === 'month'){
-      return d.getFullYear() === pFinSelectedYear && d.getMonth() === pFinSelectedMonth;
-    }
-    if(pFinPeriodMode === 'multi'){
-      var key = d.getFullYear() + '-' + pad(d.getMonth() + 1);
-      return !!pFinMultiMonths[key];
-    }
-    return true;
+function getPatientFilteredSchedules(patientObj){
+  if(!patientObj) return [];
+  return schedules.filter(function(sc){
+    if(!isSchedulePendingForecast(sc)) return false;
+    if(!scheduleMatchesPatient(sc, patientObj)) return false;
+    return filterDateByPatientFinPeriod(sc.data);
+  }).sort(function(a,b){
+    var cmp = String(a.data || '').localeCompare(String(b.data || ''));
+    return cmp !== 0 ? cmp : String(a.hora || '').localeCompare(String(b.hora || ''));
   });
 }
 
@@ -2502,12 +2658,20 @@ function renderPatientFinancialDetails(patientId){
   if(!p) return;
 
   var pEntriesAll = entries.filter(function(e){ return entryMatchesPatient(e, p); });
+  var pSchedsAll = schedules.filter(function(sc){ return sc.status !== 'Cancelado' && scheduleMatchesPatient(sc, p); });
   var ctrl = document.getElementById('pFinFilterControls');
 
-  // Coleta anos e meses com sessões deste paciente
+  // Coleta anos e meses com sessões realizadas ou agendadas deste paciente
   var yearsSet = {}, monthsSet = {};
   pEntriesAll.forEach(function(e){
     var d = new Date(e.data + 'T00:00:00');
+    if(!isNaN(d.getTime())){
+      yearsSet[d.getFullYear()] = true;
+      monthsSet[d.getFullYear() + '-' + pad(d.getMonth() + 1)] = true;
+    }
+  });
+  pSchedsAll.forEach(function(sc){
+    var d = new Date(sc.data + 'T00:00:00');
     if(!isNaN(d.getTime())){
       yearsSet[d.getFullYear()] = true;
       monthsSet[d.getFullYear() + '-' + pad(d.getMonth() + 1)] = true;
@@ -2519,7 +2683,7 @@ function renderPatientFinancialDetails(patientId){
 
   if(ctrl){
     if(pFinPeriodMode === 'all'){
-      ctrl.innerHTML = '<div style="font-size:12px;color:var(--ink-soft);background:var(--bg);padding:6px 10px;border-radius:var(--radius-xs);">Exibindo todas as sessões registradas de todo o histórico.</div>';
+      ctrl.innerHTML = '<div style="font-size:12px;color:var(--ink-soft);background:var(--bg);padding:6px 10px;border-radius:var(--radius-xs);">Exibindo todas as sessões realizadas e agendamentos futuros.</div>';
     } else if(pFinPeriodMode === 'year'){
       var yOpts = yearsList.map(function(y){
         return '<option value="'+y+'" '+(y===pFinSelectedYear?'selected':'')+'>'+y+'</option>';
@@ -2558,11 +2722,16 @@ function renderPatientFinancialDetails(patientId){
   }
 
   var list = getPatientFilteredSessions(p);
-  var total = 0, recebido = 0, pendente = 0;
+  var pendingScheds = getPatientFilteredSchedules(p);
+  var total = 0, recebido = 0, pendente = 0, previsto = 0;
   list.forEach(function(e){
     total += e.valor;
     if(e.status === 'Pago') recebido += e.valor; else pendente += e.valor;
   });
+  pendingScheds.forEach(function(sc){
+    previsto += getScheduleEffectiveValor(sc);
+  });
+  var ganhoPossivel = total + previsto;
 
   var hidden = isFinancialsHidden();
   var maskTxt = 'R$ ••••••';
@@ -2572,15 +2741,39 @@ function renderPatientFinancialDetails(patientId){
   document.getElementById('pFinKpiPen').textContent = hidden ? maskTxt : formatMoney(pendente);
   document.getElementById('pFinKpiSess').textContent = list.length;
 
+  var fBox = document.getElementById('pFinForecastBox');
+  if(fBox){
+    fBox.innerHTML = '<div class="forecast-card" style="margin-bottom:0;padding:10px 12px;">' +
+      '<div style="font-size:11.5px;font-weight:700;color:var(--primary-deep);">&#128200; Previsão do Período: Ganho Real vs. Ganho Possível</div>' +
+      '<div class="forecast-grid">' +
+        '<div class="forecast-item">' +
+          '<span class="f-lbl">Ganho Real (Feito)</span>' +
+          '<span class="f-val">'+(hidden ? maskTxt : formatMoney(total))+'</span>' +
+          '<span class="f-sub">'+list.length+' '+(list.length===1?'sessão feita':'sessões feitas')+'</span>' +
+        '</div>' +
+        '<div class="forecast-item">' +
+          '<span class="f-lbl">Previsto (Agenda)</span>' +
+          '<span class="f-val" style="color:var(--accent-ink);">'+(hidden ? maskTxt : ('+ ' + formatMoney(previsto)))+'</span>' +
+          '<span class="f-sub">'+pendingScheds.length+' '+(pendingScheds.length===1?'agendada':'agendadas')+'</span>' +
+        '</div>' +
+        '<div class="forecast-item highlight">' +
+          '<span class="f-lbl">Ganho Possível</span>' +
+          '<span class="f-val">'+(hidden ? maskTxt : formatMoney(ganhoPossivel))+'</span>' +
+          '<span class="f-sub">'+(list.length + pendingScheds.length)+' sessões no total</span>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
   var listContainer = document.getElementById('pFinSessionsList');
   if(!listContainer) return;
 
-  if(list.length === 0){
-    listContainer.innerHTML = '<p class="empty-mini">Nenhuma sessão encontrada para o período selecionado.</p>';
+  if(list.length === 0 && pendingScheds.length === 0){
+    listContainer.innerHTML = '<p class="empty-mini">Nenhuma sessão realizada ou agendada para o período selecionado.</p>';
     return;
   }
 
-  listContainer.innerHTML = list.map(function(e){
+  var realizedHtml = list.map(function(e){
     var pago = e.status === 'Pago';
     return '<div class="top-row">' +
       '<div class="nm">' +
@@ -2594,6 +2787,26 @@ function renderPatientFinancialDetails(patientId){
       '</div>' +
     '</div>';
   }).join('');
+
+  var schedHtml = '';
+  if(pendingScheds.length > 0){
+    schedHtml = '<div style="font-size:11px;font-weight:700;color:var(--primary-deep);text-transform:uppercase;margin:8px 0 4px;padding-top:6px;border-top:1px dashed var(--line);">&#128197; Sessões Agendadas (A Realizar · Previsão)</div>' +
+      pendingScheds.map(function(sc){
+        var vEff = getScheduleEffectiveValor(sc);
+        return '<div class="top-row" style="background:var(--bg);padding:6px 8px;border-radius:var(--radius-xs);margin-bottom:4px;">' +
+          '<div class="nm">' +
+            '<div>'+formatDateBR(sc.data)+(sc.hora ? ' · '+escapeHtml(sc.hora) : '')+'</div>' +
+            '<span class="badge pendente" style="font-size:10px;">&#9200; Agendado (Previsto)</span>' +
+          '</div>' +
+          '<div class="vl" style="margin-right:6px;color:var(--accent-ink);">'+(hidden ? 'R$ •••' : formatMoney(vEff))+'</div>' +
+          '<div class="rep-entry-actions">' +
+            '<button class="rep-entry-btn" style="background:var(--success-soft);color:var(--success-ink);border-color:var(--success);" onclick="completeScheduleCheckin(\''+sc.id+'\'); renderPatientFinancialDetails(\''+patientId+'\');" title="Confirmar que foi realizado">&#10003; Check-in</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+  }
+
+  listContainer.innerHTML = realizedHtml + schedHtml;
 }
 
 function generatePatientStatementPDF(patientId){
@@ -2810,18 +3023,20 @@ function openNewEvolution(preSelectPatientId){
       '<p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 12px;">Registro de prontuário e evolução da sessão de fisioterapia.</p>' +
 
       '<label>Paciente</label>' +
-      '<select id="newEvoPatient">'+options+'</select>' +
+      '<select id="newEvoPatient" onchange="updateNewEvoScheduleUI()">'+options+'</select>' +
 
       '<div class="form-grid-2" style="margin-top:8px;">' +
         '<div>' +
           '<label>Data da sessão</label>' +
-          '<input id="newEvoData" type="date" value="'+isoDate(now)+'">' +
+          '<input id="newEvoData" type="date" value="'+isoDate(now)+'" onchange="updateNewEvoScheduleUI()">' +
         '</div>' +
         '<div>' +
           '<label>Horário</label>' +
           '<input id="newEvoHora" type="time" value="'+isoTime(now)+'">' +
         '</div>' +
       '</div>' +
+
+      '<div id="newEvoScheduleBox" style="margin-top:10px;"></div>' +
 
       '<div class="form-grid-2" style="margin-top:8px;">' +
         '<div>' +
@@ -2847,6 +3062,46 @@ function openNewEvolution(preSelectPatientId){
     '</div>' +
   '</div>';
   openModal(html);
+  updateNewEvoScheduleUI();
+}
+
+function updateNewEvoScheduleUI(){
+  var box = document.getElementById('newEvoScheduleBox');
+  var pSel = document.getElementById('newEvoPatient');
+  var dInp = document.getElementById('newEvoData');
+  var hInp = document.getElementById('newEvoHora');
+  if(!box || !pSel || !dInp) return;
+
+  var p = patients.find(function(x){ return x.id === pSel.value; });
+  var data = dInp.value;
+  if(!p || !data){ box.innerHTML = ''; return; }
+
+  var existingEntry = entries.find(function(e){ return e.data === data && entryMatchesPatient(e, p); });
+  var pendingSched = schedules.find(function(sc){
+    return isSchedulePendingForecast(sc) && sc.data === data && scheduleMatchesPatient(sc, p);
+  });
+
+  if(pendingSched){
+    if(hInp && pendingSched.hora) hInp.value = pendingSched.hora;
+    var val = getScheduleEffectiveValor(pendingSched);
+    box.innerHTML = '<label style="display:flex;align-items:flex-start;gap:8px;padding:10px 12px;background:var(--success-soft);border:1px solid var(--success);border-radius:var(--radius-xs);cursor:pointer;margin:0;text-transform:none;letter-spacing:0;">' +
+      '<input type="checkbox" id="newEvoAutoCheckinChk" data-sched-id="'+pendingSched.id+'" checked style="width:16px;height:16px;margin-top:2px;accent-color:var(--success);flex-shrink:0;">' +
+      '<div style="font-size:12px;color:var(--success-ink);line-height:1.4;">' +
+        '<strong>&#128197; Agendamento encontrado hoje ('+escapeHtml(pendingSched.hora || '')+'):</strong><br>' +
+        'Confirmar automaticamente o <b>Check-in na Agenda</b> e lançar a sessão no Financeiro ('+formatMoney(val)+').' +
+      '</div>' +
+    '</label>';
+  } else if(existingEntry){
+    box.innerHTML = '<div style="padding:8px 12px;background:var(--bg-tint);border:1px solid var(--line);border-radius:var(--radius-xs);font-size:11.5px;color:var(--ink-soft);">' +
+      '&#10003; Atendimento financeiro já lançado nesta data (' + (existingEntry.hora ? 'às ' + escapeHtml(existingEntry.hora) + ' · ' : '') + formatMoney(existingEntry.valor) + ').' +
+    '</div>';
+  } else {
+    var defVal = parseValor(p.valorPadrao);
+    box.innerHTML = '<label style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border:1px solid var(--line);border-radius:var(--radius-xs);cursor:pointer;margin:0;text-transform:none;letter-spacing:0;">' +
+      '<input type="checkbox" id="newEvoAutoCheckinChk" data-sched-id="" style="width:16px;height:16px;accent-color:var(--primary);flex-shrink:0;">' +
+      '<span style="font-size:12px;color:var(--ink);font-weight:500;">Lançar também esta sessão no Financeiro'+(defVal > 0 ? ' ('+formatMoney(defVal)+')' : '')+'</span>' +
+    '</label>';
+  }
 }
 
 async function submitNewEvolution(){
@@ -2858,6 +3113,9 @@ async function submitNewEvolution(){
   var fc = document.getElementById('newEvoFC').value.trim();
   var estado = document.getElementById('newEvoEstado').value.trim();
   var condutas = document.getElementById('newEvoCondutas').value.trim();
+  var autoChk = document.getElementById('newEvoAutoCheckinChk');
+  var doAutoCheckin = autoChk && autoChk.checked;
+  var linkedSchedId = autoChk ? autoChk.getAttribute('data-sched-id') : '';
 
   if(!pId || !data){ alert('Selecione o paciente e informe a data da evolução.'); return; }
 
@@ -2883,7 +3141,34 @@ async function submitNewEvolution(){
   populateEvolutionsFilters();
   renderEvolutionsTab();
   closeModal();
-  showToast('Evolução registrada.', 'ok');
+
+  if(doAutoCheckin){
+    if(linkedSchedId){
+      await completeScheduleCheckin(linkedSchedId, true);
+    } else if(p){
+      var newEntryId = 'e' + Date.now();
+      var newEntry = {
+        id: newEntryId,
+        nome: p.nome,
+        data: data,
+        hora: hora,
+        valor: parseValor(p.valorPadrao),
+        status: 'Pendente',
+        paymentDate: '',
+        lat: '',
+        lng: ''
+      };
+      entries.unshift(newEntry);
+      reconcileSchedulesWithEntries();
+      renderList();
+      renderPatientsTab();
+      renderAgendaTab();
+      postAction(Object.assign({ action: 'create' }, newEntry)).catch(function(e){ console.warn(e); });
+    }
+    showToast('Evolução e Check-in financeiro registrados!', 'ok');
+  } else {
+    showToast('Evolução registrada.', 'ok');
+  }
 
   try{
     await postAction({
@@ -3235,6 +3520,23 @@ function entriesForMonth(){
   }).sort(function(a,b){ return String(b.data).localeCompare(String(a.data)); });
 }
 
+function pendingSchedulesForMonth(){
+  var y = currentMonth.getFullYear(), m = currentMonth.getMonth();
+  var pFilter = document.getElementById('patientFilter') ? document.getElementById('patientFilter').value : '';
+  var pFilterObj = pFilter ? (patients.find(function(x){ return x.id === pFilter; }) || findPatientByName(pFilter)) : null;
+  return schedules.filter(function(sc){
+    if(!isSchedulePendingForecast(sc)) return false;
+    var d = new Date(sc.data + 'T00:00:00');
+    if(isNaN(d.getTime())) return false;
+    var match = d.getFullYear() === y && d.getMonth() === m;
+    if(pFilter && pFilterObj) match = match && scheduleMatchesPatient(sc, pFilterObj);
+    return match;
+  }).sort(function(a,b){
+    var cmp = String(a.data || '').localeCompare(String(b.data || ''));
+    return cmp !== 0 ? cmp : String(a.hora || '').localeCompare(String(b.hora || ''));
+  });
+}
+
 function updateMonthLabel(){
   var el = document.getElementById('monthLabel');
   if(el) el.textContent = monthLabel(currentMonth);
@@ -3249,17 +3551,22 @@ function shiftMonth(delta){
 
 function renderList(){
   var list = entriesForMonth();
+  var schedList = pendingSchedulesForMonth();
   var container = document.getElementById('entryList');
   var empty = document.getElementById('emptyState');
   if(!container) return;
 
-  var recebido = 0, pendente = 0, total = 0;
+  var recebido = 0, pendente = 0, total = 0, previstoMes = 0;
   var pacientesSet = {};
   list.forEach(function(e){
     total += e.valor;
     if(e.status === 'Pago') recebido += e.valor; else pendente += e.valor;
     pacientesSet[getEntryDisplayName(e)] = true;
   });
+  schedList.forEach(function(sc){
+    previstoMes += getScheduleEffectiveValor(sc);
+  });
+  var ganhoPossivel = total + previstoMes;
 
   var hidden = isFinancialsHidden();
   var maskTxt = 'R$ ••••••';
@@ -3269,36 +3576,55 @@ function renderList(){
   document.getElementById('statSessoes').textContent = list.length;
   document.getElementById('statPacientes').textContent = Object.keys(pacientesSet).length;
   document.getElementById('statTotal').textContent = hidden ? maskTxt : formatMoney(total);
+
+  var elRealVal = document.getElementById('finRealVal');
+  var elRealSub = document.getElementById('finRealSub');
+  var elSchedVal = document.getElementById('finScheduledVal');
+  var elSchedSub = document.getElementById('finScheduledSub');
+  var elPossVal = document.getElementById('finPossibleVal');
+  var elPossSub = document.getElementById('finPossibleSub');
+  if(elRealVal) elRealVal.textContent = hidden ? maskTxt : formatMoney(total);
+  if(elRealSub) elRealSub.textContent = list.length + (list.length === 1 ? ' sessão realizada' : ' sessões realizadas');
+  if(elSchedVal) elSchedVal.textContent = hidden ? maskTxt : ('+ ' + formatMoney(previstoMes));
+  if(elSchedSub) elSchedSub.textContent = schedList.length + (schedList.length === 1 ? ' sessão agendada' : ' sessões a realizar');
+  if(elPossVal) elPossVal.textContent = hidden ? maskTxt : formatMoney(ganhoPossivel);
+  if(elPossSub) elPossSub.textContent = (list.length + schedList.length) + ' sessões (Real + Previsto)';
+
   updateEyeButtonUI();
 
-  if(list.length === 0){
+  if(list.length === 0 && schedList.length === 0){
     container.innerHTML = '';
     var filtroAtivo = document.getElementById('patientFilter') ? document.getElementById('patientFilter').value : '';
     empty.innerHTML = '<span class="leaf">&#127810;</span>' +
-      (filtroAtivo ? 'Nenhum atendimento desta paciente em ' + monthLabel(currentMonth) + '.'
-                   : 'Nenhum atendimento em ' + monthLabel(currentMonth) + '.') +
-      '<button class="btn primary" style="margin:16px auto 0;max-width:240px;" onclick="openNewEntry()">+ Lançar atendimento</button>';
+      (filtroAtivo ? 'Nenhum atendimento ou agendamento desta paciente em ' + monthLabel(currentMonth) + '.'
+                   : 'Nenhum atendimento ou agendamento em ' + monthLabel(currentMonth) + '.') +
+      '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:16px;">' +
+        '<button class="btn primary" style="max-width:220px;" onclick="openNewEntry()">+ Lançar atendimento</button>' +
+        '<button class="btn ghost" style="max-width:220px;" onclick="openScheduleModal()">&#128197; Agendar escala</button>' +
+      '</div>';
     empty.classList.remove('hidden');
     return;
   }
   empty.classList.add('hidden');
 
-  container.innerHTML = list.map(function(e){
+  var realizedHtml = list.map(function(e){
     var pago = e.status === 'Pago';
     var pObj = findPatientByName(e.nome);
     var isArchived = pObj && pObj.arquivado === 'Sim';
     var dispName = getPatientDisplayName(pObj, e.nome);
+    var linkedSc = schedules.find(function(s){ return s.atendimentoId === e.id; });
 
     var paidNote = pago && e.paymentDate ? '<div class="paid-note">&#10003; Pago em '+formatDateBR(e.paymentDate)+'</div>' : '';
     var payBtn = !pago ? '<button class="pay" onclick="openPaymentModal(\''+e.id+'\')">&#128176; Pagar</button>' : '';
     var archBadge = isArchived ? '<span style="font-size:10px;font-weight:600;color:var(--ink-soft);background:var(--bg-tint);padding:1px 5px;border-radius:4px;margin-left:4px;">Finalizado</span>' : '';
+    var schedBadge = linkedSc ? '<span style="font-size:10px;font-weight:600;color:var(--primary-deep);background:var(--primary-soft);padding:1px 6px;border-radius:99px;margin-left:4px;" title="Vinculado ao agendamento da Agenda">&#128197; Agenda</span>' : '';
 
     return '<div class="entry">' +
       '<div class="entry-body">' +
         '<div class="entry-top">' +
           renderPatientAvatar(pObj, e.nome) +
           '<div class="info">' +
-            '<div class="name">'+escapeHtml(dispName)+archBadge+'</div>' +
+            '<div class="name">'+escapeHtml(dispName)+archBadge+schedBadge+'</div>' +
             '<div class="date">'+formatDateBR(e.data)+(e.hora ? ' &middot; '+escapeHtml(e.hora) : '')+'</div>' +
             paidNote +
           '</div>' +
@@ -3318,6 +3644,38 @@ function renderList(){
       '</div>' +
     '</div>';
   }).join('');
+
+  var forecastListHtml = '';
+  if(schedList.length > 0){
+    forecastListHtml = '<div style="margin-top:'+(list.length > 0 ? '14px' : '6px')+';padding-top:10px;border-top:'+(list.length > 0 ? '2px dashed var(--line)' : 'none')+';">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px;">' +
+        '<span style="font-size:11.5px;font-weight:700;color:var(--primary-deep);text-transform:uppercase;">&#128197; Agendamentos Previstos no Mês ('+schedList.length+')</span>' +
+        '<span style="font-size:11.5px;font-weight:700;color:var(--accent-ink);">Previsto: '+(hidden ? 'R$ •••' : ('+ ' + formatMoney(previstoMes)))+'</span>' +
+      '</div>' +
+      schedList.map(function(sc){
+        var pObj = getSchedulePatientObj(sc);
+        var dispName = getSchedulePatientDisplayName(sc);
+        var vEff = getScheduleEffectiveValor(sc);
+        return '<div class="entry" style="opacity:0.92;background:var(--bg);border-radius:var(--radius-xs);padding:10px;margin-bottom:6px;border:1px dashed var(--line-strong);">' +
+          '<div class="entry-body">' +
+            '<div class="entry-top">' +
+              renderPatientAvatar(pObj, dispName) +
+              '<div class="info">' +
+                '<div class="name">'+escapeHtml(dispName)+' <span class="badge pendente" style="font-size:9.5px;padding:1px 6px;margin-left:4px;">Previsto</span></div>' +
+                '<div class="date">&#128197; '+formatDateBR(sc.data)+(sc.hora ? ' &middot; '+escapeHtml(sc.hora) : '')+'</div>' +
+              '</div>' +
+              '<div class="right">' +
+                '<div class="value" style="color:var(--accent-ink);">'+(hidden ? 'R$ •••' : formatMoney(vEff))+'</div>' +
+                '<button class="btn small primary" style="width:auto;padding:4px 10px;font-size:11px;margin-top:4px;background:var(--success);" onclick="completeScheduleCheckin(\''+sc.id+'\')">&#10003; Check-in</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      }).join('') +
+    '</div>';
+  }
+
+  container.innerHTML = realizedHtml + forecastListHtml;
 }
 
 function returnFromEntryModal(returnContext){
@@ -3330,7 +3688,7 @@ function returnFromEntryModal(returnContext){
   }
 }
 
-/* Novo atendimento / Check-in */
+/* Novo atendimento / Check-in (com vínculo automático a Agendamentos) */
 function openNewEntry(patientId, returnContext){
   if(patients.length === 0){
     alert('Cadastre um paciente antes de lançar atendimentos.');
@@ -3340,7 +3698,7 @@ function openNewEntry(patientId, returnContext){
   var now = new Date();
   var options = patients.slice().sort(function(a,b){ return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b),'pt-BR'); }).map(function(p){
     var sel = (patientId && p.id === patientId) ? 'selected' : '';
-    return '<option value="'+escapeHtml(p.nome)+'" data-valor="'+escapeHtml(p.valorPadrao||'')+'" '+sel+'>'+escapeHtml(getPatientDisplayName(p))+'</option>';
+    return '<option value="'+escapeHtml(p.nome)+'" data-pid="'+escapeHtml(p.id)+'" data-valor="'+escapeHtml(p.valorPadrao||'')+'" '+sel+'>'+escapeHtml(getPatientDisplayName(p))+'</option>';
   }).join('');
 
   var cancelClick = returnContext ? 'returnFromEntryModal(\''+escapeHtml(returnContext)+'\')' : 'closeModal()';
@@ -3349,11 +3707,12 @@ function openNewEntry(patientId, returnContext){
   var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
     '<div class="modal">' +
       '<div class="grabber"></div>' +
-      '<h2>Novo atendimento</h2>' +
+      '<h2>Novo atendimento / Check-in</h2>' +
       '<label>Paciente</label>' +
-      '<select id="newNome" onchange="fillDefaultValor()">'+options+'</select>' +
+      '<select id="newNome" onchange="onNewEntryPatientOrDateChange(true)">'+options+'</select>' +
       '<label style="margin-top:8px;display:block;">Data da sessão</label>' +
-      '<input id="newData" type="date" value="'+isoDate(now)+'">' +
+      '<input id="newData" type="date" value="'+isoDate(now)+'" onchange="onNewEntryPatientOrDateChange(false)">' +
+      '<div id="newEntryScheduleLinkBox" style="margin-top:10px;"></div>' +
       '<label style="margin-top:8px;display:block;">Horário</label>' +
       '<input id="newHora" type="time" value="'+isoTime(now)+'">' +
       '<label style="margin-top:8px;display:block;">Valor da sessão</label>' +
@@ -3367,6 +3726,7 @@ function openNewEntry(patientId, returnContext){
   '</div>';
   openModal(html);
   fillDefaultValor();
+  onNewEntryPatientOrDateChange(true);
 }
 
 function fillDefaultValor(){
@@ -3377,6 +3737,86 @@ function fillDefaultValor(){
   var raw = opt ? opt.getAttribute('data-valor') : '';
   var parsed = parseValor(raw);
   valorInput.value = parsed > 0 ? parsed : '';
+}
+
+function onNewEntryPatientOrDateChange(changedPatient){
+  if(changedPatient) fillDefaultValor();
+  var sel = document.getElementById('newNome');
+  var dataInp = document.getElementById('newData');
+  var horaInp = document.getElementById('newHora');
+  var valInp = document.getElementById('newValor');
+  var box = document.getElementById('newEntryScheduleLinkBox');
+  if(!sel || !dataInp || !box) return;
+
+  var nome = sel.value;
+  var data = dataInp.value;
+  var pObj = findPatientByName(nome);
+  if(!pObj || !data){ box.innerHTML = ''; return; }
+
+  var sameDayEntries = entries.filter(function(e){
+    return e.data === data && entryMatchesPatient(e, pObj);
+  });
+
+  var patientPendingScheds = schedules.filter(function(sc){
+    return isSchedulePendingForecast(sc) && scheduleMatchesPatient(sc, pObj);
+  }).sort(function(a,b){
+    return String(a.data || '').localeCompare(String(b.data || ''));
+  });
+
+  var sameDayPending = patientPendingScheds.filter(function(sc){ return sc.data === data; });
+  var otherPending = patientPendingScheds.filter(function(sc){ return sc.data !== data; });
+
+  var warnHtml = '';
+  if(sameDayEntries.length > 0){
+    var hrs = sameDayEntries.map(function(e){ return e.hora || 'sem hora'; }).join(', ');
+    warnHtml = '<div style="padding:8px 10px;background:#FBE6E4;border:1px solid var(--danger-line);border-radius:var(--radius-xs);font-size:11.5px;color:var(--danger);margin-bottom:8px;">' +
+      '&#9888;&#65039; <strong>Atenção:</strong> Já existe '+sameDayEntries.length+' atendimento lançado para este paciente em '+formatDateBR(data)+' ('+escapeHtml(hrs)+').' +
+    '</div>';
+  }
+
+  if(sameDayPending.length === 0 && otherPending.length === 0){
+    box.innerHTML = warnHtml;
+    return;
+  }
+
+  var preSelectedSc = sameDayPending.length > 0 ? sameDayPending[0] : null;
+  if(preSelectedSc){
+    if(horaInp && preSelectedSc.hora) horaInp.value = preSelectedSc.hora;
+    var scVal = getScheduleEffectiveValor(preSelectedSc);
+    if(valInp && scVal > 0) valInp.value = scVal;
+  }
+
+  var optsHtml = '';
+  sameDayPending.forEach(function(sc){
+    optsHtml += '<option value="'+sc.id+'" selected>&#10003; Agendamento desta data ('+formatDateBR(sc.data)+(sc.hora?' às '+sc.hora:'')+')</option>';
+  });
+  optsHtml += '<option value="" '+(preSelectedSc ? '' : 'selected')+'>Lançamento avulso / extra (não vincular a agendamento)</option>';
+  otherPending.forEach(function(sc){
+    optsHtml += '<option value="'+sc.id+'">&#128197; Vincular ao agendamento de '+formatDateBR(sc.data)+(sc.hora?' às '+sc.hora:'')+' (Reposição/Antecipação)</option>';
+  });
+
+  var infoMsg = preSelectedSc
+    ? '<div style="font-size:11px;color:var(--success-ink);margin-top:4px;">&#128279; Ao salvar, este agendamento será marcado automaticamente como <b>&#10003; Realizado</b> na Agenda (evitando duplicidade na previsão financeira).</div>'
+    : '<div style="font-size:11px;color:var(--ink-soft);margin-top:4px;">Se este check-in for referente a uma sessão agendada em outro dia, selecione-a acima para dar baixa na previsão.</div>';
+
+  box.innerHTML = warnHtml +
+    '<div style="padding:10px 12px;background:'+(preSelectedSc ? 'var(--success-soft)' : 'var(--bg)')+';border:1px solid '+(preSelectedSc ? 'var(--success)' : 'var(--line)')+';border-radius:var(--radius-xs);">' +
+      '<label style="margin:0 0 4px;display:block;font-size:11px;font-weight:700;color:var(--primary-deep);">&#128197; Vínculo com Agendamento da Agenda</label>' +
+      '<select id="newEntryScheduleSelect" onchange="onSelectLinkedSchedule()" style="font-size:12.5px;padding:7px 10px;">' + optsHtml + '</select>' +
+      infoMsg +
+    '</div>';
+}
+
+function onSelectLinkedSchedule(){
+  var sel = document.getElementById('newEntryScheduleSelect');
+  if(!sel || !sel.value) return;
+  var sc = schedules.find(function(x){ return x.id === sel.value; });
+  if(!sc) return;
+  var horaInp = document.getElementById('newHora');
+  var valInp = document.getElementById('newValor');
+  if(horaInp && sc.hora) horaInp.value = sc.hora;
+  var vEff = getScheduleEffectiveValor(sc);
+  if(valInp && vEff > 0) valInp.value = vEff;
 }
 
 function getLocation(){
@@ -3395,9 +3835,22 @@ async function submitNewEntry(returnContext){
   var data = document.getElementById('newData').value;
   var hora = document.getElementById('newHora').value;
   var valor = parseFloat(document.getElementById('newValor').value);
+  var schedSel = document.getElementById('newEntryScheduleSelect');
+  var linkedSchedId = schedSel ? schedSel.value : '';
+
   if(!nome || !data || isNaN(valor)){
     alert('Preencha paciente, data e valor válido.');
     return;
+  }
+
+  var pObj = findPatientByName(nome);
+  var sameDayExisting = entries.filter(function(e){
+    return e.data === data && (pObj ? entryMatchesPatient(e, pObj) : (e.nome === nome));
+  });
+  if(sameDayExisting.length > 0 && !linkedSchedId){
+    if(!confirm('⚠️ Já existe um atendimento registrado para ' + getPatientDisplayName(pObj, nome) + ' em ' + formatDateBR(data) + '.\n\nDeseja realmente lançar outro atendimento na mesma data?')){
+      return;
+    }
   }
 
   var btn = document.getElementById('saveEntryBtn');
@@ -3418,12 +3871,26 @@ async function submitNewEntry(returnContext){
   };
 
   entries.unshift(newEntry);
+
+  // Se havia agendamento vinculado (ou do mesmo dia selecionado), marca como Realizado
+  var linkedSc = linkedSchedId ? schedules.find(function(x){ return x.id === linkedSchedId; }) : null;
+  if(linkedSc){
+    linkedSc.status = 'Realizado';
+    linkedSc.atendimentoId = id;
+    linkedSc.data = data;
+    linkedSc.hora = hora;
+    linkedSc.valor = valor;
+    if(!linkedSc.calendarId) linkedSc.calendarId = getUserCalendarId();
+    saveLocalSchedules();
+  }
+
   if(returnContext === 'reports'){
     repExpandedPatient = getEntryDisplayName(newEntry);
   }
   returnFromEntryModal(returnContext);
   renderList();
-  showToast('Atendimento salvo!', 'ok');
+  renderAgendaTab();
+  showToast(linkedSc ? 'Atendimento salvo e vinculado à Agenda!' : 'Atendimento salvo!', 'ok');
 
   try{
     await postAction({
@@ -3437,9 +3904,18 @@ async function submitNewEntry(returnContext){
       lat: newEntry.lat,
       lng: newEntry.lng
     });
+    if(linkedSc){
+      await postAction(Object.assign({ action: 'update_schedule' }, linkedSc));
+    }
   }catch(err){
     entries = entries.filter(function(x){ return x.id !== id; });
+    if(linkedSc){
+      linkedSc.status = 'Agendado';
+      linkedSc.atendimentoId = '';
+      saveLocalSchedules();
+    }
     renderList();
+    renderAgendaTab();
     if(document.getElementById('repBody')) renderReportBody();
     showError('Falha ao salvar atendimento na planilha: ' + err.message);
   }
@@ -3522,6 +3998,16 @@ async function submitEditEntry(id, returnContext){
   e.nome = nome; e.data = data; e.hora = hora; e.valor = valor;
   e.status = status; e.paymentDate = paymentDate;
 
+  // Atualiza também eventual agendamento vinculado a este atendimento
+  var linkedSc = schedules.find(function(s){ return s.atendimentoId === id; });
+  if(linkedSc){
+    linkedSc.data = data;
+    linkedSc.hora = hora;
+    linkedSc.valor = valor;
+    saveLocalSchedules();
+    renderAgendaTab();
+  }
+
   if(returnContext === 'reports'){
     repExpandedPatient = getEntryDisplayName(e);
   }
@@ -3533,6 +4019,9 @@ async function submitEditEntry(id, returnContext){
     await postAction({ action: 'update', id: id, nome: nome, data: data, hora: hora, valor: valor, status: status, paymentDate: paymentDate });
     if(statusChanged){
       await postAction({ action: 'update_status', id: id, status: status, paymentDate: paymentDate });
+    }
+    if(linkedSc){
+      await postAction(Object.assign({ action: 'update_schedule' }, linkedSc));
     }
   }catch(err){
     Object.assign(e, old);
@@ -3551,6 +4040,16 @@ async function deleteEntry(id, returnContext){
   if(idx === -1) return;
   var removed = entries[idx];
   entries.splice(idx, 1);
+
+  // Se este atendimento estava vinculado a um agendamento, retorna o agendamento para 'Agendado' (previsão)
+  var linkedSc = schedules.find(function(s){ return s.atendimentoId === id; });
+  if(linkedSc){
+    linkedSc.status = 'Agendado';
+    linkedSc.atendimentoId = '';
+    saveLocalSchedules();
+    renderAgendaTab();
+  }
+
   renderList();
   if(returnContext === 'reports' && document.getElementById('repBody')){
     renderReportBody();
@@ -3561,8 +4060,17 @@ async function deleteEntry(id, returnContext){
 
   try{
     await postAction({ action: 'delete', id: id });
+    if(linkedSc){
+      await postAction(Object.assign({ action: 'update_schedule' }, linkedSc));
+    }
   }catch(err){
     entries.splice(idx, 0, removed);
+    if(linkedSc){
+      linkedSc.status = 'Realizado';
+      linkedSc.atendimentoId = id;
+      saveLocalSchedules();
+      renderAgendaTab();
+    }
     renderList();
     if(returnContext === 'reports' && document.getElementById('repBody')){
       renderReportBody();
@@ -3977,28 +4485,49 @@ function shiftReportYear(delta){
   renderReportBody();
 }
 
+function pendingSchedulesOfYear(y){
+  return schedules.filter(function(sc){
+    if(!isSchedulePendingForecast(sc)) return false;
+    var d = new Date(sc.data + 'T00:00:00');
+    return !isNaN(d.getTime()) && d.getFullYear() === y;
+  });
+}
+
 function renderReportBody(){
   var rawList = entriesOfYear(reportYear);
+  var rawScheds = pendingSchedulesOfYear(reportYear);
   var meses = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
   var mesesLongos = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
   var list = rawList;
+  var schedList = rawScheds;
   if(repMonthFilter !== 'all'){
     var mTarget = parseInt(repMonthFilter, 10);
     list = rawList.filter(function(e){
       return new Date(e.data + 'T00:00:00').getMonth() === mTarget;
     });
+    schedList = rawScheds.filter(function(sc){
+      return new Date(sc.data + 'T00:00:00').getMonth() === mTarget;
+    });
   }
 
   var recebido=0, pendente=0, total=0, sessoes=list.length;
+  var previstoTotal=0, sessoesPrevistas=schedList.length;
   var pacientesSet={}, porMes=[], porPaciente={}, porMetodo={};
-  for(var i=0;i<12;i++) porMes[i]={fat:0, rec:0, pen:0, sessoes:0};
+  for(var i=0;i<12;i++) porMes[i]={fat:0, rec:0, pen:0, prev:0, sessoes:0, sessoesPrev:0};
 
   rawList.forEach(function(e){
     var m = new Date(e.data+'T00:00:00').getMonth();
     porMes[m].fat += e.valor;
     porMes[m].sessoes += 1;
     if(e.status === 'Pago') porMes[m].rec += e.valor; else porMes[m].pen += e.valor;
+  });
+
+  rawScheds.forEach(function(sc){
+    var m = new Date(sc.data+'T00:00:00').getMonth();
+    var vEff = getScheduleEffectiveValor(sc);
+    porMes[m].prev += vEff;
+    porMes[m].sessoesPrev += 1;
   });
 
   list.forEach(function(e){
@@ -4013,7 +4542,10 @@ function renderReportBody(){
         valor: 0,
         recebido: 0,
         pendente: 0,
+        previstoSessoes: 0,
+        previstoValor: 0,
         entries: [],
+        schedules: [],
         patientId: pObj ? pObj.id : ''
       };
     }
@@ -4029,6 +4561,29 @@ function renderReportBody(){
     porMetodo[metodo].total += e.valor;
   });
 
+  schedList.forEach(function(sc){
+    var vEff = getScheduleEffectiveValor(sc);
+    previstoTotal += vEff;
+    var pObj = getSchedulePatientObj(sc);
+    var dispName = getSchedulePatientDisplayName(sc);
+    if(!porPaciente[dispName]){
+      porPaciente[dispName] = {
+        sessoes: 0,
+        valor: 0,
+        recebido: 0,
+        pendente: 0,
+        previstoSessoes: 0,
+        previstoValor: 0,
+        entries: [],
+        schedules: [],
+        patientId: pObj ? pObj.id : (sc.pacienteId || '')
+      };
+    }
+    porPaciente[dispName].previstoSessoes += 1;
+    porPaciente[dispName].previstoValor += vEff;
+    porPaciente[dispName].schedules.push(sc);
+  });
+
   // Garante que todos os pacientes ativos cadastrados também apareçam na lista
   patients.forEach(function(p){
     if(p.arquivado === 'Sim') return;
@@ -4039,7 +4594,10 @@ function renderReportBody(){
         valor: 0,
         recebido: 0,
         pendente: 0,
+        previstoSessoes: 0,
+        previstoValor: 0,
         entries: [],
+        schedules: [],
         patientId: p.id
       };
     } else if(!porPaciente[dispName].patientId){
@@ -4047,6 +4605,7 @@ function renderReportBody(){
     }
   });
 
+  var ganhoPossivelTotal = total + previstoTotal;
   var nPacientes = Object.keys(pacientesSet).length;
   var ticket = sessoes ? total/sessoes : 0;
   var mesesTrabalhados = porMes.filter(function(m){ return m.sessoes > 0; }).length;
@@ -4059,59 +4618,95 @@ function renderReportBody(){
   var bodyEl = document.getElementById('repBody');
   if(!bodyEl) return;
 
-  if(sessoes === 0 && Object.keys(porPaciente).length === 0){
+  if(sessoes === 0 && sessoesPrevistas === 0 && Object.keys(porPaciente).length === 0){
     var descEmpty = repMonthFilter !== 'all' ? mesesLongos[parseInt(repMonthFilter,10)] + ' de ' + reportYear : reportYear;
-    bodyEl.innerHTML = '<div class="empty" style="padding:24px 10px;"><span class="leaf">&#128202;</span>Nenhum atendimento registrado em '+descEmpty+'.</div>';
+    bodyEl.innerHTML = '<div class="empty" style="padding:24px 10px;"><span class="leaf">&#128202;</span>Nenhum atendimento ou agendamento registrado em '+descEmpty+'.</div>';
     return;
   }
 
-  var titleFat = repMonthFilter !== 'all' ? 'FATURADO NO MÊS' : 'FATURADO TOTAL';
+  var titleFat = repMonthFilter !== 'all' ? 'GANHO REAL (MÊS)' : 'GANHO REAL (ANO)';
 
   var kpis = '<div class="rep-kpis">' +
     '<div class="rep-kpi"><div class="t">'+titleFat+'</div><div class="v">'+(hidden ? maskTxt : formatMoney(total))+'</div></div>' +
     '<div class="rep-kpi rec"><div class="t">RECEBIDO</div><div class="v">'+(hidden ? maskTxt : formatMoney(recebido))+'</div></div>' +
-    '<div class="rep-kpi pen"><div class="t">A RECEBER</div><div class="v">'+(hidden ? maskTxt : formatMoney(pendente))+'</div></div>' +
+    '<div class="rep-kpi pen"><div class="t">A RECEBER (FEITO)</div><div class="v">'+(hidden ? maskTxt : formatMoney(pendente))+'</div></div>' +
     '<div class="rep-kpi"><div class="t">INADIMPLÊNCIA</div><div class="v">'+inadimplencia+'%</div></div>' +
-    '<div class="rep-kpi"><div class="t">SESSÕES</div><div class="v">'+sessoes+'</div></div>' +
-    '<div class="rep-kpi"><div class="t">PACIENTES</div><div class="v">'+nPacientes+'</div></div>' +
+    '<div class="rep-kpi"><div class="t">SESSÕES FEITAS</div><div class="v">'+sessoes+'</div></div>' +
+    '<div class="rep-kpi"><div class="t">PACIENTES ATEND.</div><div class="v">'+nPacientes+'</div></div>' +
     '<div class="rep-kpi"><div class="t">TICKET MÉDIO</div><div class="v">'+(hidden ? maskTxt : formatMoney(ticket))+'</div></div>' +
     (repMonthFilter === 'all'
       ? '<div class="rep-kpi"><div class="t">MÉDIA / MÊS ATIVO</div><div class="v">'+(hidden ? maskTxt : formatMoney(mediaMensal))+'</div></div>'
       : '<div class="rep-kpi"><div class="t">MÊS DE ANÁLISE</div><div class="v" style="font-size:13px;font-weight:700;color:var(--primary);">'+mesesLongos[parseInt(repMonthFilter,10)]+'</div></div>') +
   '</div>';
 
+  // Painel de Previsão Financeira (Ganho Real vs Ganho Possível)
+  var forecastPanelHtml = '<div class="forecast-card">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">' +
+      '<div style="font-size:12px;font-weight:700;color:var(--primary-deep);">&#128200; Previsão Financeira: Ganho Real vs. Ganho Possível</div>' +
+      '<span style="font-size:11px;color:var(--ink-soft);">Baseado nos agendamentos ativos da Agenda</span>' +
+    '</div>' +
+    '<div class="forecast-grid">' +
+      '<div class="forecast-item">' +
+        '<span class="f-lbl">Ganho Real (Já Feito)</span>' +
+        '<span class="f-val">'+(hidden ? maskTxt : formatMoney(total))+'</span>' +
+        '<span class="f-sub">'+sessoes+' '+(sessoes===1?'sessão realizada':'sessões realizadas')+'</span>' +
+      '</div>' +
+      '<div class="forecast-item">' +
+        '<span class="f-lbl">Previsto (Agendado)</span>' +
+        '<span class="f-val" style="color:var(--accent-ink);">'+(hidden ? maskTxt : ('+ ' + formatMoney(previstoTotal)))+'</span>' +
+        '<span class="f-sub">'+sessoesPrevistas+' '+(sessoesPrevistas===1?'sessão agendada':'sessões a realizar')+'</span>' +
+      '</div>' +
+      '<div class="forecast-item highlight">' +
+        '<span class="f-lbl">Ganho Possível Total</span>' +
+        '<span class="f-val">'+(hidden ? maskTxt : formatMoney(ganhoPossivelTotal))+'</span>' +
+        '<span class="f-sub">'+(sessoes + sessoesPrevistas)+' sessões (Real + Previsto)</span>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+
   var barsHtml = '';
   if(repMonthFilter === 'all'){
-    var maxFat = 0; porMes.forEach(function(m){ if(m.fat > maxFat) maxFat = m.fat; });
-    barsHtml = '<div class="rep-section-title">Comparativo Mensal (Recebido x Pendente)</div><div class="bars">';
+    var maxFat = 0;
+    porMes.forEach(function(m){
+      var totMes = m.fat + m.prev;
+      if(totMes > maxFat) maxFat = totMes;
+    });
+    barsHtml = '<div class="rep-section-title">Comparativo Mensal (Realizado & Previsão)</div><div class="bars">';
     for(var i=0;i<12;i++){
       var mData = porMes[i];
-      var hTotal = maxFat > 0 ? Math.round((mData.fat/maxFat)*100) : 0;
-      var hRec = mData.fat > 0 ? (mData.rec / mData.fat) * 100 : 0;
-      var hPen = mData.fat > 0 ? (mData.pen / mData.fat) * 100 : 0;
-      var valTxt = mData.fat > 0 ? (hidden ? '•••' : 'R$'+Math.round(mData.fat)) : '';
+      var totMes = mData.fat + mData.prev;
+      var hTotal = maxFat > 0 ? Math.round((totMes/maxFat)*100) : 0;
+      var hPrev = totMes > 0 ? (mData.prev / totMes) * 100 : 0;
+      var hRec = totMes > 0 ? (mData.rec / totMes) * 100 : 0;
+      var hPen = totMes > 0 ? (mData.pen / totMes) * 100 : 0;
+      var valTxt = totMes > 0 ? (hidden ? '•••' : 'R$'+Math.round(totMes)) : '';
 
       barsHtml += '<div class="bar-col">' +
         '<div class="bar-val">'+valTxt+'</div>' +
         '<div class="bar-wrap">' +
           '<div class="bar-stack" style="height:'+Math.max(hTotal, 4)+'%;">' +
-            '<div class="bar-sub-rec" style="height:'+hRec+'%;"></div>' +
-            '<div class="bar-sub-pen" style="height:'+hPen+'%;"></div>' +
+            (mData.prev > 0 ? '<div class="bar-sub-prev" style="height:'+hPrev+'%;" title="Previsto (Agendado): '+formatMoney(mData.prev)+'"></div>' : '') +
+            '<div class="bar-sub-rec" style="height:'+hRec+'%;" title="Recebido: '+formatMoney(mData.rec)+'"></div>' +
+            '<div class="bar-sub-pen" style="height:'+hPen+'%;" title="A Receber (Feito): '+formatMoney(mData.pen)+'"></div>' +
           '</div>' +
         '</div>' +
         '<div class="bar-lbl">'+meses[i]+'</div>' +
       '</div>';
     }
     barsHtml += '</div>' +
-      '<div style="display:flex;justify-content:center;gap:14px;font-size:11px;color:var(--ink-soft);margin-bottom:14px;">' +
+      '<div style="display:flex;justify-content:center;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--ink-soft);margin-bottom:14px;">' +
         '<span><i style="display:inline-block;width:10px;height:10px;background:var(--success);border-radius:2px;margin-right:4px;"></i>Recebido</span>' +
-        '<span><i style="display:inline-block;width:10px;height:10px;background:var(--accent);border-radius:2px;margin-right:4px;"></i>Pendente</span>' +
+        '<span><i style="display:inline-block;width:10px;height:10px;background:var(--accent);border-radius:2px;margin-right:4px;"></i>A Receber (Feito)</span>' +
+        '<span><i style="display:inline-block;width:10px;height:10px;background:repeating-linear-gradient(45deg,#6b8cae,#6b8cae 2px,#8faec9 2px,#8faec9 4px);border-radius:2px;margin-right:4px;"></i>Previsto (Agenda)</span>' +
       '</div>';
   }
 
-  // Ranking de Pacientes (todos os pacientes, clicáveis para exibir e editar lançamentos)
+  // Ranking de Pacientes (todos os pacientes, clicáveis para exibir e editar lançamentos e previsões)
   var topNames = Object.keys(porPaciente).sort(function(a,b){
     if(porPaciente[b].valor !== porPaciente[a].valor) return porPaciente[b].valor - porPaciente[a].valor;
+    var possB = porPaciente[b].valor + porPaciente[b].previstoValor;
+    var possA = porPaciente[a].valor + porPaciente[a].previstoValor;
+    if(possB !== possA) return possB - possA;
     if(porPaciente[b].sessoes !== porPaciente[a].sessoes) return porPaciente[b].sessoes - porPaciente[a].sessoes;
     return a.localeCompare(b, 'pt-BR');
   });
@@ -4125,13 +4720,18 @@ function renderReportBody(){
     var pct = total > 0 ? ((pData.valor / total) * 100).toFixed(1) : '0.0';
     var isExp = repExpandedPatient === n;
     var chevron = isExp ? '&#9652;' : '&#9662;';
+    var possPac = pData.valor + pData.previstoValor;
+    var prevTagHtml = pData.previstoSessoes > 0
+      ? '<span style="font-size:10.5px;font-weight:600;color:var(--primary-deep);background:var(--primary-soft);padding:1px 6px;border-radius:99px;">&#128197; +'+pData.previstoSessoes+' agend. &rarr; Possível: '+(hidden ? 'R$ •••' : formatMoney(possPac))+'</span>'
+      : '';
 
     top += '<div class="top-row clickable'+(isExp?' expanded':'')+'" data-pname="'+escapeHtml(n)+'" onclick="toggleReportPatient(this.getAttribute(\'data-pname\'))">' +
       '<div class="rank">'+(idx+1)+'</div>' +
       '<div class="nm">' +
         '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
           '<span>'+escapeHtml(n)+'</span>' +
-          '<span style="font-weight:400;color:var(--ink-soft);font-size:11px;">('+pData.sessoes+' '+(pData.sessoes===1?'sessão':'sessões')+' · '+pct+'%)</span>' +
+          '<span style="font-weight:400;color:var(--ink-soft);font-size:11px;">('+pData.sessoes+' '+(pData.sessoes===1?'feita':'feitas')+' · '+pct+'%)</span>' +
+          prevTagHtml +
           '<span style="font-size:11px;color:var(--primary);font-weight:700;">'+chevron+'</span>' +
         '</div>' +
         '<div class="rep-progress-wrap"><div class="rep-progress-bar" style="width:'+pct+'%;"></div></div>' +
@@ -4145,6 +4745,11 @@ function renderReportBody(){
         var dtB = (b.data || '') + ' ' + (b.hora || '');
         return dtB.localeCompare(dtA);
       });
+      var sortedScheds = pData.schedules.slice().sort(function(a,b){
+        var dtA = (a.data || '') + ' ' + (a.hora || '');
+        var dtB = (b.data || '') + ' ' + (b.hora || '');
+        return dtA.localeCompare(dtB);
+      });
 
       var newBtnHtml = pData.patientId
         ? '<button class="rep-entry-btn" onclick="openNewEntry(\''+escapeHtml(pData.patientId)+'\', \'reports\')">+ Lançar sessão</button>'
@@ -4152,33 +4757,56 @@ function renderReportBody(){
 
       top += '<div class="rep-patient-drawer">' +
         '<div class="rep-patient-drawer-head">' +
-          '<div>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">' +
             '<span style="color:var(--success-ink);font-weight:600;">Recebido: '+(hidden ? 'R$ •••' : formatMoney(pData.recebido))+'</span>' +
             ' &middot; ' +
-            '<span style="color:var(--accent-ink);font-weight:600;">A receber: '+(hidden ? 'R$ •••' : formatMoney(pData.pendente))+'</span>' +
+            '<span style="color:var(--accent-ink);font-weight:600;">A receber (feito): '+(hidden ? 'R$ •••' : formatMoney(pData.pendente))+'</span>' +
+            (pData.previstoSessoes > 0
+              ? ' &middot; <span style="color:var(--primary-deep);font-weight:700;">Previsto: '+(hidden ? 'R$ •••' : ('+'+formatMoney(pData.previstoValor)))+' (Possível: '+(hidden ? 'R$ •••' : formatMoney(possPac))+')</span>'
+              : '') +
           '</div>' +
           newBtnHtml +
         '</div>';
 
-      if(sortedEntries.length === 0){
-        top += '<p class="empty-mini" style="padding:10px 4px;">Nenhum lançamento registrado para este paciente neste período.</p>';
+      if(sortedEntries.length === 0 && sortedScheds.length === 0){
+        top += '<p class="empty-mini" style="padding:10px 4px;">Nenhum lançamento ou agendamento registrado para este paciente neste período.</p>';
       } else {
-        top += sortedEntries.map(function(e){
-          var pago = e.status === 'Pago';
-          var paidInfo = (pago && e.paymentDate) ? '<div style="font-size:10.5px;color:var(--success-ink);">&#10003; Pago em '+formatDateBR(e.paymentDate)+'</div>' : '';
-          return '<div class="rep-entry-item">' +
-            '<div style="min-width:0;flex:1;">' +
-              '<div style="font-weight:600;color:var(--ink);">'+formatDateBR(e.data)+(e.hora ? ' &middot; '+escapeHtml(e.hora) : '')+'</div>' +
-              paidInfo +
-            '</div>' +
-            '<span class="badge '+(pago?'pago':'pendente')+'" style="cursor:pointer;" title="Clique para alterar status" onclick="badgeClick(\''+e.id+'\', \'reports\')">'+escapeHtml(e.status)+'</span>' +
-            '<div style="font-family:\'IBM Plex Mono\',monospace;font-weight:600;font-size:12px;min-width:74px;text-align:right;">'+(hidden ? 'R$ •••' : formatMoney(e.valor))+'</div>' +
-            '<div class="rep-entry-actions">' +
-              '<button class="rep-entry-btn" onclick="openEditEntry(\''+e.id+'\', \'reports\')" title="Editar lançamento">&#9998; Editar</button>' +
-              '<button class="rep-entry-btn del" onclick="deleteEntry(\''+e.id+'\', \'reports\')" title="Excluir lançamento">&#10005;</button>' +
-            '</div>' +
-          '</div>';
-        }).join('');
+        if(sortedEntries.length > 0){
+          top += sortedEntries.map(function(e){
+            var pago = e.status === 'Pago';
+            var paidInfo = (pago && e.paymentDate) ? '<div style="font-size:10.5px;color:var(--success-ink);">&#10003; Pago em '+formatDateBR(e.paymentDate)+'</div>' : '';
+            return '<div class="rep-entry-item">' +
+              '<div style="min-width:0;flex:1;">' +
+                '<div style="font-weight:600;color:var(--ink);">'+formatDateBR(e.data)+(e.hora ? ' &middot; '+escapeHtml(e.hora) : '')+'</div>' +
+                paidInfo +
+              '</div>' +
+              '<span class="badge '+(pago?'pago':'pendente')+'" style="cursor:pointer;" title="Clique para alterar status" onclick="badgeClick(\''+e.id+'\', \'reports\')">'+escapeHtml(e.status)+'</span>' +
+              '<div style="font-family:\'IBM Plex Mono\',monospace;font-weight:600;font-size:12px;min-width:74px;text-align:right;">'+(hidden ? 'R$ •••' : formatMoney(e.valor))+'</div>' +
+              '<div class="rep-entry-actions">' +
+                '<button class="rep-entry-btn" onclick="openEditEntry(\''+e.id+'\', \'reports\')" title="Editar lançamento">&#9998; Editar</button>' +
+                '<button class="rep-entry-btn del" onclick="deleteEntry(\''+e.id+'\', \'reports\')" title="Excluir lançamento">&#10005;</button>' +
+              '</div>' +
+            '</div>';
+          }).join('');
+        }
+
+        if(sortedScheds.length > 0){
+          top += '<div style="font-size:10.5px;font-weight:700;color:var(--primary-deep);text-transform:uppercase;margin:8px 0 4px;padding-top:6px;border-top:1px dashed var(--line);">&#128197; Agendamentos Previstos ('+sortedScheds.length+')</div>' +
+            sortedScheds.map(function(sc){
+              var vEff = getScheduleEffectiveValor(sc);
+              return '<div class="rep-entry-item" style="background:var(--bg);border-radius:var(--radius-xs);padding:6px 8px;margin-top:4px;">' +
+                '<div style="min-width:0;flex:1;">' +
+                  '<div style="font-weight:600;color:var(--ink);">'+formatDateBR(sc.data)+(sc.hora ? ' &middot; '+escapeHtml(sc.hora) : '')+'</div>' +
+                  '<div style="font-size:10.5px;color:var(--ink-soft);">Agendado (Previsão)</div>' +
+                '</div>' +
+                '<span class="badge pendente" style="font-size:10px;">Previsto</span>' +
+                '<div style="font-family:\'IBM Plex Mono\',monospace;font-weight:600;font-size:12px;min-width:74px;text-align:right;color:var(--accent-ink);">'+(hidden ? 'R$ •••' : formatMoney(vEff))+'</div>' +
+                '<div class="rep-entry-actions">' +
+                  '<button class="rep-entry-btn" style="background:var(--success-soft);color:var(--success-ink);border-color:var(--success);" onclick="completeScheduleCheckin(\''+sc.id+'\'); renderReportBody();" title="Confirmar realização e lançar no financeiro">&#10003; Check-in</button>' +
+                '</div>' +
+              '</div>';
+            }).join('');
+        }
       }
 
       top += '</div>';
@@ -4186,7 +4814,7 @@ function renderReportBody(){
   });
 
   // Meios de Pagamento
-  var metodosHtml = '<div class="rep-section-title">Distribuição por Forma de Pagamento</div><div class="card" style="padding:10px 14px;margin-bottom:14px;">';
+  var metodosHtml = '<div class="rep-section-title">Distribuição por Forma de Pagamento (Realizado)</div><div class="card" style="padding:10px 14px;margin-bottom:14px;">';
   Object.keys(porMetodo).sort(function(a,b){ return porMetodo[b].total - porMetodo[a].total; }).forEach(function(mKey){
     var mInfo = porMetodo[mKey];
     var mPct = total > 0 ? ((mInfo.total / total) * 100).toFixed(1) : 0;
@@ -4197,10 +4825,10 @@ function renderReportBody(){
   });
   metodosHtml += '</div>';
 
-  // Calendário de dias trabalhados
+  // Calendário de dias trabalhados e agendados
   var cal = '<div class="rep-section-title" style="display:flex;align-items:center;justify-content:space-between;">' +
-      '<span>Dias Trabalhados</span>' +
-      '<span style="font-size:10.5px;font-weight:500;text-transform:none;color:var(--ink-soft);">Toque no dia com &#10003; para ver os pacientes</span>' +
+      '<span>Dias Trabalhados (&#10003;) & Agendados (&#128197;)</span>' +
+      '<span style="font-size:10.5px;font-weight:500;text-transform:none;color:var(--ink-soft);">Toque no dia para ver os pacientes</span>' +
     '</div>' +
     '<div class="month-nav" style="margin-bottom:8px;">' +
       '<button onclick="shiftCalMonth(-1)" aria-label="Mês anterior">&lsaquo;</button>' +
@@ -4210,7 +4838,7 @@ function renderReportBody(){
     '<div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-size:11px;"></div>' +
     '<div id="calDayDetails" style="margin-top:8px;"></div>';
 
-  bodyEl.innerHTML = kpis + barsHtml + top + metodosHtml + cal;
+  bodyEl.innerHTML = kpis + forecastPanelHtml + barsHtml + top + metodosHtml + cal;
   renderWorkCalendar();
 }
 
@@ -4234,12 +4862,22 @@ function renderWorkCalendar(){
   label.textContent = monthLabel(calMonth);
 
   var byDay = {};
+  var schedByDay = {};
   entries.forEach(function(e){
     var d = new Date(e.data+'T00:00:00');
     if(!isNaN(d.getTime()) && d.getFullYear() === y && d.getMonth() === m){
       var dayNum = d.getDate();
       if(!byDay[dayNum]) byDay[dayNum] = [];
       byDay[dayNum].push(e);
+    }
+  });
+  schedules.forEach(function(sc){
+    if(!isSchedulePendingForecast(sc)) return;
+    var d = new Date(sc.data+'T00:00:00');
+    if(!isNaN(d.getTime()) && d.getFullYear() === y && d.getMonth() === m){
+      var dayNum = d.getDate();
+      if(!schedByDay[dayNum]) schedByDay[dayNum] = [];
+      schedByDay[dayNum].push(sc);
     }
   });
 
@@ -4252,18 +4890,30 @@ function renderWorkCalendar(){
   for(var i=0; i<firstDow; i++) html += '<div></div>';
   for(var dia=1; dia<=daysInMonth; dia++){
     var dayEntries = byDay[dia] || [];
+    var dayScheds = schedByDay[dia] || [];
     var work = dayEntries.length > 0;
+    var hasSched = dayScheds.length > 0;
+    var interactive = work || hasSched;
     var dayIso = y + '-' + pad(m + 1) + '-' + pad(dia);
     var isSelected = calSelectedDay === dayIso;
     var isToday = today.getFullYear()===y && today.getMonth()===m && today.getDate()===dia;
-    var bg = isSelected ? 'var(--primary)' : (work ? 'var(--primary-soft)' : 'var(--bg)');
-    var col = isSelected ? '#fff' : (work ? 'var(--primary-deep)' : 'var(--ink-soft)');
-    var border = isSelected ? '1px solid var(--primary-deep)' : (isToday ? '1px solid var(--primary)' : '1px solid var(--line)');
-    var cursor = work ? 'cursor:pointer;' : '';
-    var clickAttr = work ? ' onclick="toggleCalDay(\''+dayIso+'\')" title="Ver '+dayEntries.length+' atendimento(s) neste dia"' : '';
+    var bg = isSelected ? 'var(--primary)' : (work ? 'var(--primary-soft)' : (hasSched ? '#FDF6EC' : 'var(--bg)'));
+    var col = isSelected ? '#fff' : (work ? 'var(--primary-deep)' : (hasSched ? 'var(--accent-ink)' : 'var(--ink-soft)'));
+    var border = isSelected ? '1px solid var(--primary-deep)' : (hasSched && !work ? '1px dashed var(--accent)' : (isToday ? '1px solid var(--primary)' : '1px solid var(--line)'));
+    var cursor = interactive ? 'cursor:pointer;' : '';
+    var clickAttr = interactive ? ' onclick="toggleCalDay(\''+dayIso+'\')" title="Ver sessões deste dia"' : '';
 
-    html += '<div'+clickAttr+' style="'+cursor+'padding:6px 0;background:'+bg+';color:'+col+';border:'+border+';border-radius:var(--radius-xs);font-weight:'+(work?700:500)+';transition:all .12s ease;">' +
-      dia + (work ? '<br><span style="font-size:9px;">&#10003;'+(dayEntries.length > 1 ? ' '+dayEntries.length : '')+'</span>' : '') +
+    var subIndicator = '';
+    if(work && hasSched){
+      subIndicator = '<br><span style="font-size:8.5px;">&#10003;'+dayEntries.length+' &#128197;'+dayScheds.length+'</span>';
+    } else if(work){
+      subIndicator = '<br><span style="font-size:9px;">&#10003;'+(dayEntries.length > 1 ? ' '+dayEntries.length : '')+'</span>';
+    } else if(hasSched){
+      subIndicator = '<br><span style="font-size:9px;">&#128197;'+(dayScheds.length > 1 ? ' '+dayScheds.length : '')+'</span>';
+    }
+
+    html += '<div'+clickAttr+' style="'+cursor+'padding:6px 0;background:'+bg+';color:'+col+';border:'+border+';border-radius:var(--radius-xs);font-weight:'+(interactive?700:500)+';transition:all .12s ease;">' +
+      dia + subIndicator +
     '</div>';
   }
   grid.innerHTML = html;
@@ -4277,15 +4927,21 @@ function renderWorkCalendar(){
   var selEntries = entries.filter(function(e){ return e.data === calSelectedDay; }).sort(function(a,b){
     return String(a.hora || '').localeCompare(String(b.hora || ''));
   });
+  var selScheds = schedules.filter(function(sc){
+    return isSchedulePendingForecast(sc) && sc.data === calSelectedDay;
+  }).sort(function(a,b){
+    return String(a.hora || '').localeCompare(String(b.hora || ''));
+  });
 
-  if(selEntries.length === 0){
+  if(selEntries.length === 0 && selScheds.length === 0){
     detailsEl.innerHTML = '';
     return;
   }
 
   var hidden = isFinancialsHidden();
-  var dayTotal = 0;
+  var dayTotal = 0, dayPrevTotal = 0;
   selEntries.forEach(function(e){ dayTotal += e.valor; });
+  selScheds.forEach(function(sc){ dayPrevTotal += getScheduleEffectiveValor(sc); });
 
   var itemsHtml = selEntries.map(function(e){
     var pago = e.status === 'Pago';
@@ -4305,15 +4961,40 @@ function renderWorkCalendar(){
     '</div>';
   }).join('');
 
+  var schedDayHtml = selScheds.map(function(sc){
+    var dispName = getSchedulePatientDisplayName(sc);
+    var vEff = getScheduleEffectiveValor(sc);
+    return '<div class="rep-entry-item" style="background:var(--bg);border-radius:var(--radius-xs);padding:6px 8px;margin-top:4px;">' +
+      '<div style="min-width:0;flex:1;">' +
+        '<div style="font-weight:700;color:var(--ink);">'+escapeHtml(dispName)+'</div>' +
+        '<div style="font-size:11px;color:var(--ink-soft);">&#128197; Agendado'+(sc.hora ? ' às '+escapeHtml(sc.hora) : '')+' (Previsão)</div>' +
+      '</div>' +
+      '<span class="badge pendente" style="font-size:10px;">Previsto</span>' +
+      '<div style="font-family:\'IBM Plex Mono\',monospace;font-weight:600;font-size:12px;min-width:74px;text-align:right;color:var(--accent-ink);">'+(hidden ? 'R$ •••' : formatMoney(vEff))+'</div>' +
+      '<div class="rep-entry-actions">' +
+        '<button class="rep-entry-btn" style="background:var(--success-soft);color:var(--success-ink);border-color:var(--success);" onclick="completeScheduleCheckin(\''+sc.id+'\'); renderReportBody();" title="Confirmar realização">&#10003; Check-in</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  var summaryParts = [];
+  if(selEntries.length > 0){
+    summaryParts.push(selEntries.length + ' ' + (selEntries.length===1?'realizado':'realizados') + ': ' + (hidden ? 'R$ •••' : formatMoney(dayTotal)));
+  }
+  if(selScheds.length > 0){
+    summaryParts.push(selScheds.length + ' ' + (selScheds.length===1?'agendado':'agendados') + ': +' + (hidden ? 'R$ •••' : formatMoney(dayPrevTotal)));
+  }
+
   detailsEl.innerHTML = '<div class="rep-patient-drawer">' +
     '<div class="rep-patient-drawer-head">' +
       '<div>' +
-        '<b style="color:var(--primary-deep);">&#128197; '+formatDateBR(calSelectedDay)+'</b>' +
-        ' <span>('+selEntries.length+' '+(selEntries.length===1?'paciente atendido':'pacientes atendidos')+' &middot; Total: '+(hidden ? 'R$ •••' : formatMoney(dayTotal))+')</span>' +
+        '<b style="color:var(--primary-deep);">&#128197; '+formatDateBR(calSelectedDay)+'</b> ' +
+        '<span>(' + summaryParts.join(' &middot; ') + ')</span>' +
       '</div>' +
       '<button class="rep-entry-btn" onclick="toggleCalDay(null)" title="Fechar detalhes do dia">&#10005; Fechar</button>' +
     '</div>' +
     itemsHtml +
+    schedDayHtml +
   '</div>';
 }
 
@@ -5108,24 +5789,56 @@ async function submitSchedule(){
     }
   }
 
+  // Filtra datas que já possuem agendamento ativo no mesmo horário para este paciente (evita duplicar escala)
+  var filteredDates = targetDates.filter(function(dt){
+    var dup = schedules.some(function(sc){
+      return sc.status !== 'Cancelado' && sc.data === dt && scheduleMatchesPatient(sc, p) && (schedModalMode === 'batch' || (sc.hora || '') === (hora || ''));
+    });
+    return !dup;
+  });
+
+  if(filteredDates.length === 0){
+    alert('Este paciente já possui agendamento ativo na(s) data(s) selecionada(s).');
+    return;
+  }
+
   var btn = document.getElementById('schedSubmitBtn');
   if(btn){ btn.disabled = true; btn.textContent = 'Sincronizando...'; }
 
+  // Mapa de atendimentos já usados em vínculos
+  var usedEntryIds = {};
+  schedules.forEach(function(sc){
+    if(sc.atendimentoId) usedEntryIds[sc.atendimentoId] = true;
+  });
+
   var nowTs = Date.now();
-  var createdItems = targetDates.map(function(dt, idx){
+  var autoLinkedCount = 0;
+  var createdItems = filteredDates.map(function(dt, idx){
+    // Verifica se já existe um atendimento lançado manualmente para este paciente nesta data
+    var existingEntry = entries.find(function(e){
+      return e.data === dt && !usedEntryIds[e.id] && entryMatchesPatient(e, p);
+    });
+    var st = 'Agendado';
+    var linkedEntryId = '';
+    if(existingEntry){
+      st = 'Realizado';
+      linkedEntryId = existingEntry.id;
+      usedEntryIds[existingEntry.id] = true;
+      autoLinkedCount++;
+    }
     return {
       id: 'ag_' + nowTs + '_' + idx,
       pacienteId: p.id,
       pacienteNome: legalName,
       data: dt,
-      hora: hora,
+      hora: (existingEntry && existingEntry.hora) ? existingEntry.hora : hora,
       duracaoMin: duracao,
       valor: valor,
-      status: 'Agendado',
+      status: st,
       observacao: obs,
       calendarEventId: '',
       calendarId: calId,
-      atendimentoId: '',
+      atendimentoId: linkedEntryId,
       criadoEm: new Date().toISOString()
     };
   });
@@ -5143,7 +5856,13 @@ async function submitSchedule(){
 
   closeModal();
   renderAgendaTab();
-  showToast(createdItems.length === 1 ? 'Atendimento agendado!' : (createdItems.length + ' atendimentos agendados!'), 'ok');
+  renderList();
+  renderPatientsTab();
+  var toastMsg = createdItems.length === 1 ? 'Atendimento agendado!' : (createdItems.length + ' atendimentos agendados!');
+  if(autoLinkedCount > 0){
+    toastMsg += ' (' + autoLinkedCount + ' já realizado(s) vinculado(s) automaticamente)';
+  }
+  showToast(toastMsg, 'ok');
 
   try{
     if(createdItems.length === 1){
@@ -5255,6 +5974,8 @@ async function submitEditSchedule(id){
   saveLocalSchedules();
   closeModal();
   renderAgendaTab();
+  renderList();
+  renderPatientsTab();
   showToast('Agendamento atualizado!', 'ok');
 
   try{
@@ -5280,6 +6001,8 @@ async function deleteSchedule(id){
   if(idx > -1) schedules.splice(idx, 1);
   saveLocalSchedules();
   renderAgendaTab();
+  renderList();
+  renderPatientsTab();
   showToast('Agendamento removido.', 'ok');
 
   try{
@@ -5294,18 +6017,51 @@ async function deleteSchedule(id){
   }
 }
 
-async function completeScheduleCheckin(id){
+async function completeScheduleCheckin(id, silentToast){
   var sc = schedules.find(function(x){ return x.id === id; });
   if(!sc) return;
   if(sc.status === 'Realizado'){
-    showToast('Este atendimento já foi confirmado.', 'ok');
+    if(!silentToast) showToast('Este atendimento já foi confirmado.', 'ok');
     return;
   }
 
   var pObj = getSchedulePatientObj(sc);
   var legalName = pObj ? pObj.nome : (sc.pacienteNome || 'Paciente');
   var dispName = getSchedulePatientDisplayName(sc);
-  var valorSessao = parseValor(sc.valor || (pObj && pObj.valorPadrao) || 0);
+  var valorSessao = getScheduleEffectiveValor(sc);
+
+  // Verifica se já existe um atendimento lançado manualmente nesta mesma data sem vínculo com outro agendamento
+  var existingUnlinkedEntry = entries.find(function(e){
+    if(e.data !== sc.data) return false;
+    var matchesPat = pObj ? entryMatchesPatient(e, pObj) : (String(e.nome || '').trim().toLowerCase() === String(legalName || '').trim().toLowerCase());
+    if(!matchesPat) return false;
+    var alreadyLinked = schedules.some(function(other){
+      return other.id !== sc.id && other.atendimentoId === e.id;
+    });
+    return !alreadyLinked;
+  });
+
+  if(existingUnlinkedEntry){
+    sc.status = 'Realizado';
+    sc.atendimentoId = existingUnlinkedEntry.id;
+    if(!sc.calendarId) sc.calendarId = getUserCalendarId();
+    saveLocalSchedules();
+
+    renderAgendaTab();
+    renderPatientsTab();
+    renderList();
+    if(document.getElementById('reportBody')) renderReportBody();
+    if(document.getElementById('pFinSummary') && pObj) renderPatientFinancialDetails(pObj.id);
+    if(!silentToast){
+      showToast('✓ Check-in vinculado ao atendimento de ' + dispName + ' já lançado em ' + formatDateBR(sc.data) + '!', 'ok');
+    }
+    try{
+      await postAction(Object.assign({ action: 'update_schedule' }, sc));
+    }catch(err){
+      console.warn('Aviso ao sincronizar vínculo de check-in na planilha:', err);
+    }
+    return;
+  }
 
   var newEntryId = 'e' + Date.now();
   var newEntry = {
@@ -5330,7 +6086,11 @@ async function completeScheduleCheckin(id){
   renderAgendaTab();
   renderPatientsTab();
   renderList();
-  showToast('✓ Check-in confirmado! Sessão de ' + dispName + ' lançada no financeiro.', 'ok');
+  if(document.getElementById('reportBody')) renderReportBody();
+  if(document.getElementById('pFinSummary') && pObj) renderPatientFinancialDetails(pObj.id);
+  if(!silentToast){
+    showToast('✓ Check-in confirmado! Sessão de ' + dispName + ' lançada no financeiro.', 'ok');
+  }
 
   try{
     await postAction(Object.assign({ action: 'create' }, newEntry));

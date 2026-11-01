@@ -1,15 +1,15 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `01/11/2026`  
-Versão do Service Worker: `atend-v29` (`sw.js`)
+Versão do Service Worker: `atend-v30` (`sw.js`)
 
 ---
 
-## 1. Estabilidade, Concorrência, Sincronização e Link da Planilha (`Plans 001–005` + `v21–v29`)
+## 1. Estabilidade, Concorrência, Sincronização e Link da Planilha (`Plans 001–005` + `v21–v30`)
 - **Validação estrita em `postAction` (`atendimentos.html`):** Detecta erros HTTP, páginas HTML de erro do Google Apps Script e respostas `handled: false` ou `success: false`, retornando o objeto JSON parseado (`data`) para uso direto nos fluxos de sincronização.
 - **Bloqueio de concorrência em `Code.gs`:** Uso de `LockService.getScriptLock()` (timeout de 30s) com `try/catch/finally` e formatação de datas respeitando o fuso horário da planilha (`getTimeZone_()`).
-- **Migração automática de colunas e abas (`ensureColumns_` em `Code.gs`):** Adiciona automaticamente novas colunas (`NomeFantasia`, `OldNome`, `Arquivado`, `Foto`, dados clínicos CREFITO-3) e cria/atualiza as abas `Evolucoes` e `Agendamentos`.
-- **Importação em lote (`bulk_import` em `Code.gs`):** Restauração rápida de backups em uma única chamada em lote.
+- **Migração automática de colunas e abas (`ensureHeaders_` em `Code.gs`):** Adiciona automaticamente novas colunas (`NomeFantasia`, `OldNome`, `Arquivado`, `Foto`, dados clínicos CREFITO-3), expande colunas físicas quando necessário (`insertColumnsAfter`) e cria/atualiza as abas `Evolucoes` e `Agendamentos`.
+- **Importação em lote (`bulk_import` em `Code.gs` e `importBackup` em `atendimentos.html`):** Restauração rápida de backups em uma única chamada em lote incluindo `Pacientes`, `Atendimentos`, `Evolucoes` e `Agendamentos`.
 - **Persistência local resiliente (`saveLocalPatientMeta`, `saveLocalEvolutions`, `saveLocalSchedules` em `atendimentos.html`):** Mantém metadados cadastrais, fotos, nome fantasia, status de arquivamento, evoluções clínicas e agendamentos sincronizados também no `localStorage` (`ft_pmeta_<id>`, `ft_archived_<id>`, `ft_avatar_<id>`, `ft_nome_fantasia_<id>`, `ft_local_evolutions`, `ft_local_schedules`).
 - **Atualização automática do Link da Planilha (`SCRIPT_URL` e `init()` em `atendimentos.html`):** Configurado o link da implantação do Apps Script (`/exec`) com migração automática do `config.scriptUrl` salvo no navegador ao abrir o app.
 
@@ -24,7 +24,7 @@ Versão do Service Worker: `atend-v29` (`sw.js`)
   - Abrir as Configurações (`openSettings`) empilha `{ screen: 'settings' }`; clicar em "Voltar" descarta edições não salvas, mantém as últimas configurações válidas e retorna para a tela inicial (`cancelSetup`).
 - **Valores Financeiros Ocultos por Padrão (Ícone de Olho `🙈 / 👁️`):**
   - Todos os saldos e valores iniciam ocultos por padrão (`sessionStorage.getItem('show_financials') !== 'true'`).
-  - Botão de exibir/ocultar valores presente na **Aba Financeiro**, no **Relatório Financeiro** e no modal **Financeiro do Paciente**.
+  - Botão de exibir/ocultar valores presente na **Aba Financeiro**, no **Relatório Financeiro** e no modal **Financeiro do Paciente**, atualizando instantaneamente também os valores na **Aba Agenda**.
 
 ---
 
@@ -36,7 +36,7 @@ Versão do Service Worker: `atend-v29` (`sw.js`)
 - **Nome Fantasia vs. Nome Completo (`getPatientDisplayName` / `getPatientLegalName`):**
   - **Nome Fantasia:** Aparece antes do Nome Completo na ficha do paciente e é usado em **todas as visualizações internas** do aplicativo.
   - **Nome Completo:** Usado exclusivamente em **todos os documentos exportados** (PDFs de ficha cadastral, prontuários/evoluções, extratos, recibos individuais, comprovantes mensais e exportação CSV). O Nome Fantasia jamais aparece em documentos externos.
-- **Ficha Cadastral e Prontuário CREFITO-3 (`openPatientForm`):** Campos alinhados lado a lado no celular (`40px`/`42px`), com exportação da ficha completa em PDF.
+- **Ficha Cadastral e Prontuário CREFITO-3 (`openPatientForm` / `exportPatientFichaPDF`):** Campos alinhados lado a lado no celular (`40px`/`42px`), com botão **"📄 Exportar Ficha (PDF)"** para geração da ficha completa e prontuário CREFITO-3 usando exclusivamente o Nome Completo oficial.
 - **Exames e Documentos (`openPatientFilesModal`):** Dois botões dedicados para anexar PDFs/imagens ou bater foto na hora (`capture="environment"`), visualizar, baixar e excluir arquivos (armazenados via `IndexedDB` `ft_docs_db`).
 - **Financeiro Individual do Paciente (`openPatientFinancial` / `renderPatientFinancialDetails`):**
   - Filtro por período (*Tudo*, *Por Mês*, *Por Ano*, *Vários Meses*) e botão exibir/ocultar valores (`🙈 / 👁️`).
@@ -45,13 +45,13 @@ Versão do Service Worker: `atend-v29` (`sw.js`)
   - Ao clicar em **Finalizar / Arquivar Paciente**, todos os dados são mantidos intactos e o card é movido para a seção **"📁 Pacientes Arquivados"** no final da página.
   - Pacientes ativos não podem ser excluídos diretamente; a **Exclusão Definitiva** só é permitida após o paciente estar arquivado e exige confirmação explícita (`confirm(...)`).
 
-### Aba 2 — Agenda e Integração com Google Agenda (`📅 Agenda`) (`v27–v29`)
+### Aba 2 — Agenda e Integração com Google Agenda (`📅 Agenda`) (`v27–v30`)
 - **E-mail Padrão Configurado (`DEFAULT_CALENDAR_ID = 'scarletsantos7@gmail.com'`):**
   - Definido como padrão tanto no aplicativo (`atendimentos.html` via `getUserCalendarId()` e `init()`) quanto no servidor da planilha (`Code.gs` via `resolveUserCalendar_()`), permitindo também alterar ou testar a conexão em **⚙️ Configurar Agenda**.
 - **Agendamento Único ou Escala da Semana / Mês (`openScheduleModal` / `submitSchedule`):**
   - Permite agendar uma sessão avulsa ou gerar em lote toda a escala da semana, quinzena, mês atual ou próximo mês escolhendo os dias da semana (`Seg` a `Dom`).
 - **Sincronização Automática com Google Agenda (`CalendarApp` em `Code.gs`):**
-  - Cria automaticamente os eventos no Google Agenda com nome do paciente, endereço, telefone e observações (`create_schedule`, `create_schedules_batch`), atualiza data/hora ao remarcar (`update_schedule`) e remove do Google Agenda ao cancelar (`delete_schedule`).
+  - Cria automaticamente os eventos no Google Agenda com nome do paciente, endereço, telefone e observações (`create_schedule`, `create_schedules_batch`), atualiza data/hora ao remarcar (`update_schedule`) e remove do Google Agenda ao cancelar (`delete_schedule`) ou ao excluir um paciente (`delete_patient`).
   - Inclui também atalho **"📅 Abrir no Google Agenda"** por sessão e exportação de arquivo `.ics` (**"📲 Exportar Agenda"**).
 - **Prevenção de Conflitos e Vínculo Bidirecional entre Agenda, Check-ins e Lançamentos Manuais (`v28`):**
   - **No modal "Novo Atendimento / Check-in" (`openNewEntry` / `onNewEntryPatientOrDateChange`):** Detecta automaticamente se o paciente tem agendamento pendente na data escolhida (ou em datas próximas para reposição/antecipação), pré-preenche horário/valor e vincula o lançamento ao agendamento (`status = 'Realizado'`, `atendimentoId = entry.id`), além de exibir alerta amarelo caso já exista atendimento lançado no mesmo dia.
@@ -62,7 +62,7 @@ Versão do Service Worker: `atend-v29` (`sw.js`)
 - **Layout Limpo e Ordenação:** Botão **"+ Nova Evolução"**, filtros recolhidos por padrão e ordenação crescente/decrescente.
 - **Histórico de Evoluções do Paciente (`openPatientEvolutions`):** Seleção individual ou **"Selecionar todas"** para exportar múltiplas evoluções em um PDF único (`exportSelectedPatientEvolutionsPDF`).
 
-### Aba 4 — Financeiro e Previsões (`💰 Financeiro`) (`v25–v28`)
+### Aba 4 — Financeiro e Previsões (`💰 Financeiro`) (`v25–v30`)
 - **Painel de Previsão Mensal (`#finForecastCard` em `renderList`):**
   - Separa os KPIs principais de **Ganho Real (Sessões já realizadas: Recebido vs. A Receber)** do quadro de previsão do mês (**Ganho Real (Feito)**, **Previsto (Agendado)** e **Ganho Possível Total**), listando também as sessões agendadas do mês com botão de **✓ Check-in**.
 - **Relatório Financeiro Geral Interativo (`openReports` / `renderReportBody` / `renderWorkCalendar`):**
@@ -70,3 +70,22 @@ Versão do Service Worker: `atend-v29` (`sw.js`)
   - **Gráfico de 12 Meses Empilhado:** Exibe barras com 3 camadas (*Recebido*, *A Receber já feito* e *Previsto na Agenda tracejado em azul*).
   - **Todos os Pacientes no Ranking (Interativo):** Lista 100% dos pacientes com sessões realizadas ou agendadas no período (sem limite de 6), mostrando ganho real e ganho possível; ao clicar em qualquer paciente, expande a lista de sessões realizadas e agendadas com botões diretos para editar, alternar Pago/Pendente, excluir ou fazer Check-in.
   - **Calendário Interativo de Dias Trabalhados e Agendados:** Marca dias trabalhados (`✓` verde) e dias agendados (`📅` azul); ao clicar em qualquer dia, exibe todos os pacientes atendidos e agendados naquela data com atalhos de edição e Check-in.
+
+---
+
+## 4. Auditoria Minuciosa de Bugs e Incongruências Back-end & Front-end (`atend-v30`)
+
+### Back-end (`Code.gs`)
+1. **Incongruência de chaves em `create_schedules_batch`:** O front-end lia `respB.eventMap` e `respB.calendarSyncedCount`, enquanto o `Code.gs` retornava apenas `result.eventIds`. Agora o `Code.gs` retorna `result.eventMap`, `result.eventIds` e `result.calendarSyncedCount` (quantidade exata de eventos criados no Google Agenda).
+2. **Enriquecimento automático de dados do paciente nos eventos do Google Agenda (`enrichScheduleItemWithPatient_`):** Ao criar ou atualizar agendamentos (`createCalendarEventForSchedule_` / `updateCalendarEventForSchedule_`), o `Code.gs` agora busca automaticamente telefone, endereço completo (`Endereco, Bairro, Cidade`) e nome de exibição na aba `Pacientes` caso o payload não os envie, garantindo que o evento no Google Agenda nunca fique sem localização ou contato.
+3. **Remoção em cascata de eventos do Google Agenda ao excluir paciente (`delete_patient`):** Antes de remover as linhas da aba `Agendamentos` de um paciente excluído, o `Code.gs` percorre os agendamentos do paciente e apaga os respectivos eventos no Google Agenda (`deleteCalendarEventForSchedule_`), evitando eventos órfãos na agenda.
+4. **Coluna `OldNome` persistida na aba `Pacientes` (`PAC_HEADERS`) e propagação de renomeação (`updateRowsByField_`):** Adicionada a coluna `OldNome` em `PAC_HEADERS` e implementada a propagação automática em `update_patient`: quando o nome oficial do paciente é alterado, o `Code.gs` preserva o nome anterior em `OldNome` e atualiza o nome nas abas `Evolucoes` (`PacienteNome`), `Agendamentos` (`PacienteNome`) e `Atendimentos` (`Paciente`).
+5. **Proteção de limites de colunas em `ensureHeaders_`:** Corrigido caso em que uma planilha com número de colunas físicas menor que `expectedHeaders.length` ou totalmente vazia (`lastRow === 0`) poderia falhar ao adicionar novas colunas; agora `ensureHeaders_` expande as colunas com `sheet.insertColumnsAfter` antes de gravar os cabeçalhos.
+6. **Restauração da aba `Agendamentos` em `bulk_import`:** O endpoint `bulk_import` no `Code.gs` e a função `importBackup` no `atendimentos.html` agora incluem `body.agendamentos`, restaurando os agendamentos diretamente na planilha além do `localStorage`.
+
+### Front-end (`atendimentos.html`)
+1. **Variáveis CSS ausentes em `:root` (botão de Check-in transparente e badges):** Definidas as variáveis `--ok`, `--ok-bg`, `--err`, `--danger-bg`, `--primary-dark`, `--bg-deep`, `--ink-faint` e `--line-strong` em `:root`, corrigindo o fundo do botão **✓ Check-in** na aba Agenda (`background:var(--ok)`) e cores de badges/alertas.
+2. **IDs de DOM incorretos ao atualizar modais abertos após Check-in (`completeScheduleCheckin`):** Corrigidas as referências `document.getElementById('reportBody')` para `document.getElementById('repBody')` e `document.getElementById('pFinSummary')` para `document.getElementById('pFinSessionsList')`, garantindo que o Check-in feito de dentro do Relatório Financeiro ou do Financeiro Individual do Paciente atualize a tela imediatamente.
+3. **Atualização imediata da aba Agenda ao clicar no botão de privacidade (`toggleHideFinancials`):** Adicionada chamada a `renderAgendaTab()` dentro de `toggleHideFinancials()` para ocultar/exibir os valores das sessões agendadas instantaneamente.
+4. **Botão e função de exportação de PDF da Ficha Cadastral / Prontuário CREFITO-3 (`exportPatientFichaPDF`):** Adicionado o botão **"📄 Exportar Ficha (PDF)"** no modal de edição do paciente (`openPatientForm`), gerando o PDF completo com dados cadastrais e prontuário CREFITO-3 utilizando exclusivamente o Nome Completo oficial (`getPatientLegalName`).
+5. **Propagação em memória ao renomear paciente (`submitPatientForm`):** Quando o nome completo de um paciente é alterado, o app agora atualiza imediatamente em memória os registros vinculados em `entries`, `evolutions` e `schedules`, mantendo consistência instantânea sem exigir recarregamento.

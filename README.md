@@ -4,20 +4,39 @@ App para celular (PWA instalável) que controla pacientes atendidas e valores a 
 
 ## O que o app faz
 
-- Cadastro de pacientes (nome, telefone, valor padrão da sessão e forma de pagamento)
-- Lançamento de atendimentos com lista de pacientes, data, horário e valor (o valor já vem preenchido pelo padrão da paciente)
-- Registro da localização do atendimento pelo GPS do celular, com link do Google Maps no comprovante
-- Edição e exclusão de atendimentos lançados
-- Registro de pagamento com data
-- Resumo mensal por paciente (esperado × recebido × pendente)
-- Comprovante em PDF por sessão
-- Comprovante mensal em PDF por paciente ou com o resumo de todos os pacientes
-- **Relatório anual** com faturamento, recebido × a receber, nº de sessões, pacientes, ticket médio, meses trabalhados × ociosos, gráfico de barras por mês, ranking de pacientes e **calendário dos dias trabalhados**
-- **Backup**: exportar todos os dados em `.json` (restaurável) ou `.csv` (abre no Excel) e **restaurar** a partir de um `.json`
-- **Banco de exercícios**: cadastro por nome, tipo (fortalecimento, alongamento, mobilidade…), séries/repetições padrão, observação e **imagem** (escolhida do aparelho, comprimida automaticamente e com moldura na paleta). **Busca por nome e filtro por tipo**.
-- **Rotinas por paciente**: cada paciente pode ter **várias rotinas** (ex.: "Terça", "Quinta"), com exercícios, séries/repetições específicas e **reordenação** (subir/descer). Dá para criar, renomear e excluir rotinas.
-- **Cartilha em PDF** para impressão, em 3 formatos (cartilha em 2 colunas com imagem, detalhada com imagem grande, ou lista compacta), com **título e paciente** escolhidos na hora, **descrição do exercício**, molduras nas imagens e **marca d'água de outono**
-- Comprovantes mensais com **marca d'água de outono**, tabela com faixas de contraste suave e cabeçalho "Fisioterapeuta Responsável"
+O aplicativo conta com **3 abas principais**:
+
+### 1. Pacientes e Dados Cadastrais (Aba Inicial)
+- **Lista e busca rápida de pacientes** por nome, telefone, documento ou bairro.
+- **Botão "+ Adicionar novo paciente"** com ficha cadastral completa e prontuário CREFITO-3:
+  - Identificação (Nome completo, RG/CPF, Data de nascimento).
+  - Contatos & Endereço (Telefone/WhatsApp com atalho direto, Contato 02 de emergência/familiar, Endereço, Bairro, Cidade).
+  - Condições de Atendimento & Contrato (Valor da sessão, Forma de pagamento padrão, Frequência semanal de 1x a 7x/sem, TCLE entregue Sim/Não, Contrato assinado Sim/Não).
+  - Prontuário Domiciliar CREFITO-3 (Diagnóstico clínico/CID, Diagnóstico cinesiológico-funcional/queixa principal, Objetivos terapêuticos).
+- **Menu cascata em cada paciente** com 5 ações rápidas:
+  - **Check-in**: Lançamento rápido de atendimento já com o paciente selecionado e valor padrão preenchido.
+  - **Evolução**: Registro clínico da sessão (PA, FC, Estado clínico geral e Condutas fisioterapêuticas).
+  - **Evoluções**: Histórico completo de prontuários do paciente e exportação para PDF.
+  - **Dados Cadastrais**: Visualização e edição completa da ficha do paciente.
+  - **Financeiro**: Extrato financeiro exclusivo do paciente com sessões, saldos e exportação de PDF.
+
+### 2. Evoluções (Visão Geral de Prontuários)
+- **Feed cronológico** de todas as evoluções clínicas de todos os pacientes (da mais recente para a mais antiga).
+- **Multi-filtros combináveis**: por Paciente, Mês/Ano, Período (De / Até) e busca textual por termos (queixas, condutas, sinais vitais).
+- **Exportação para PDF** com cabeçalho profissional, marca d'água de outono e carimbo digital.
+- **Backup clínico local** (JSON/CSV) e sincronização contínua com a planilha.
+
+### 3. Financeiro
+- **Controle mensal** de atendimentos com navegação de meses.
+- **Ícone de olho (estilo app de banco)** para ocultar/exibir os saldos de recebido e a receber com um toque.
+- **Comprovantes em PDF com seleção múltipla de pacientes**: gere comprovantes individuais ou consolidados com resumo e página detalhada por paciente.
+- **Relatório financeiro anual avançado**:
+  - KPIs: Faturamento anual, Recebido, A Receber, Taxa de inadimplência (%), Total de sessões, Pacientes ativos e Ticket médio.
+  - Gráfico comparativo mensal com barras empilhadas de recebido × pendente.
+  - Ranking de pacientes com barras de porcentagem de participação no faturamento.
+  - Distribuição das receitas por forma de pagamento (Pix, Dinheiro, Transferência, Cartão).
+  - Calendário interativo dos dias trabalhados no mês.
+  - Exportação do Relatório Financeiro Anual completo em PDF.
 
 ## 🔗 Link da planilha embutido
 

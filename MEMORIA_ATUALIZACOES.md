@@ -1,11 +1,11 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `01/11/2026`  
-Versão do Service Worker: `atend-v30` (`sw.js`)
+Versão do Service Worker: `atend-v31` (`sw.js`)
 
 ---
 
-## 1. Estabilidade, Concorrência, Sincronização e Link da Planilha (`Plans 001–005` + `v21–v30`)
+## 1. Estabilidade, Concorrência, Sincronização e Link da Planilha (`Plans 001–005` + `v21–v31`)
 - **Validação estrita em `postAction` (`atendimentos.html`):** Detecta erros HTTP, páginas HTML de erro do Google Apps Script e respostas `handled: false` ou `success: false`, retornando o objeto JSON parseado (`data`) para uso direto nos fluxos de sincronização.
 - **Bloqueio de concorrência em `Code.gs`:** Uso de `LockService.getScriptLock()` (timeout de 30s) com `try/catch/finally` e formatação de datas respeitando o fuso horário da planilha (`getTimeZone_()`).
 - **Migração automática de colunas e abas (`ensureHeaders_` em `Code.gs`):** Adiciona automaticamente novas colunas (`NomeFantasia`, `OldNome`, `Arquivado`, `Foto`, dados clínicos CREFITO-3), expande colunas físicas quando necessário (`insertColumnsAfter`) e cria/atualiza as abas `Evolucoes` e `Agendamentos`.
@@ -45,11 +45,13 @@ Versão do Service Worker: `atend-v30` (`sw.js`)
   - Ao clicar em **Finalizar / Arquivar Paciente**, todos os dados são mantidos intactos e o card é movido para a seção **"📁 Pacientes Arquivados"** no final da página.
   - Pacientes ativos não podem ser excluídos diretamente; a **Exclusão Definitiva** só é permitida após o paciente estar arquivado e exige confirmação explícita (`confirm(...)`).
 
-### Aba 2 — Agenda e Integração com Google Agenda (`📅 Agenda`) (`v27–v30`)
+### Aba 2 — Agenda e Integração com Google Agenda (`📅 Agenda`) (`v27–v31`)
 - **E-mail Padrão Configurado (`DEFAULT_CALENDAR_ID = 'scarletsantos7@gmail.com'`):**
   - Definido como padrão tanto no aplicativo (`atendimentos.html` via `getUserCalendarId()` e `init()`) quanto no servidor da planilha (`Code.gs` via `resolveUserCalendar_()`), permitindo também alterar ou testar a conexão em **⚙️ Configurar Agenda**.
 - **Agendamento Único ou Escala da Semana / Mês (`openScheduleModal` / `submitSchedule`):**
   - Permite agendar uma sessão avulsa ou gerar em lote toda a escala da semana, quinzena, mês atual ou próximo mês escolhendo os dias da semana (`Seg` a `Dom`).
+  - **Destaque Visual do "Período Rápido" (`v31`):** Os botões de período rápido (*Esta Semana*, *Próximas 2 Semanas*, *Este Mês Inteiro*, *Próximo Mês*) mudam de cor (terracota com texto branco em destaque `.preset-chip.active`) ao serem selecionados ou quando as datas inicial/final correspondem ao período.
+  - **Horários Diferentes por Dia da Semana + Verificação na Prévia (`v31`):** Quando 2 ou mais dias da semana são selecionados para o paciente (ex.: *Terça* e *Quinta*), exibe automaticamente o painel **⏰ Horários por Dia da Semana** permitindo definir horários distintos para cada dia (ex.: Terça às `14:00` e Quinta às `10:00`). O quadro de pré-visualização mostra o resumo da escala semanal em badges e exibe o horário exato ao lado de cada data que será criada (`Ter 03/11 (14:00), Qui 05/11 (10:00)...`), com botão para expandir todas as datas.
 - **Sincronização Automática com Google Agenda (`CalendarApp` em `Code.gs`):**
   - Cria automaticamente os eventos no Google Agenda com nome do paciente, endereço, telefone e observações (`create_schedule`, `create_schedules_batch`), atualiza data/hora ao remarcar (`update_schedule`) e remove do Google Agenda ao cancelar (`delete_schedule`) ou ao excluir um paciente (`delete_patient`).
   - Inclui também atalho **"📅 Abrir no Google Agenda"** por sessão e exportação de arquivo `.ics` (**"📲 Exportar Agenda"**).

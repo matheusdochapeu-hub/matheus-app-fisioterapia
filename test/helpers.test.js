@@ -13,10 +13,20 @@ function extractFn(name) {
   return new Function(`return (${match[0]})`)();
 }
 
+function extractFnWithScope(name, scopeObj) {
+  const regex = new RegExp(`function ${name}\\([\\s\\S]*?\\n}`);
+  const match = html.match(regex);
+  if (!match) throw new Error(`Function ${name} not found in atendimentos.html`);
+  const keys = Object.keys(scopeObj);
+  const vals = Object.values(scopeObj);
+  return new Function(...keys, `return (${match[0]})`)(...vals);
+}
+
 const parseValor = extractFn('parseValor');
 const formatDateBR = extractFn('formatDateBR');
 const initials = extractFn('initials');
 const escapeHtml = extractFn('escapeHtml');
+const renderPatientAvatar = extractFnWithScope('renderPatientAvatar', { escapeHtml, initials });
 
 describe('parseValor', () => {
   test('parses numbers and strings correctly', () => {
@@ -57,3 +67,24 @@ describe('escapeHtml', () => {
     assert.equal(escapeHtml(null), '');
   });
 });
+
+describe('renderPatientAvatar', () => {
+  test('renders image tag when patient has photo', () => {
+    const p = { nome: 'Dona Diva', foto: 'data:image/jpeg;base64,abc123xyz' };
+    const res = renderPatientAvatar(p);
+    assert.match(res, /<img src="data:image\/jpeg;base64,abc123xyz"/);
+    assert.match(res, /class="avatar-img"/);
+  });
+
+  test('falls back to initials when patient has no photo', () => {
+    const p = { nome: 'Dona Diva', foto: '' };
+    const res = renderPatientAvatar(p);
+    assert.equal(res, '<div class="avatar">DD</div>');
+  });
+
+  test('handles null patient with fallback name', () => {
+    const res = renderPatientAvatar(null, 'Carlos Souza');
+    assert.equal(res, '<div class="avatar">CS</div>');
+  });
+});
+

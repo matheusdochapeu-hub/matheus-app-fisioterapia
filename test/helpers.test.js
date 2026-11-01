@@ -104,4 +104,26 @@ describe('renderPatientAvatar', () => {
   });
 });
 
+const scheduleMatchesPatient = extractFn('scheduleMatchesPatient');
+const isSchedulePendingForecast = extractFn('isSchedulePendingForecast');
+
+describe('scheduleMatchesPatient and isSchedulePendingForecast', () => {
+  test('matches schedule by pacienteId, legal name, or nomeFantasia', () => {
+    const p = { id: 'p1', nome: 'Diva Ferreira dos Santos', nomeFantasia: 'Dona Diva' };
+    assert.equal(scheduleMatchesPatient({ pacienteId: 'p1', pacienteNome: 'Outro' }, p), true);
+    assert.equal(scheduleMatchesPatient({ pacienteId: '', pacienteNome: 'Diva Ferreira dos Santos' }, p), true);
+    assert.equal(scheduleMatchesPatient({ pacienteId: '', pacienteNome: 'dona diva' }, p), true);
+    assert.equal(scheduleMatchesPatient({ pacienteId: 'p2', pacienteNome: 'Outro Paciente' }, p), false);
+  });
+
+  test('identifies only unlinked Agendado schedules as pending forecast', () => {
+    assert.equal(isSchedulePendingForecast({ status: 'Agendado', atendimentoId: '' }), true);
+    assert.equal(isSchedulePendingForecast({ status: '', atendimentoId: '' }), true);
+    assert.equal(isSchedulePendingForecast({ status: 'Realizado', atendimentoId: 'e123' }), false);
+    assert.equal(isSchedulePendingForecast({ status: 'Cancelado', atendimentoId: '' }), false);
+    assert.equal(isSchedulePendingForecast({ status: 'Agendado', atendimentoId: 'e123' }), false);
+  });
+});
+
+
 

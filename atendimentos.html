@@ -2466,34 +2466,111 @@ function openPatientEvolutions(patientId){
     ? '<p class="empty-mini">Nenhuma evolução registrada para este paciente ainda.</p>'
     : pEvos.map(function(ev){
         return '<div class="evo-card" style="margin-bottom:8px;padding:10px;">' +
-          '<div class="evo-card-head">' +
-            '<div style="font-size:12px;font-weight:700;color:var(--primary-deep);">&#128197; '+formatDateBR(ev.data)+(ev.hora?' às '+ev.hora:'')+'</div>' +
-            '<div class="vitals-row">' +
-              (ev.pa ? '<span class="badge-vital pa">PA: '+escapeHtml(ev.pa)+'</span>' : '') +
-              (ev.fc ? '<span class="badge-vital fc">FC: '+escapeHtml(ev.fc)+'</span>' : '') +
+          '<label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin:0;">' +
+            '<input type="checkbox" class="evo-select-chk" value="'+ev.id+'" checked onchange="updateSelectedEvoUI(\''+patientId+'\')" style="margin-top:2px;accent-color:var(--primary);width:16px;height:16px;cursor:pointer;flex-shrink:0;">' +
+            '<div style="flex:1;min-width:0;">' +
+              '<div class="evo-card-head" style="margin-bottom:4px;">' +
+                '<div style="font-size:12px;font-weight:700;color:var(--primary-deep);">&#128197; '+formatDateBR(ev.data)+(ev.hora?' às '+ev.hora:'')+'</div>' +
+                '<div class="vitals-row">' +
+                  (ev.pa ? '<span class="badge-vital pa">PA: '+escapeHtml(ev.pa)+'</span>' : '') +
+                  (ev.fc ? '<span class="badge-vital fc">FC: '+escapeHtml(ev.fc)+'</span>' : '') +
+                '</div>' +
+              '</div>' +
+              (ev.estadoClinico ? '<div class="evo-section-block" style="margin-top:4px;"><div class="evo-section-title">Estado Clínico</div><div class="evo-section-text" style="font-size:12px;">'+escapeHtml(ev.estadoClinico)+'</div></div>' : '') +
+              (ev.condutas ? '<div class="evo-section-block" style="margin-top:4px;"><div class="evo-section-title">Condutas</div><div class="evo-section-text" style="font-size:12px;">'+escapeHtml(ev.condutas)+'</div></div>' : '') +
             '</div>' +
-          '</div>' +
-          (ev.estadoClinico ? '<div class="evo-section-block"><div class="evo-section-title">Estado Clínico</div><div class="evo-section-text">'+escapeHtml(ev.estadoClinico)+'</div></div>' : '') +
-          (ev.condutas ? '<div class="evo-section-block"><div class="evo-section-title">Condutas</div><div class="evo-section-text">'+escapeHtml(ev.condutas)+'</div></div>' : '') +
+          '</label>' +
         '</div>';
       }).join('');
+
+  var selectAllToolbar = pEvos.length > 0
+    ? '<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 4px 8px;margin-bottom:8px;border-bottom:1px solid var(--line);">' +
+        '<label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--primary-deep);cursor:pointer;user-select:none;">' +
+          '<input type="checkbox" id="selectAllEvoChk" checked onchange="toggleSelectAllPatientEvos(\''+patientId+'\')" style="accent-color:var(--primary);width:16px;height:16px;cursor:pointer;">' +
+          '<span>Selecionar todas</span>' +
+        '</label>' +
+        '<span id="selectedEvoCount" style="font-size:11.5px;color:var(--ink-soft);font-weight:600;">'+pEvos.length+' de '+pEvos.length+' selecionada(s)</span>' +
+      '</div>'
+    : '';
 
   var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
     '<div class="modal">' +
       '<div class="grabber"></div>' +
-      '<h2>Prontuário · ' + escapeHtml(p.nome) + '</h2>' +
-      '<p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 12px;">Histórico de evoluções clínicas do paciente (' + pEvos.length + ').</p>' +
+      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">' +
+        '<div style="width:46px;height:46px;border-radius:14px;overflow:hidden;flex-shrink:0;">' + renderPatientAvatar(p) + '</div>' +
+        '<div style="min-width:0;">' +
+          '<h2 style="margin:0 0 2px;font-size:18px;">Prontuário · ' + escapeHtml(p.nome) + '</h2>' +
+          '<p style="font-size:12px;color:var(--ink-soft);margin:0;">Histórico de evoluções clínicas do paciente (' + pEvos.length + ').</p>' +
+        '</div>' +
+      '</div>' +
+
+      (pEvos.length > 0 ? selectAllToolbar : '') +
 
       '<div style="max-height:300px;overflow-y:auto;border:1px solid var(--line);border-radius:var(--radius-sm);padding:8px;background:var(--bg);">' + evosHtml + '</div>' +
 
-      '<div class="btn-row">' +
-        '<button class="btn primary small" style="flex:1;" onclick="closeModal(); openNewEvolution(\''+patientId+'\')">+ Nova Evolução</button>' +
-        '<button class="btn accent small" style="flex:1;" onclick="generatePatientEvolutionsPDF(\''+patientId+'\')">&#128196; Exportar PDF</button>' +
-        '<button class="btn ghost small" onclick="closeModal()">Fechar</button>' +
+      '<div class="btn-row" style="margin-top:14px;">' +
+        (pEvos.length > 0
+          ? '<button class="btn accent small" id="btnExportSelectedEvos" style="flex:1;" onclick="exportSelectedPatientEvolutionsPDF(\''+patientId+'\')">&#128196; Exportar PDF ('+pEvos.length+')</button>'
+          : '') +
+        '<button class="btn ghost small" style="'+(pEvos.length === 0 ? 'width:100%;' : '')+'" onclick="closeModal()">Fechar</button>' +
       '</div>' +
     '</div>' +
   '</div>';
   openModal(html);
+}
+
+function toggleSelectAllPatientEvos(patientId){
+  var masterChk = document.getElementById('selectAllEvoChk');
+  var isChecked = masterChk ? masterChk.checked : false;
+  var chks = document.querySelectorAll('.evo-select-chk');
+  chks.forEach(function(c){ c.checked = isChecked; });
+  updateSelectedEvoUI(patientId);
+}
+
+function updateSelectedEvoUI(patientId){
+  var chks = document.querySelectorAll('.evo-select-chk');
+  var total = chks.length;
+  var selected = 0;
+  chks.forEach(function(c){ if(c.checked) selected++; });
+
+  var countEl = document.getElementById('selectedEvoCount');
+  if(countEl) countEl.textContent = selected + ' de ' + total + ' selecionada(s)';
+
+  var masterChk = document.getElementById('selectAllEvoChk');
+  if(masterChk){
+    masterChk.checked = (selected === total && total > 0);
+    masterChk.indeterminate = (selected > 0 && selected < total);
+  }
+
+  var btn = document.getElementById('btnExportSelectedEvos');
+  if(btn){
+    btn.disabled = (selected === 0);
+    btn.innerHTML = '&#128196; Exportar PDF (' + selected + ')';
+    btn.style.opacity = (selected === 0 ? '0.5' : '1');
+    btn.style.cursor = (selected === 0 ? 'not-allowed' : 'pointer');
+  }
+}
+
+function exportSelectedPatientEvolutionsPDF(patientId){
+  var p = patients.find(function(x){ return x.id === patientId; });
+  if(!p) return;
+
+  var chks = document.querySelectorAll('.evo-select-chk');
+  var selectedIds = [];
+  chks.forEach(function(c){ if(c.checked) selectedIds.push(c.value); });
+
+  if(selectedIds.length === 0){
+    alert('Por favor, selecione ao menos uma evolução para exportar.');
+    return;
+  }
+
+  var selectedList = evolutions.filter(function(x){
+    return x.pacienteId === patientId && selectedIds.indexOf(x.id) > -1;
+  }).sort(function(a,b){
+    return (a.data || '').localeCompare(b.data || '');
+  });
+
+  renderEvolutionsToPDF(selectedList, 'Prontuário Fisioterapêutico · Evoluções', 'Paciente: ' + p.nome);
 }
 
 function generateSingleEvolutionPDF(evoId){
@@ -2503,12 +2580,7 @@ function generateSingleEvolutionPDF(evoId){
 }
 
 function generatePatientEvolutionsPDF(patientId){
-  var p = patients.find(function(x){ return x.id === patientId; });
-  if(!p) return;
-  var pEvos = evolutions.filter(function(x){ return x.pacienteId === patientId; })
-    .sort(function(a,b){ return (a.data||'').localeCompare(b.data||''); });
-  if(pEvos.length === 0){ alert('Nenhuma evolução clínica para este paciente.'); return; }
-  renderEvolutionsToPDF(pEvos, 'Prontuário Fisioterapêutico · Evoluções', 'Paciente: ' + p.nome);
+  exportSelectedPatientEvolutionsPDF(patientId);
 }
 
 function renderEvolutionsToPDF(list, mainTitle, subtitle){
@@ -2567,7 +2639,8 @@ function renderEvolutionsToPDF(list, mainTitle, subtitle){
   doc.setFontSize(8.5); doc.setTextColor(138,111,94); doc.setFont('helvetica','normal');
   doc.text('Emitido em ' + formatDateBR(isoDate(new Date())), 15, 285);
 
-  doc.save('prontuario_evolucoes_' + isoDate(new Date()) + '.pdf');
+  var cleanName = (list[0] && list[0].pacienteNome) ? list[0].pacienteNome.replace(/\s+/g, '_') + '_' : '';
+  doc.save('prontuario_evolucoes_' + cleanName + isoDate(new Date()) + '.pdf');
 }
 
 /* ============================================================

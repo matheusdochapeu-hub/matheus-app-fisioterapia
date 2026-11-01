@@ -1629,10 +1629,18 @@ function saveLocalSchedules(){
 /* Verifica se um agendamento pertence a determinado paciente */
 function scheduleMatchesPatient(sc, pObj){
   if(!sc || !pObj) return false;
-  if(sc.pacienteId && sc.pacienteId === pObj.id) return true;
+  if(sc.pacienteId){
+    return sc.pacienteId === pObj.id;
+  }
   if(sc.pacienteNome){
-    var found = findPatientByName(sc.pacienteNome);
-    if(found && found.id === pObj.id) return true;
+    var target = String(sc.pacienteNome).trim().toLowerCase();
+    var pNome = String(pObj.nome || '').trim().toLowerCase();
+    var pFant = String(pObj.nomeFantasia || '').trim().toLowerCase();
+    if((pNome && target === pNome) || (pFant && target === pFant)) return true;
+    if(typeof findPatientByName === 'function'){
+      var found = findPatientByName(sc.pacienteNome);
+      if(found && found.id === pObj.id) return true;
+    }
   }
   return false;
 }

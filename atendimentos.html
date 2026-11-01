@@ -870,7 +870,7 @@
    Insira o link gerado em "Implantar > App da Web" (/exec).
    Se vazio, o app solicitará o link na primeira inicialização.
    ============================================================ */
-var SCRIPT_URL = '';
+var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwGStc4TIkgeIhJhGvlTtVUOd-oamJ77wMgvaiisl8xjUXgXqgqm0bTPl6T0vy8Gqmw4g/exec';
 
 var CONFIG_KEY = 'config';
 var config = null;
@@ -4305,11 +4305,20 @@ async function init(){
     config = null;
   }
 
+  // Atualiza automaticamente o link salvo caso uma nova implantação padrão tenha sido definida
+  if(config && SCRIPT_URL && config.scriptUrl !== SCRIPT_URL){
+    config.scriptUrl = SCRIPT_URL;
+    try{ localStorage.setItem(CONFIG_KEY, JSON.stringify(config)); }catch(e){}
+  }
+
   var savedTab = 'pacientes';
   try{ savedTab = localStorage.getItem('active_tab') || 'pacientes'; }catch(e){}
 
   var hasUrl = (config && config.scriptUrl && config.scriptUrl.indexOf('/exec') > -1) || (SCRIPT_URL && SCRIPT_URL.indexOf('/exec') > -1);
   if(!config || !config.providerName || !hasUrl){
+    if(document.getElementById('scriptUrlInput') && SCRIPT_URL){
+      document.getElementById('scriptUrlInput').value = SCRIPT_URL;
+    }
     document.getElementById('setupScreen').classList.remove('hidden');
   } else {
     document.getElementById('mainScreen').classList.remove('hidden');

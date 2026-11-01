@@ -91,7 +91,7 @@ async function main() {
     }
 
     const body = {
-      message: `feat: atualizar ${relPath} (arquivar pacientes, exames/docs, relatorio e privacidade)`,
+      message: `feat: atualizar ${relPath} (voltar das configuracoes e foto de perfil do paciente)`,
       content: contentBase64,
       branch: BRANCH
     };

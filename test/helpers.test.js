@@ -418,3 +418,63 @@ describe('Pacientes, bloqueios de agenda e período de férias (v46)', () => {
     assert.equal(getVacationDatesRange('2026-01-01', '2026-04-30').length, 120);
   });
 });
+
+
+describe('Deduplicação de Pacientes (v47)', () => {
+  const normName = extractFn('normName');
+  const NON_PATIENT_NAMES = ['agachamento', 'flexao', 'prancha', 'exercicio', 'rotina', 'alongamento', '__bloqueio__', 'bloqueio', 'ausencia', 'ferias'];
+  const BLOCK_LABELS = ['ferias', 'folga / recesso', 'congresso / curso', 'atestado / saude', 'atestado medico', 'feriado', 'bloqueio de horario'];
+  const isInvalidPatientName = extractFnWithScope('isInvalidPatientName', { normName, NON_PATIENT_NAMES });
+  const hasReservedName = extractFnWithScope('hasReservedName', { isInvalidPatientName });
+  const isBlockLabelName = extractFnWithScope('isBlockLabelName', { normName, BLOCK_LABELS });
+  const isNonPatientRecord = extractFnWithScope('isNonPatientRecord', { isInvalidPatientName, isBlockLabelName, hasReservedName });
+  const deduplicatePatientsList = extractFnWithScope('deduplicatePatientsList', { normName, isNonPatientRecord });
+
+  test('remove duplicatas com mesmo nome mantendo ID oficial da planilha em vez de pac_auto_', () => {
+    const rawList = [
+      { id: 'p1786388055991', nome: 'Irani', telefone: '16999991111' },
+      { id: 'pac_auto_123456', nome: 'Irani', endereco: 'Rua das Flores, 120' },
+      { id: 'p1786388068101', nome: 'Sebastião' },
+      { id: 'pac_auto_789012', nome: 'Sebastião', telefone: '16988882222' }
+    ];
+
+    const clean = deduplicatePatientsList(rawList);
+    assert.equal(clean.length, 2);
+
+    const irani = clean.find(p => normName(p.nome) === 'irani');
+    assert.ok(irani);
+    assert.equal(irani.id, 'p1786388055991');
+    assert.equal(irani.telefone, '16999991111');
+    assert.equal(irani.endereco, 'Rua das Flores, 120');
+
+    const sebastiao = clean.find(p => normName(p.nome) === 'sebastiao');
+    assert.ok(sebastiao);
+    assert.equal(sebastiao.id, 'p1786388068101');
+    assert.equal(sebastiao.telefone, '16988882222');
+  });
+
+  test('unifica quando nome corresponde a nomeFantasia de registro duplicado', () => {
+    const rawList = [
+      { id: 'p1786388076217', nome: 'Dona Diva', nomeFantasia: '' },
+      { id: 'pac_auto_999999', nome: 'Diva Ferreira dos Santos', nomeFantasia: 'Dona Diva', bairro: 'Vila Tibério' }
+    ];
+
+    const clean = deduplicatePatientsList(rawList);
+    assert.equal(clean.length, 1);
+    assert.equal(clean[0].id, 'p1786388076217');
+    assert.equal(clean[0].bairro, 'Vila Tibério');
+  });
+
+  test('ignora itens que não são pacientes reais na deduplicação', () => {
+    const rawList = [
+      { id: 'p1', nome: 'Márcia' },
+      { id: 'p2', nome: 'Flexão' },
+      { id: 'p3', nome: '🏖️ Férias' },
+      { id: 'p4', nome: 'Márcia' }
+    ];
+
+    const clean = deduplicatePatientsList(rawList);
+    assert.equal(clean.length, 1);
+    assert.equal(clean[0].nome, 'Márcia');
+  });
+});

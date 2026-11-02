@@ -1,8 +1,13 @@
 /**
  * Conector entre o app de controle de atendimentos e esta planilha.
  * Cria e gerencia automaticamente as abas "Atendimentos", "Pacientes",
- * "Evolucoes", "Exercicios" e "Rotinas".
+ * "Evolucoes", "Exercicios", "Rotinas", "Agendamentos" e "Configuracoes".
+ *
+ * Organizadora Principal do Aplicativo: scarletsantos7@gmail.com
  */
+
+var APP_ORGANIZER_EMAIL = 'scarletsantos7@gmail.com';
+var DEFAULT_CALENDAR_ID = 'scarletsantos7@gmail.com';
 
 var SHEET_ATEND = 'Atendimentos';
 var SHEET_PAC = 'Pacientes';
@@ -10,6 +15,7 @@ var SHEET_EVO = 'Evolucoes';
 var SHEET_EXE = 'Exercicios';
 var SHEET_ROT = 'Rotinas';
 var SHEET_AGEND = 'Agendamentos';
+var SHEET_CONFIG = 'Configuracoes';
 
 var ATEND_HEADERS = ['ID', 'Paciente', 'Data', 'Hora', 'Valor', 'Status', 'DataPagamento', 'Latitude', 'Longitude', 'CriadoEm'];
 var PAC_HEADERS = [
@@ -25,6 +31,7 @@ var AGEND_HEADERS = [
   'ID', 'PacienteID', 'PacienteNome', 'Data', 'Hora', 'DuracaoMin',
   'Valor', 'Status', 'Observacao', 'CalendarEventId', 'CalendarId', 'AtendimentoId', 'CriadoEm'
 ];
+var CONFIG_HEADERS = ['Chave', 'Valor', 'Descricao', 'AtualizadoEm'];
 
 function ensureHeaders_(sheet, expectedHeaders) {
   if (sheet.getLastRow() === 0) {
@@ -62,6 +69,90 @@ function getEvoSheet_()   { return getSheet_(SHEET_EVO, EVO_HEADERS); }
 function getExeSheet_()   { return getSheet_(SHEET_EXE, EXE_HEADERS); }
 function getRotSheet_()   { return getSheet_(SHEET_ROT, ROT_HEADERS); }
 function getAgendSheet_() { return getSheet_(SHEET_AGEND, AGEND_HEADERS); }
+
+function getConfigSheet_() {
+  var sheet = getSheet_(SHEET_CONFIG, CONFIG_HEADERS);
+  var data = sheet.getDataRange().getValues();
+  var existingKeys = {};
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0]) existingKeys[String(data[i][0])] = true;
+  }
+
+  var nowIso = new Date().toISOString();
+  var defaultConfigs = [
+    ['OrganizadorPrincipal', APP_ORGANIZER_EMAIL, 'E-mail da fisioterapeuta proprietária e organizadora do aplicativo', nowIso],
+    ['GoogleAgendaID', DEFAULT_CALENDAR_ID, 'ID da agenda onde os atendimentos são gravados diretamente', nowIso],
+    ['EnderecoBase', 'Rua Maracaju, 88 - Vila Tibério, Ribeirão Preto - SP', 'Endereço base / residencial para rotas e deslocamento', nowIso],
+    ['ConsumoCarroKmL', '14', 'Consumo do carro na cidade (km por litro) para cálculo de deslocamento', nowIso],
+    ['PrecoGasolina', '6.10', 'Preço de referência do litro de combustível em R$', nowIso],
+    ['NotificacoesPorEmail', 'Desativado (gravação direta)', 'Agendamento direto na agenda sem envio de convites ou emails', nowIso]
+  ];
+
+  var toAppend = [];
+  defaultConfigs.forEach(function(cfg) {
+    if (!existingKeys[cfg[0]]) {
+      toAppend.push(cfg);
+    }
+  });
+
+  if (toAppend.length > 0) {
+    sheet.getRange(sheet.getLastRow() + 1, 1, toAppend.length, CONFIG_HEADERS.length).setValues(toAppend);
+  }
+
+  try {
+    sheet.getRange(1, 1, 1, CONFIG_HEADERS.length).setFontWeight('bold');
+  } catch (eFmt) {}
+
+  return sheet;
+}
+
+/**
+ * Menu personalizado na barra do Google Sheets para facilitar a verificação
+ * da organizadora Scarlet Santos e testes de autorização.
+ */
+function onOpen() {
+  try {
+    var ui = SpreadsheetApp.getUi();
+    ui.createMenu('📅 Fisioterapia (Scarlet)')
+      .addItem('👤 Verificar Organizador & Agenda', 'menuVerificarOrganizador')
+      .addItem('🔑 Autorizar Google Agenda', 'autorizarGoogleAgenda')
+      .addItem('⚙️ Atualizar Aba de Configurações', 'menuAtualizarConfiguracoes')
+      .addToUi();
+  } catch (e) {}
+}
+
+function menuVerificarOrganizador() {
+  var ui = SpreadsheetApp.getUi();
+  var effectiveEmail = '';
+  try { effectiveEmail = Session.getEffectiveUser().getEmail(); } catch (e) {}
+  var activeUserEmail = '';
+  try { activeUserEmail = Session.getActiveUser().getEmail(); } catch (e2) {}
+  var resolved = resolveUserCalendar_(DEFAULT_CALENDAR_ID);
+
+  var msg = '👤 Organizadora Principal: ' + APP_ORGANIZER_EMAIL + '\n' +
+    '🔑 Conta executando o script: ' + (effectiveEmail || '(não identificada)') + '\n' +
+    '📅 Agenda alvo: ' + DEFAULT_CALENDAR_ID + '\n\n';
+
+  if (effectiveEmail && effectiveEmail.toLowerCase() === APP_ORGANIZER_EMAIL.toLowerCase()) {
+    msg += '✅ PERFEITO! O script está rodando nativamente na conta de Scarlet Santos.\n' +
+      'Os agendamentos são gravados diretamente na agenda principal sem passar por e-mail nenhum.';
+  } else if (resolved.isDirectShared) {
+    msg += '✅ COMPARTILHADA! A agenda de Scarlet foi compartilhada com a conta executora.\n' +
+      'Os agendamentos são gravados diretamente na agenda de Scarlet sem envio de convites por e-mail.';
+  } else {
+    msg += 'ℹ️ O script está sendo executado por ' + (effectiveEmail || 'outra conta') + '.\n' +
+      'Para que os eventos fiquem nativamente com Scarlet como organizadora direta:\n\n' +
+      'Opção 1 (Recomendada): Scarlet abre esta planilha, clica em Extensões > Apps Script > Implantar > Nova Implantação ("Executar como: Eu") e cola a nova URL no app.\n\n' +
+      'Opção 2: Scarlet abre calendar.google.com, vai na agenda dela > Compartilhar > adiciona ' + effectiveEmail + ' com permissão "Fazer alterações nos eventos".';
+  }
+
+  ui.alert('Status do Organizador & Google Agenda', msg, ui.ButtonSet.OK);
+}
+
+function menuAtualizarConfiguracoes() {
+  getConfigSheet_();
+  SpreadsheetApp.getUi().alert('Configurações atualizadas com sucesso na aba "' + SHEET_CONFIG + '".');
+}
 
 function getTimeZone_() {
   try {
@@ -252,8 +343,6 @@ function parseScheduleDates_(dataStr, horaStr, duracaoMin) {
   return { start: start, end: end };
 }
 
-var DEFAULT_CALENDAR_ID = 'scarletsantos7@gmail.com';
-
 function resolveUserCalendar_(calendarId) {
   var cid = String(calendarId || DEFAULT_CALENDAR_ID || '').trim().toLowerCase();
   var defaultCal = null;
@@ -261,29 +350,45 @@ function resolveUserCalendar_(calendarId) {
   var effectiveEmail = '';
   try { effectiveEmail = Session.getEffectiveUser().getEmail().toLowerCase(); } catch (e2) {}
 
-  // Se o e-mail informado for o da própria conta do Apps Script executando
-  if (defaultCal && (defaultCal.getId().toLowerCase() === cid || (effectiveEmail && effectiveEmail === cid))) {
-    return { cal: defaultCal, guestEmail: null, calendarId: cid, isOwner: true };
+  // 1. Se executado nativamente pela conta de Scarlet Santos ou pela conta ativa do script
+  var isOwner = (effectiveEmail && (effectiveEmail === cid || effectiveEmail === APP_ORGANIZER_EMAIL.toLowerCase())) ||
+                (defaultCal && defaultCal.getId().toLowerCase() === cid);
+  if (isOwner && defaultCal) {
+    return {
+      cal: defaultCal,
+      calendarId: cid,
+      isOwner: true,
+      isDirectShared: false,
+      mode: 'direct_native'
+    };
   }
 
+  // 2. Se for especificada a agenda de Scarlet e ela estiver compartilhada diretamente com permissão de edição
   if (cid && cid !== 'primary') {
     var customCal = null;
     try {
       customCal = CalendarApp.getCalendarById(cid);
     } catch (e3) {}
     if (customCal) {
-      return { cal: customCal, guestEmail: null, calendarId: cid, isOwner: false };
+      return {
+        cal: customCal,
+        calendarId: cid,
+        isOwner: false,
+        isDirectShared: true,
+        mode: 'direct_shared'
+      };
     }
-    // Se a agenda pertence a outro Gmail não compartilhado diretamente, adiciona como convidado
-    var isSelf = (effectiveEmail && effectiveEmail === cid) || (defaultCal && defaultCal.getId().toLowerCase() === cid);
-    return {
-      cal: defaultCal,
-      guestEmail: (!isSelf && cid.indexOf('@') > -1) ? cid : null,
-      calendarId: cid,
-      isOwner: isSelf
-    };
   }
-  return { cal: defaultCal, guestEmail: null, calendarId: 'primary', isOwner: true };
+
+  // 3. Fallback: Grava na agenda padrão ativa SEM NENHUM CONVITE POR E-MAIL
+  // O evento é criado diretamente no calendário sem disparar notificações/emails
+  return {
+    cal: defaultCal,
+    calendarId: cid || (defaultCal ? defaultCal.getId() : 'primary'),
+    isOwner: false,
+    isDirectShared: false,
+    mode: 'default_no_invite'
+  };
 }
 
 /** Preenche automaticamente endereço, telefone e NomeFantasia do paciente caso não venham no payload. */
@@ -319,34 +424,42 @@ function createCalendarEventForSchedule_(item) {
 
     var prefix = item.status === 'Realizado' ? '✓ ' : '';
     var title = prefix + 'Fisioterapia: ' + (item.pacienteDisplay || item.pacienteNome || 'Paciente');
-    var descLines = ['Paciente: ' + (item.pacienteNome || item.pacienteDisplay || '')];
+    var descLines = [
+      'Paciente: ' + (item.pacienteNome || item.pacienteDisplay || ''),
+      'Organizadora: ' + APP_ORGANIZER_EMAIL
+    ];
     if (item.telefone) descLines.push('Telefone: ' + item.telefone);
     if (item.observacao) descLines.push('Observações: ' + item.observacao);
-    descLines.push('Sincronizado pelo App Fisioterapia.');
+    descLines.push('Sincronizado diretamente pelo App Fisioterapia (sem envio de e-mails).');
 
     var opts = {
       location: item.endereco || '',
-      description: descLines.join('\n')
+      description: descLines.join('\n'),
+      sendInvites: false
     };
-    if (resolved.guestEmail) {
-      opts.guests = resolved.guestEmail;
-      opts.sendInvites = true;
-    }
 
     var ev = null;
     try {
       ev = resolved.cal.createEvent(title, dates.start, dates.end, opts);
     } catch (writeErr) {
-      // Fallback caso o usuário tenha compartilhado a agenda apenas como leitura: cria na agenda principal e convida o e-mail dele
-      var fallbackEmail = String(item.calendarId || DEFAULT_CALENDAR_ID || '').trim();
-      if (fallbackEmail && fallbackEmail.indexOf('@') > -1) {
-        opts.guests = fallbackEmail;
-        opts.sendInvites = true;
-        ev = CalendarApp.getDefaultCalendar().createEvent(title, dates.start, dates.end, opts);
+      // Se não conseguiu escrever diretamente na agenda informada, grava na agenda padrão sem convidar
+      var defCal = CalendarApp.getDefaultCalendar();
+      if (defCal && defCal.getId() !== resolved.cal.getId()) {
+        ev = defCal.createEvent(title, dates.start, dates.end, opts);
       } else {
         throw writeErr;
       }
     }
+
+    if (ev) {
+      try { ev.addPopupReminder(30); } catch (remErr) {}
+      return { eventId: ev.getId(), warning: '' };
+    }
+    return { eventId: '', warning: 'Não foi possível gerar evento no Google Agenda.' };
+  } catch (err) {
+    return { eventId: '', warning: err.message || String(err) };
+  }
+}
 
     try { ev.addPopupReminder(30); } catch (remErr) {}
     return { eventId: ev.getId(), warning: '' };
@@ -383,10 +496,13 @@ function updateCalendarEventForSchedule_(item) {
 
     var prefix = item.status === 'Realizado' ? '✓ ' : '';
     var title = prefix + 'Fisioterapia: ' + (item.pacienteDisplay || item.pacienteNome || 'Paciente');
-    var descLines = ['Paciente: ' + (item.pacienteNome || item.pacienteDisplay || '')];
+    var descLines = [
+      'Paciente: ' + (item.pacienteNome || item.pacienteDisplay || ''),
+      'Organizadora: ' + APP_ORGANIZER_EMAIL
+    ];
     if (item.telefone) descLines.push('Telefone: ' + item.telefone);
     if (item.observacao) descLines.push('Observações: ' + item.observacao);
-    descLines.push('Sincronizado pelo App Fisioterapia.');
+    descLines.push('Sincronizado diretamente pelo App Fisioterapia (sem envio de e-mails).');
 
     ev.setTitle(title);
     ev.setTime(dates.start, dates.end);
@@ -420,7 +536,9 @@ function doGet(e) {
     evolucoes: sheetToObjects_(getEvoSheet_()),
     exercicios: sheetToObjects_(getExeSheet_()),
     rotinas: sheetToObjects_(getRotSheet_()),
-    agendamentos: sheetToObjects_(getAgendSheet_())
+    agendamentos: sheetToObjects_(getAgendSheet_()),
+    config: sheetToObjects_(getConfigSheet_()),
+    organizer: APP_ORGANIZER_EMAIL
   };
   return ContentService.createTextOutput(JSON.stringify(result))
     .setMimeType(ContentService.MimeType.JSON);
@@ -485,12 +603,22 @@ function doPost(e) {
       result.success = false;
       result.error = 'Não foi possível acessar o Google Agenda. Autorize o CalendarApp no editor do Apps Script executando a função autorizarGoogleAgenda.';
     } else {
+      var effectiveEmail = '';
+      try { effectiveEmail = Session.getEffectiveUser().getEmail(); } catch (eEff) {}
       result.calendarName = resolvedTest.cal.getName();
-      result.mode = resolvedTest.guestEmail ? 'invite' : 'direct';
+      result.mode = resolvedTest.mode;
       result.calendarId = resolvedTest.calendarId;
-      result.message = resolvedTest.guestEmail
-        ? ('Conectado! Os eventos serão criados e enviados com convite direto para ' + resolvedTest.guestEmail)
-        : ('Conectado diretamente à agenda "' + (resolvedTest.cal.getName() || 'Principal') + '" (' + resolvedTest.calendarId + ')');
+      result.organizer = APP_ORGANIZER_EMAIL;
+      result.effectiveUser = effectiveEmail;
+      result.sendInvites = false;
+
+      if (resolvedTest.mode === 'direct_native') {
+        result.message = 'Conectado nativamente à conta organizadora (' + APP_ORGANIZER_EMAIL + '). Os agendamentos são gravados diretamente na agenda sem envio de e-mails.';
+      } else if (resolvedTest.mode === 'direct_shared') {
+        result.message = 'Conectado diretamente à agenda de Scarlet Santos (' + APP_ORGANIZER_EMAIL + ') via compartilhamento direto, sem envio de convites por e-mail.';
+      } else {
+        result.message = 'Conectado à agenda ativa (' + (resolvedTest.cal.getName() || effectiveEmail) + '). Agendamentos são gravados diretamente sem envio de convites por e-mail. Organizadora principal: ' + APP_ORGANIZER_EMAIL + '.';
+      }
     }
     return ContentService.createTextOutput(JSON.stringify(result))
       .setMimeType(ContentService.MimeType.JSON);
@@ -660,29 +788,29 @@ function doPost(e) {
           if (dates && resolvedCal && resolvedCal.cal) {
             var prefix = it.status === 'Realizado' ? '✓ ' : '';
             var title = prefix + 'Fisioterapia: ' + (it.pacienteDisplay || it.pacienteNome || 'Paciente');
-            var descLines = ['Paciente: ' + (it.pacienteNome || it.pacienteDisplay || '')];
+            var descLines = [
+              'Paciente: ' + (it.pacienteNome || it.pacienteDisplay || ''),
+              'Organizadora: ' + APP_ORGANIZER_EMAIL
+            ];
             if (it.telefone) descLines.push('Telefone: ' + it.telefone);
             if (it.observacao) descLines.push('Observações: ' + it.observacao);
-            descLines.push('Sincronizado pelo App Fisioterapia.');
+            descLines.push('Sincronizado diretamente pelo App Fisioterapia (sem envio de e-mails).');
 
             var opts = {
               location: it.endereco || '',
-              description: descLines.join('\n')
+              description: descLines.join('\n'),
+              sendInvites: false
             };
-            if (resolvedCal.guestEmail) {
-              opts.guests = resolvedCal.guestEmail;
-              opts.sendInvites = true;
-            }
 
             var ev = null;
             try {
               ev = resolvedCal.cal.createEvent(title, dates.start, dates.end, opts);
             } catch (wErr) {
-              var fallbackEmail = String(it.calendarId || DEFAULT_CALENDAR_ID || '').trim();
-              if (fallbackEmail && fallbackEmail.indexOf('@') > -1) {
-                opts.guests = fallbackEmail;
-                opts.sendInvites = true;
-                ev = CalendarApp.getDefaultCalendar().createEvent(title, dates.start, dates.end, opts);
+              var defCal = CalendarApp.getDefaultCalendar();
+              if (defCal && defCal.getId() !== resolvedCal.cal.getId()) {
+                try {
+                  ev = defCal.createEvent(title, dates.start, dates.end, opts);
+                } catch (defErr) {}
               }
             }
             if (ev) {

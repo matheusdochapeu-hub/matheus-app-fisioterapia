@@ -1,7 +1,18 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `01/11/2026`  
-Versão do Service Worker: `atend-v40` (`sw.js`)
+Versão do Service Worker: `atend-v41` (`sw.js`)
+
+---
+
+## 8. Remoção de Exercícios Cadastrados Indevidamente como Pacientes (`v41`)
+- **Exclusão de Registros Inválidos na Planilha:**
+  - Identificadas e excluídas 8 linhas antigas de teste na aba `Atendimentos` onde os nomes dos pacientes haviam sido salvos como "Agachamento", "Flexao" e "Prancha" (criadas durante a fase de testes do módulo de exercícios).
+  - A planilha agora possui apenas os 8 pacientes reais e legítimos (Irani, Sebastião, Dona Diva, Tereza, Vinícius, Márcia, Reginaldo e Cláudio).
+- **Lista de Bloqueio e Filtro Definitivo no Aplicativo (`isInvalidPatientName`):**
+  - Implementada a lista `NON_PATIENT_NAMES` e a validação `isInvalidPatientName(name)` para ignorar e rejeitar termos de exercícios ("agachamento", "flexao", "prancha", "exercicio", "rotina", "alongamento").
+  - Aplicada a proteção nos carregamentos (`entries` e `sheetPatients`), na auto-descoberta, nos métodos locais (`getLocalPatients`, `getLocalEntries`, `loadLocalDataSnapshot`) e no ranking de pacientes do relatório financeiro.
+  - Purga automática de cache no `init()` para limpar de imediato quaisquer dados residuais salvos no `localStorage` de celulares e computadores.
 
 ---
 

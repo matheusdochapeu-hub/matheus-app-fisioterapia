@@ -5,7 +5,19 @@ Versão do Service Worker: `atend-v43` (`sw.js`)
 
 ---
 
-## 10. Correção do Modal de Férias, UX Uniforme do Calendário e Ocultação do Banner do Google Agenda (`v43`)
+## 10. Auditoria do Google Agenda, Correção do Modal de Férias e UX Uniforme da Agenda (`v43`)
+- **Auditoria e Diagnóstico da Conexão com Google Agenda:**
+  - **Diagnóstico da Conta e Permissões:** O backend Google Apps Script roda sob a conta `matheusrodrigues1917@usp.br` (`Session.getEffectiveUser()`). A profissional solicitada é `scarletssantos7@gmail.com` / `scarletsantos7@gmail.com`.
+  - **Identificação do Motivo dos Agendamentos não aparecerem no celular de Scarlet:** Quando o Apps Script chamava `CalendarApp.getCalendarById('scarletssantos7@gmail.com')`, a API retornava `null` caso a agenda não tivesse sido explicitamente compartilhada com a conta executora (`matheusrodrigues1917@usp.br`). O script caía no fallback da agenda padrão da USP mas sem adicionar Scarlet como participante, gravando os agendamentos na conta da USP sem refletir no aplicativo Google Agenda do celular de Scarlet.
+  - **Correção Aplicada:** Atualizada a função `resolveUserCalendar_` e `createCalendarEventForSchedule_`: no fallback, o script agora inclui `opts.guests = Scarlet` com `opts.sendInvites = false`. O Google Calendar sincroniza nativamente o compromisso no app do celular de Scarlet sem disparar e-mails chatos.
+  - **Compartilhamento Direto Opcional (Gravação 100% Nativa):** Scarlet pode acessar o Google Calendar no computador, clicar em "Configurações e compartilhamento" da sua agenda e conceder permissão de edição para `matheusrodrigues1917@usp.br`. O script detectará e gravará nativamente via `mode: direct_shared`.
+  - **Teste ao Vivo no Endpoint de Produção:** Testes automatizados executados com sucesso em `https://script.google.com/macros/s/AKfycbwYFDh0-sZSZut51QJriLORBta_D_5BX3xJyeJm38qhERnKl1D4HgGA9oalxYDNQ28EbQ/exec`:
+    - `test_calendar`: Respondeu HTTP 200 confirmando CalendarApp plenamente ativo e operacional.
+    - `create_schedule` com hora normal e bloqueio dia inteiro: Eventos criados e excluídos com integridade verificada.
+- **Bugs Críticos e Incongruências Identificados e Remediados:**
+  - **Bug 1 (ReferenceError em Lote):** No `Code.gs` linha 941, `defCalFallback.createEvent(title, ...)` gerava `ReferenceError: title is not defined`. Corrigido para `calData.title`.
+  - **Bug 2 (Data/Hora Inválida em Férias):** Enviar `hora: 'Dia Inteiro'` causava rejeição `"Data/hora inválida para o Google Agenda"` em instâncias anteriores do Apps Script. Corrigido em `atendimentos.html` para enviar `08:00` com `duracaoMin = 720` no payload enquanto exibe "Dia Inteiro" visualmente na interface.
+  - **Bug 3 (PrecoGasolina Coagido como Data pelo Sheets):** O Google Sheets formatou `6.10` como data (`2026-10-06`), fazendo `parseFloat()` retornar `2026` (calculando combustível a R$ 2026/L). Corrigido com `parseValor()` e limite de segurança `0 < val < 50` no frontend e backend.
 - **Correção Definitiva do Botão "Férias / Ausência" (`openVacationModal`):**
   - Identificado que o modal de férias/ausência estava sem o container overlay `.modal-bg`, sendo injetado no rodapé sem `position: fixed; z-index: 90` (ficando invisível na tela do celular).
   - Reestruturado com o padrão de modais do app: `.modal-bg` com backdrop blur + `.modal` com `.grabber`, abrindo com animação slide-up responsiva e fechamento ao tocar no fundo ou botão Cancelar.

@@ -427,31 +427,87 @@ function doGet(e) {
 }
 
 function doPost(e) {
+  var result = { success: true, action: 'unknown', handled: true };
+  var body = {};
+  try {
+    body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+  } catch (parseErr) {
+    result.success = false;
+    result.error = 'Payload JSON inválido: ' + parseErr.message;
+    return ContentService.createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  result.action = body.action || 'create';
+
+  /* ---------- Ações de leitura / cálculo externo (executam sem lock de escrita na planilha) ---------- */
+  if (body.action === 'calc_routes_batch') {
+    var pairs = Array.isArray(body.pairs) ? body.pairs : [];
+    var routesOut = {};
+    for (var rIdx = 0; rIdx < pairs.length; rIdx++) {
+      var pair = pairs[rIdx];
+      if (!pair || !pair.key || !pair.origin || !pair.destination) continue;
+      try {
+        var finder = Maps.newDirectionFinder()
+          .setLanguage('pt-BR')
+          .setOrigin(String(pair.origin))
+          .setDestination(String(pair.destination))
+          .setMode(Maps.DirectionFinder.Mode.DRIVING);
+        var dirs = finder.getDirections();
+        if (dirs && dirs.routes && dirs.routes.length > 0 && dirs.routes[0].legs && dirs.routes[0].legs.length > 0) {
+          var leg = dirs.routes[0].legs[0];
+          var distMeters = (leg.distance && typeof leg.distance.value === 'number') ? leg.distance.value : 0;
+          var durSeconds = (leg.duration && typeof leg.duration.value === 'number') ? leg.duration.value : 0;
+          routesOut[pair.key] = {
+            ok: true,
+            distanceKm: Math.round((distMeters / 1000) * 10) / 10,
+            durationMin: Math.max(1, Math.round(durSeconds / 60)),
+            distanceText: (leg.distance && leg.distance.text) || '',
+            durationText: (leg.duration && leg.duration.text) || '',
+            startAddress: leg.start_address || pair.origin,
+            endAddress: leg.end_address || pair.destination
+          };
+        } else {
+          routesOut[pair.key] = { ok: false, error: 'Rota não encontrada' };
+        }
+      } catch (mapErr) {
+        routesOut[pair.key] = { ok: false, error: mapErr.message || String(mapErr) };
+      }
+    }
+    result.routes = routesOut;
+    return ContentService.createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  if (body.action === 'test_calendar') {
+    var resolvedTest = resolveUserCalendar_(body.calendarId);
+    if (!resolvedTest.cal) {
+      result.success = false;
+      result.error = 'Não foi possível acessar o Google Agenda. Autorize o CalendarApp no editor do Apps Script executando a função autorizarGoogleAgenda.';
+    } else {
+      result.calendarName = resolvedTest.cal.getName();
+      result.mode = resolvedTest.guestEmail ? 'invite' : 'direct';
+      result.calendarId = resolvedTest.calendarId;
+      result.message = resolvedTest.guestEmail
+        ? ('Conectado! Os eventos serão criados e enviados com convite direto para ' + resolvedTest.guestEmail)
+        : ('Conectado diretamente à agenda "' + (resolvedTest.cal.getName() || 'Principal') + '" (' + resolvedTest.calendarId + ')');
+    }
+    return ContentService.createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  /* ---------- Ações com escrita na planilha (usam ScriptLock) ---------- */
   var lock = LockService.getScriptLock();
   var lockAcquired = false;
-  var result = { success: true, action: 'unknown', handled: true };
 
   try {
-    // Tenta adquirir o lock por até 30 segundos para evitar concorrência
-    lockAcquired = lock.tryLock(30000);
+    lockAcquired = lock.tryLock(20000);
     if (!lockAcquired) {
       result.success = false;
       result.error = 'O servidor da planilha está ocupado. Tente novamente em instantes.';
       return ContentService.createTextOutput(JSON.stringify(result))
         .setMimeType(ContentService.MimeType.JSON);
     }
-
-    var body = {};
-    try {
-      body = JSON.parse(e.postData.contents || '{}');
-    } catch (parseErr) {
-      result.success = false;
-      result.error = 'Payload JSON inválido: ' + parseErr.message;
-      return ContentService.createTextOutput(JSON.stringify(result))
-        .setMimeType(ContentService.MimeType.JSON);
-    }
-
-    result.action = body.action || 'create';
 
     /* ---------- Atendimentos ---------- */
     if (body.action === 'delete') {
@@ -547,20 +603,6 @@ function doPost(e) {
       deleteRowsByField_(getAgendSheet_(), 1, body.id);
 
     /* ---------- Agendamentos & Google Agenda (CalendarApp) ---------- */
-    } else if (body.action === 'test_calendar') {
-      var resolvedTest = resolveUserCalendar_(body.calendarId);
-      if (!resolvedTest.cal) {
-        result.success = false;
-        result.error = 'Não foi possível acessar o Google Agenda. Autorize o CalendarApp no editor do Apps Script executando a função autorizarGoogleAgenda.';
-      } else {
-        result.calendarName = resolvedTest.cal.getName();
-        result.mode = resolvedTest.guestEmail ? 'invite' : 'direct';
-        result.calendarId = resolvedTest.calendarId;
-        result.message = resolvedTest.guestEmail
-          ? ('Conectado! Os eventos serão criados e enviados com convite direto para ' + resolvedTest.guestEmail)
-          : ('Conectado diretamente à agenda "' + (resolvedTest.cal.getName() || 'Principal') + '" (' + resolvedTest.calendarId + ')');
-      }
-
     } else if (body.action === 'create_schedule') {
       var calRes = createCalendarEventForSchedule_(body);
       var evId = calRes.eventId || '';
@@ -588,13 +630,73 @@ function doPost(e) {
       var eventIds = {};
       var syncedCount = 0;
       var warnings = [];
+
+      // Otimização: pré-carrega os dados do paciente apenas uma vez para o lote
+      var cachedPatient = null;
+      if (items.length > 0 && items[0].pacienteId) {
+        try {
+          cachedPatient = getRowObjectById_(getPacSheet_(), items[0].pacienteId);
+        } catch (ePac) {}
+      }
+
+      var defaultCalendarTarget = body.calendarId || (items.length > 0 ? items[0].calendarId : '') || DEFAULT_CALENDAR_ID;
+      var resolvedCal = resolveUserCalendar_(defaultCalendarTarget);
+
       var rowsToAdd = items.map(function(it) {
-        if (!it.calendarId && body.calendarId) it.calendarId = body.calendarId;
-        var cRes = createCalendarEventForSchedule_(it);
-        var cId = cRes.eventId || '';
+        if (!it.calendarId) it.calendarId = defaultCalendarTarget;
+
+        if (cachedPatient) {
+          if (!it.pacienteDisplay) it.pacienteDisplay = cachedPatient.NomeFantasia || cachedPatient.Nome || it.pacienteNome || 'Paciente';
+          if (!it.telefone && cachedPatient.Telefone) it.telefone = String(cachedPatient.Telefone);
+          if (!it.endereco) {
+            var loc = [cachedPatient.Endereco, cachedPatient.Bairro, cachedPatient.Cidade].filter(Boolean).join(', ');
+            it.endereco = loc;
+          }
+        }
+
+        var cId = '';
+        try {
+          var dates = parseScheduleDates_(it.data, it.hora, it.duracaoMin);
+          if (dates && resolvedCal && resolvedCal.cal) {
+            var prefix = it.status === 'Realizado' ? '✓ ' : '';
+            var title = prefix + 'Fisioterapia: ' + (it.pacienteDisplay || it.pacienteNome || 'Paciente');
+            var descLines = ['Paciente: ' + (it.pacienteNome || it.pacienteDisplay || '')];
+            if (it.telefone) descLines.push('Telefone: ' + it.telefone);
+            if (it.observacao) descLines.push('Observações: ' + it.observacao);
+            descLines.push('Sincronizado pelo App Fisioterapia.');
+
+            var opts = {
+              location: it.endereco || '',
+              description: descLines.join('\n')
+            };
+            if (resolvedCal.guestEmail) {
+              opts.guests = resolvedCal.guestEmail;
+              opts.sendInvites = true;
+            }
+
+            var ev = null;
+            try {
+              ev = resolvedCal.cal.createEvent(title, dates.start, dates.end, opts);
+            } catch (wErr) {
+              var fallbackEmail = String(it.calendarId || DEFAULT_CALENDAR_ID || '').trim();
+              if (fallbackEmail && fallbackEmail.indexOf('@') > -1) {
+                opts.guests = fallbackEmail;
+                opts.sendInvites = true;
+                ev = CalendarApp.getDefaultCalendar().createEvent(title, dates.start, dates.end, opts);
+              }
+            }
+            if (ev) {
+              try { ev.addPopupReminder(30); } catch (rErr) {}
+              cId = ev.getId();
+              syncedCount++;
+            }
+          }
+        } catch (itemErr) {
+          if (warnings.indexOf(itemErr.message) === -1) warnings.push(itemErr.message);
+        }
+
         eventIds[it.id] = cId;
-        if (cId) syncedCount++;
-        if (cRes.warning && warnings.indexOf(cRes.warning) === -1) warnings.push(cRes.warning);
+
         return [
           it.id,
           it.pacienteId || '',
@@ -611,6 +713,7 @@ function doPost(e) {
           nowBatch
         ];
       });
+
       if (rowsToAdd.length > 0) {
         var sAg = getAgendSheet_();
         sAg.getRange(sAg.getLastRow() + 1, 1, rowsToAdd.length, AGEND_HEADERS.length).setValues(rowsToAdd);
@@ -665,41 +768,6 @@ function doPost(e) {
         deleteCalendarEventForSchedule_(evIdToDel, calIdToDel);
       }
       deleteRowById_(sAgDel, body.id);
-
-    } else if (body.action === 'calc_routes_batch') {
-      var pairs = Array.isArray(body.pairs) ? body.pairs : [];
-      var routesOut = {};
-      for (var rIdx = 0; rIdx < pairs.length; rIdx++) {
-        var pair = pairs[rIdx];
-        if (!pair || !pair.key || !pair.origin || !pair.destination) continue;
-        try {
-          var finder = Maps.newDirectionFinder()
-            .setLanguage('pt-BR')
-            .setOrigin(String(pair.origin))
-            .setDestination(String(pair.destination))
-            .setMode(Maps.DirectionFinder.Mode.DRIVING);
-          var dirs = finder.getDirections();
-          if (dirs && dirs.routes && dirs.routes.length > 0 && dirs.routes[0].legs && dirs.routes[0].legs.length > 0) {
-            var leg = dirs.routes[0].legs[0];
-            var distMeters = (leg.distance && typeof leg.distance.value === 'number') ? leg.distance.value : 0;
-            var durSeconds = (leg.duration && typeof leg.duration.value === 'number') ? leg.duration.value : 0;
-            routesOut[pair.key] = {
-              ok: true,
-              distanceKm: Math.round((distMeters / 1000) * 10) / 10,
-              durationMin: Math.max(1, Math.round(durSeconds / 60)),
-              distanceText: (leg.distance && leg.distance.text) || '',
-              durationText: (leg.duration && leg.duration.text) || '',
-              startAddress: leg.start_address || pair.origin,
-              endAddress: leg.end_address || pair.destination
-            };
-          } else {
-            routesOut[pair.key] = { ok: false, error: 'Rota não encontrada' };
-          }
-        } catch (mapErr) {
-          routesOut[pair.key] = { ok: false, error: mapErr.message || String(mapErr) };
-        }
-      }
-      result.routes = routesOut;
 
     /* ---------- Evoluções Clínicas ---------- */
     } else if (body.action === 'create_evolution') {

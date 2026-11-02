@@ -478,3 +478,50 @@ describe('Deduplicação de Pacientes (v47)', () => {
     assert.equal(clean[0].nome, 'Márcia');
   });
 });
+
+describe('Controle de Modais e Proteção contra Fechamento Prematuro (v48)', () => {
+  const closeModalBgFn = extractFnWithScope('closeModalBg', {
+    Date: { now: () => 1000 },
+    closeModal: () => {}
+  });
+
+  test('ignora clique no backdrop se modal acabou de abrir (< 350ms)', () => {
+    let closed = false;
+    const testScope = {
+      _modalOpenTs: 900, // abriu há 100ms
+      Date: { now: () => 1000 },
+      closeModal: () => { closed = true; }
+    };
+    const fn = extractFnWithScope('closeModalBg', testScope);
+    const fakeTarget = {};
+    fn({ target: fakeTarget, currentTarget: fakeTarget });
+    assert.equal(closed, false, 'Modal não deve fechar com menos de 350ms');
+  });
+
+  test('fecha o modal se clique no backdrop ocorrer após o período de proteção (>= 350ms)', () => {
+    let closed = false;
+    const testScope = {
+      _modalOpenTs: 500, // abriu há 500ms
+      Date: { now: () => 1000 },
+      closeModal: () => { closed = true; }
+    };
+    const fn = extractFnWithScope('closeModalBg', testScope);
+    const fakeTarget = {};
+    fn({ target: fakeTarget, currentTarget: fakeTarget });
+    assert.equal(closed, true, 'Modal deve fechar quando o backdrop for clicado intencionalmente');
+  });
+
+  test('não fecha se o clique foi em um elemento interno do modal (target !== currentTarget)', () => {
+    let closed = false;
+    const testScope = {
+      _modalOpenTs: 200, // abriu há 800ms
+      Date: { now: () => 1000 },
+      closeModal: () => { closed = true; }
+    };
+    const fn = extractFnWithScope('closeModalBg', testScope);
+    const bg = {};
+    const card = {};
+    fn({ target: card, currentTarget: bg });
+    assert.equal(closed, false, 'Clique no card interno não pode fechar o modal');
+  });
+});

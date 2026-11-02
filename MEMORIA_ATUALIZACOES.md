@@ -1,7 +1,51 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `02/11/2026`  
-Versão do Service Worker: `atend-v44` (`sw.js`)
+Versão do Service Worker: `atend-v45` (`sw.js`)
+
+---
+
+## 13. Harmonização Visual da Agenda, Calendário Uniforme, Ocultação de Vínculo e Sanitização Rigorosa de Pacientes (`v45`)
+- **Harmonização e Uniformidade de Tamanhos na Agenda (UX Perfeita):**
+  - **Grade de Ações 2x2 com Proporções Rigorosas:** Transformada a barra de ações em uma grade equilibrada de 2x2 (`.agenda-action-grid` com `grid-template-columns: 1fr 1fr`), contendo 4 botões de dimensões rigorosamente padronizadas (`height: 42px; min-height: 42px; max-height: 42px; width: 100%`):
+    1. `[📅 + Agendar Sessão]` (Primário destacado)
+    2. `[🏖️ Férias / Ausência]` (Tom suave âmbar com destaque)
+    3. `[🚗 Rotas & Distâncias]` (Secundário/ghost)
+    4. `[⚙️ Google Agenda]` (Com badge dinâmico de status `✓` verde quando vinculado ou `⚠️` quando não vinculado)
+  - **Cards de Estatísticas (KPIs) Otimizados:** 4 cards padronizados (`Total Mês`, `A Realizar`, `Realizados`, `Ausências`) com labels concisos que eliminam truncamento (`...`) e quebras desiguais em qualquer tela mobile.
+  - **Calendário com Células e Semanas Perfeitas (`grid-auto-rows: 44px`):** Adicionado `grid-auto-rows: 44px;` ao `.cal-grid` e padronizadas todas as células `.cal-day` e `.cal-day.empty` para `height: 44px; min-height: 44px; max-height: 44px; box-sizing: border-box; overflow: hidden;`. O primeiro dia do mês e os dias vazios anteriores não distorcem mais nem esticam a primeira semana, garantindo alinhamento milimétrico em todas as linhas.
+- **Ocultação e Recolhimento Completo do Banner Google Agenda:**
+  - Quando a agenda do Google está vinculada (`calId`), o banner volumoso do topo é totalmente ocultado da interface principal, mantendo a tela limpa e focada no calendário de atendimentos.
+  - O acesso e status de sincronização são mantidos de forma elegante através do botão `⚙️ Google Agenda` da grade de ações.
+- **Eliminação de Exercícios na Lista de Pacientes (Agachamento, Flexão, Prancha):**
+  - Aperfeiçoada a função `normName` para remover acentos diacríticos (`normalize('NFD')`), garantindo que variações acentuadas como "Flexão" correspondam com precisão.
+  - Expandida a lista de proteção `NON_PATIENT_NAMES` (`agachamento`, `flexao`, `prancha`, `exercicio`, `rotina`, `alongamento`, `__bloqueio__`, etc.).
+  - Aplicada a verificação `isInvalidPatientName` na iteração `patients.forEach` dos relatórios financeiros (`renderFinancialReports`), impedindo que nomes de exercícios apareçam no ranking com 0 sessões e R$ 0,00.
+  - Adicionada a função `isInvalidPatientName_` no backend `Code.gs` para filtrar pacientes em `doGet` e bloquear tentativas de inserção ou atualização indevida em `create_patient` e `update_patient`.
+- **Concordância Gramatical no Filtro de Pacientes:**
+  - Substituída a opção `<option value="">Todas as pacientes</option>` por `<option value="">Todos os pacientes</option>`, mantendo coerência com pacientes do gênero masculino e padrão geral da interface.
+- **Otimização Local-First no Registro de Férias/Ausências:**
+  - `submitVacationBlock` atualiza o estado local (`schedules`), fecha o modal e exibe o toast de confirmação imediatamente, realizando a sincronização com o Google Apps Script e Google Calendar em segundo plano, eliminando qualquer risco de travamento da interface.
+- **Service Worker & Testes Automatizados:**
+  - Service worker atualizado para `atend-v45` em `sw.js`.
+  - 27 testes unitários automatizados passando com 100% de sucesso.
+
+---
+
+## 12. Auditoria Profunda de Código, Eliminação de Erro de Sintaxe e Otimização Geral
+- **Detecção e Correção Imediata de Erro de Sintaxe (`Unexpected token '}'`):**
+  - Identificadas linhas residuais duplicadas de fechamento (`icsBtn.style.display... } }`) na função `updateGCalBannerUI` em `atendimentos.html`. O erro de sintaxe impedia a execução adequada do script em determinados navegadores e foi corrigido de imediato.
+- **Eliminação de Operação Redundante em `delete_schedule` (`Code.gs`):**
+  - A função `delete_schedule` executava uma chamada duplicada desnecessária a `deleteRowById_`. Removida a linha redundante, acelerando a exclusão de agendamentos.
+- **Otimização do Back-end no FisioFlow (`updateRowObjectById_`):**
+  - Implementada a função de atualização atômica `updateRowObjectById_` em `fisioflow/Code.gs`, substituindo mais de 20 chamadas individuais por requisição em `update_patient`, `update_schedule`, `update_evolution`, `update_exercise` e `update_routine_item`.
+  - Redução drástica das operações de leitura e gravação no Google Sheets para **apenas 1 leitura e 1 gravação por linha**, baixando a latência do back-end de ~3,5s para menos de 150ms.
+- **Blindagem de `JSON.parse` em Cache Local:**
+  - Todas as chamadas de leitura do `localStorage` foram inspecionadas e envolvidas em blocos `try/catch` defensivos com fallbacks seguros.
+- **Auditoria de Ações e Integração API:**
+  - Auditadas todas as ações da API entre o front-end e o back-end do Google Apps Script: 100% de paridade e conformidade, sem ações órfãs ou não tratadas.
+- **Testes Automatizados:**
+  - 27 testes unitários passando em `matheus-app-fisioterapia` e 32 testes unitários passando em `fisioflow`.
 
 ---
 

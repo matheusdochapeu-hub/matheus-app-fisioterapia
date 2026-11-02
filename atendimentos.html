@@ -1571,7 +1571,7 @@ async function loadData(){
       };
     });
 
-    patients = (data.pacientes || []).map(function(r){
+    var sheetPatients = (data.pacientes || []).map(function(r){
       var pid = String(r.ID);
       var meta = getLocalPatientMeta(pid);
       var valPadrao = (meta.valorPadrao !== undefined && meta.valorPadrao !== '') ? meta.valorPadrao : (r.ValorPadrao || '');
@@ -1604,6 +1604,19 @@ async function loadData(){
         criadoEm: r.CriadoEm || ''
       };
     });
+
+    var localPatients = getLocalPatients();
+    var patMap = {};
+    sheetPatients.forEach(function(p){ patMap[p.id] = p; });
+    localPatients.forEach(function(lp){
+      if(!patMap[lp.id]){
+        patMap[lp.id] = lp;
+      } else {
+        patMap[lp.id] = Object.assign({}, patMap[lp.id], lp);
+      }
+    });
+    patients = Object.keys(patMap).map(function(k){ return patMap[k]; });
+    saveLocalPatients();
 
     var sheetEvos = (data.evolucoes || []).map(function(r){
       return {
@@ -1660,7 +1673,17 @@ async function loadData(){
     renderEvolutionsTab();
     renderList();
   }catch(e){
-    showError('Não foi possível carregar os dados da planilha. Confira sua conexão ou o link configurado.');
+    if(patients.length === 0) patients = getLocalPatients();
+    if(schedules.length === 0) schedules = getLocalSchedules();
+    if(evolutions.length === 0) evolutions = getLocalEvolutions();
+    populatePatientFilter();
+    populateEvolutionsFilters();
+    populateAgendaFilters();
+    renderPatientsTab();
+    renderAgendaTab();
+    renderEvolutionsTab();
+    renderList();
+    showError('Não foi possível carregar os dados da planilha. Exibindo dados locais do dispositivo.');
   }
   document.getElementById('loadingState').classList.add('hidden');
 }
@@ -1768,6 +1791,19 @@ function getLocalEvolutions(){
 function saveLocalEvolutions(){
   try{
     localStorage.setItem('ft_local_evolutions', JSON.stringify(evolutions));
+  }catch(e){}
+}
+
+function getLocalPatients(){
+  try{
+    var raw = localStorage.getItem('ft_local_patients');
+    return raw ? JSON.parse(raw) : [];
+  }catch(e){ return []; }
+}
+
+function saveLocalPatients(){
+  try{
+    localStorage.setItem('ft_local_patients', JSON.stringify(patients));
   }catch(e){}
 }
 
@@ -2376,6 +2412,7 @@ async function submitPatientForm(existingId){
       renderEvolutionsTab();
       renderAgendaTab();
       renderList();
+      saveLocalPatients();
       closeModal();
       showToast('Dados atualizados com sucesso.', 'ok');
 
@@ -2442,6 +2479,7 @@ async function submitPatientForm(existingId){
     }
     saveLocalPatientMeta(newPatient);
     patients.push(newPatient);
+    saveLocalPatients();
     renderPatientsTab();
     populatePatientFilter();
     populateEvolutionsFilters();
@@ -2455,13 +2493,8 @@ async function submitPatientForm(existingId){
     try{
       await postAction(Object.assign({ action: 'create_patient' }, newPatient));
     }catch(err){
-      patients = patients.filter(function(x){ return x.id !== newId; });
-      removeLocalPatientMeta(newId);
-      renderPatientsTab();
-      populateAgendaFilters();
-      renderAgendaTab();
-      renderList();
-      showError('Falha ao gravar paciente na planilha: ' + err.message);
+      console.warn('Aviso ao sincronizar paciente na planilha:', err);
+      showToast('Paciente salvo no app! A planilha sincronizará na próxima conexão.', 'warn');
     }
   }
 }
@@ -2486,6 +2519,7 @@ async function deletePatient(id){
   patients.splice(idx, 1);
   evolutions = evolutions.filter(function(ev){ return ev.pacienteId !== id; });
   schedules = schedules.filter(function(sc){ return sc.pacienteId !== id; });
+  saveLocalPatients();
   saveLocalEvolutions();
   saveLocalSchedules();
   removeLocalPatientMeta(id);
@@ -2503,6 +2537,7 @@ async function deletePatient(id){
     await postAction({ action: 'delete_patient', id: id });
   }catch(err){
     patients.splice(idx, 0, removed);
+    saveLocalPatients();
     saveLocalPatientMeta(removed);
     evolutions = oldEvolutions;
     schedules = oldSchedules;
@@ -5508,6 +5543,7 @@ function saveCalendarSettings(){
    ============================================================ */
 var _routeMemoryCache = null;
 var _pendingRouteKeys = {};
+var _attemptedRouteKeys = {};
 
 function getRouteCacheMap(){
   if(_routeMemoryCache) return _routeMemoryCache;
@@ -5653,7 +5689,7 @@ async function requestRoutesCalculation(pairs, onUpdated){
     if(!p || !p.origin || !p.destination) return;
     if(normAddrKey(p.origin) === normAddrKey(p.destination)) return;
     var k = makeRoutePairKey(p.origin, p.destination);
-    if((!cache[k] || cache[k].approx) && !_pendingRouteKeys[k]){
+    if((!cache[k] || cache[k].approx) && !_pendingRouteKeys[k] && !_attemptedRouteKeys[k]){
       _pendingRouteKeys[k] = true;
       needed.push({ key: k, origin: p.origin, destination: p.destination });
     }
@@ -5680,19 +5716,13 @@ async function requestRoutesCalculation(pairs, onUpdated){
       });
     }
   }catch(e){
-    // Se calc_routes_batch ainda não estiver publicado no Apps Script ou estiver offline, usa OSRM/Nominatim
+    // Se calc_routes_batch falhar ou estiver offline, mantém a estimativa local
   }
 
-  // Para qualquer par que não veio pelo Apps Script, resolve via OSRM/Nominatim
+  // Marca pares como tentados para evitar loop infinito
   for(var i = 0; i < needed.length; i++){
     var it = needed[i];
-    if(!cache[it.key] || cache[it.key].approx){
-      var fallbackRoute = await fetchOsrmDrivingRoute(it.origin, it.destination);
-      if(fallbackRoute && fallbackRoute.ok){
-        cache[it.key] = fallbackRoute;
-        updatedCount++;
-      }
-    }
+    _attemptedRouteKeys[it.key] = true;
     delete _pendingRouteKeys[it.key];
   }
 
@@ -6056,10 +6086,30 @@ function populateAgendaFilters(){
   var activeList = patients.filter(function(p){ return p.arquivado !== 'Sim'; }).sort(function(a,b){
     return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b), 'pt-BR');
   });
-  sel.innerHTML = '<option value="">Todos os pacientes</option>' +
-    activeList.map(function(p){
-      return '<option value="'+p.id+'">'+escapeHtml(getPatientDisplayName(p))+'</option>';
+  var archivedList = patients.filter(function(p){ return p.arquivado === 'Sim'; }).sort(function(a,b){
+    return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b), 'pt-BR');
+  });
+
+  var optsHtml = '<option value="">Todos os pacientes</option>';
+  if(activeList.length > 0 && archivedList.length > 0){
+    optsHtml += '<optgroup label="Pacientes Ativos">' +
+      activeList.map(function(p){
+        return '<option value="'+p.id+'">'+escapeHtml(getPatientDisplayName(p))+'</option>';
+      }).join('') +
+    '</optgroup>' +
+    '<optgroup label="Pacientes Arquivados">' +
+      archivedList.map(function(p){
+        return '<option value="'+p.id+'">'+escapeHtml(getPatientDisplayName(p))+' (Arquivado)</option>';
+      }).join('') +
+    '</optgroup>';
+  } else {
+    var allP = activeList.concat(archivedList);
+    optsHtml += allP.map(function(p){
+      var archTag = p.arquivado === 'Sim' ? ' (Arquivado)' : '';
+      return '<option value="'+p.id+'">'+escapeHtml(getPatientDisplayName(p)) + archTag + '</option>';
     }).join('');
+  }
+  sel.innerHTML = optsHtml;
   sel.value = cur;
 }
 
@@ -6118,10 +6168,15 @@ function renderAgendaTab(){
 
   var filterPid = document.getElementById('agendaFilterPatient') ? document.getElementById('agendaFilterPatient').value : '';
   var filterStatus = document.getElementById('agendaFilterStatus') ? document.getElementById('agendaFilterStatus').value : '';
+  var selPat = filterPid ? patients.find(function(x){ return x.id === filterPid; }) : null;
 
   var monthSchedules = schedules.filter(function(sc){
     if(!sc.data || sc.data.indexOf(ymPrefix) !== 0) return false;
-    if(filterPid && sc.pacienteId !== filterPid) return false;
+    if(filterPid){
+      var matchId = (sc.pacienteId === filterPid);
+      var matchPat = selPat ? scheduleMatchesPatient(sc, selPat) : false;
+      if(!matchId && !matchPat) return false;
+    }
     return true;
   });
 
@@ -6348,8 +6403,11 @@ function openScheduleModal(preSelectPatientId, preSelectDate){
   var activePatients = patients.filter(function(p){ return p.arquivado !== 'Sim'; }).sort(function(a,b){
     return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b), 'pt-BR');
   });
-  if(activePatients.length === 0){
-    alert('Cadastre um paciente ativo primeiro antes de criar agendamentos.');
+  var archivedPatients = patients.filter(function(p){ return p.arquivado === 'Sim'; }).sort(function(a,b){
+    return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b), 'pt-BR');
+  });
+  if(patients.length === 0){
+    alert('Cadastre um paciente primeiro antes de criar agendamentos.');
     return;
   }
 
@@ -6361,8 +6419,8 @@ function openScheduleModal(preSelectPatientId, preSelectDate){
 
   var defaultDate = preSelectDate || agendaSelectedDay || isoDate(new Date());
   var firstPat = preSelectPatientId
-    ? (activePatients.find(function(p){ return p.id === preSelectPatientId; }) || activePatients[0])
-    : activePatients[0];
+    ? (patients.find(function(p){ return p.id === preSelectPatientId; }) || activePatients[0] || archivedPatients[0] || patients[0])
+    : (activePatients[0] || archivedPatients[0] || patients[0]);
   var defaultValor = firstPat && firstPat.valorPadrao ? parseValor(firstPat.valorPadrao).toFixed(2) : '';
 
   // Datas padrão para geração em lote (hoje até fim do mês)
@@ -6370,10 +6428,28 @@ function openScheduleModal(preSelectPatientId, preSelectDate){
   if(isNaN(dStart.getTime())) dStart = new Date();
   var dEndMonth = new Date(dStart.getFullYear(), dStart.getMonth() + 1, 0);
 
-  var patOptions = activePatients.map(function(p){
-    var sel = (firstPat && p.id === firstPat.id) ? 'selected' : '';
-    return '<option value="'+p.id+'" '+sel+'>'+escapeHtml(getPatientDisplayName(p))+'</option>';
-  }).join('');
+  var patOptions = '';
+  if(activePatients.length > 0 && archivedPatients.length > 0){
+    patOptions += '<optgroup label="Pacientes Ativos">' +
+      activePatients.map(function(p){
+        var sel = (firstPat && p.id === firstPat.id) ? 'selected' : '';
+        return '<option value="'+p.id+'" '+sel+'>'+escapeHtml(getPatientDisplayName(p))+'</option>';
+      }).join('') +
+    '</optgroup>' +
+    '<optgroup label="Pacientes Arquivados">' +
+      archivedPatients.map(function(p){
+        var sel = (firstPat && p.id === firstPat.id) ? 'selected' : '';
+        return '<option value="'+p.id+'" '+sel+'>'+escapeHtml(getPatientDisplayName(p))+' (Arquivado)</option>';
+      }).join('') +
+    '</optgroup>';
+  } else {
+    var allP = activePatients.length > 0 ? activePatients : archivedPatients;
+    patOptions = allP.map(function(p){
+      var sel = (firstPat && p.id === firstPat.id) ? 'selected' : '';
+      var archTag = p.arquivado === 'Sim' ? ' (Arquivado)' : '';
+      return '<option value="'+p.id+'" '+sel+'>'+escapeHtml(getPatientDisplayName(p)) + archTag + '</option>';
+    }).join('');
+  }
 
   var calId = getUserCalendarId();
 
@@ -6443,7 +6519,7 @@ function openScheduleModal(preSelectPatientId, preSelectDate){
         '</div>' +
         '<div>' +
           '<label>Duração (minutos)</label>' +
-          '<input id="schedDuracaoInput" type="number" min="15" step="5" value="50" onchange="updateScheduleModalRouteAnalysis()">' +
+          '<input id="schedDuracaoInput" type="number" min="15" step="5" value="50" onchange="debouncedUpdateScheduleModalRouteAnalysis()" oninput="debouncedUpdateScheduleModalRouteAnalysis()">' +
         '</div>' +
       '</div>' +
 
@@ -6522,7 +6598,15 @@ function applySuggestedHoraInModal(newHora, dowOptional){
   updateScheduleModalRouteAnalysis();
 }
 
-function updateScheduleModalRouteAnalysis(){
+var _routeAnalysisDebounceTimer = null;
+function debouncedUpdateScheduleModalRouteAnalysis(skipFetch){
+  if(_routeAnalysisDebounceTimer) clearTimeout(_routeAnalysisDebounceTimer);
+  _routeAnalysisDebounceTimer = setTimeout(function(){
+    updateScheduleModalRouteAnalysis(skipFetch);
+  }, 180);
+}
+
+function updateScheduleModalRouteAnalysis(skipFetch){
   var box = document.getElementById('schedRouteCheckBox');
   if(!box) return;
   var sel = document.getElementById('schedPatientSelect');
@@ -6659,9 +6743,11 @@ function updateScheduleModalRouteAnalysis(){
     adjacentHtml +
   '</div>';
 
-  requestRoutesCalculation(pairsToFetch, function(){
-    if(document.getElementById('schedRouteCheckBox')) updateScheduleModalRouteAnalysis();
-  });
+  if(!skipFetch && pairsToFetch.length > 0){
+    requestRoutesCalculation(pairsToFetch, function(){
+      if(document.getElementById('schedRouteCheckBox')) updateScheduleModalRouteAnalysis(true);
+    });
+  }
 }
 
 async function previewPatientFormRoutes(currentPatId){
@@ -6746,23 +6832,45 @@ function openRouteSimulatorModal(preSelectPatientId){
   var activePatients = patients.filter(function(p){ return p.arquivado !== 'Sim'; }).sort(function(a,b){
     return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b), 'pt-BR');
   });
+  var archivedPatients = patients.filter(function(p){ return p.arquivado === 'Sim'; }).sort(function(a,b){
+    return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b), 'pt-BR');
+  });
+  var allPatients = activePatients.concat(archivedPatients);
 
   var homeAddr = getHomeAddress();
   var kml = getCarKmPerLiter();
   var gasPrice = getGasPrice();
 
-  var patOptsA = '<option value="__HOME__">🏠 Casa da Scarlet (' + escapeHtml(homeAddr) + ')</option>' +
-    activePatients.map(function(p){
-      var sel = (preSelectPatientId && p.id === preSelectPatientId) ? 'selected' : '';
-      var b = p.bairro ? ' (' + p.bairro + ')' : '';
-      return '<option value="'+p.id+'" '+sel+'>'+escapeHtml(getPatientDisplayName(p) + b)+'</option>';
-    }).join('');
+  var buildOpts = function(selectedId, firstAsHome){
+    var out = firstAsHome ? ('<option value="__HOME__">🏠 Casa da Scarlet (' + escapeHtml(homeAddr) + ')</option>') : '';
+    if(activePatients.length > 0 && archivedPatients.length > 0){
+      out += '<optgroup label="Pacientes Ativos">' +
+        activePatients.map(function(p){
+          var sel = (selectedId && p.id === selectedId) ? 'selected' : '';
+          var b = p.bairro ? ' (' + p.bairro + ')' : '';
+          return '<option value="'+p.id+'" '+sel+'>'+escapeHtml(getPatientDisplayName(p) + b)+'</option>';
+        }).join('') +
+      '</optgroup>' +
+      '<optgroup label="Pacientes Arquivados">' +
+        archivedPatients.map(function(p){
+          var sel = (selectedId && p.id === selectedId) ? 'selected' : '';
+          var b = p.bairro ? ' (' + p.bairro + ')' : '';
+          return '<option value="'+p.id+'" '+sel+'>'+escapeHtml(getPatientDisplayName(p) + b)+' (Arquivado)</option>';
+        }).join('') +
+      '</optgroup>';
+    } else {
+      out += allPatients.map(function(p){
+        var sel = (selectedId && p.id === selectedId) ? 'selected' : '';
+        var b = p.bairro ? ' (' + p.bairro + ')' : '';
+        var archTag = p.arquivado === 'Sim' ? ' (Arquivado)' : '';
+        return '<option value="'+p.id+'" '+sel+'>'+escapeHtml(getPatientDisplayName(p) + b) + archTag + '</option>';
+      }).join('');
+    }
+    return out;
+  };
 
-  var patOptsB = activePatients.map(function(p, idx){
-    var sel = (idx === 0) ? 'selected' : '';
-    var b = p.bairro ? ' (' + p.bairro + ')' : '';
-    return '<option value="'+p.id+'" '+sel+'>'+escapeHtml(getPatientDisplayName(p) + b)+'</option>';
-  }).join('');
+  var patOptsA = buildOpts(preSelectPatientId, true);
+  var patOptsB = buildOpts((allPatients[0] && allPatients[0].id) || '', false);
 
   var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
     '<div class="modal">' +
@@ -6839,7 +6947,7 @@ function applyQuickSimScenario(val){
   runRouteSimulator();
 }
 
-function runRouteSimulator(){
+function runRouteSimulator(skipFetch){
   var resBox = document.getElementById('simResultBox');
   var matBox = document.getElementById('simAllPatientsMatrixBox');
   if(!resBox || !matBox) return;
@@ -6881,7 +6989,7 @@ function runRouteSimulator(){
     : getPatientDisplayName(patients.find(function(x){ return x.id === origVal; }));
 
   var activeOthers = patients.filter(function(p){
-    return p.arquivado !== 'Sim' && p.id !== origVal && getPatientFullAddress(p);
+    return p.id !== origVal && getPatientFullAddress(p);
   });
 
   if(originAddr && activeOthers.length > 0){
@@ -6897,9 +7005,10 @@ function runRouteSimulator(){
       rows.map(function(item){
         var ok9 = item.route.durationMin <= 9;
         var mapsUrl = buildGoogleMapsDirectionsUrl(originAddr, [getPatientFullAddress(item.patient)]);
+        var archTag = item.patient.arquivado === 'Sim' ? ' <span style="font-size:10px;color:var(--ink-faint);">(Arquivado)</span>' : '';
         return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;border-radius:8px;background:'+(ok9?'var(--ok-bg)':'var(--surface)')+';border:1px solid '+(ok9?'rgba(94,123,71,0.35)':'var(--line)')+';font-size:12px;">' +
           '<div>' +
-            '<strong>' + escapeHtml(getPatientDisplayName(item.patient)) + '</strong>' +
+            '<strong>' + escapeHtml(getPatientDisplayName(item.patient)) + '</strong>' + archTag +
             (item.patient.bairro ? ' <span style="font-size:11px;color:var(--ink-soft);">· ' + escapeHtml(item.patient.bairro) + '</span>' : '') +
             '<div style="font-size:10.5px;color:var(--ink-soft);">⛽ ' + item.fuel.liters.toFixed(2).replace('.', ',') + ' L (' + formatMoney(item.fuel.cost) + ')</div>' +
           '</div>' +
@@ -6917,9 +7026,9 @@ function runRouteSimulator(){
     matBox.innerHTML = '';
   }
 
-  if(pairsToLoad.length > 0){
+  if(!skipFetch && pairsToLoad.length > 0){
     requestRoutesCalculation(pairsToLoad, function(){
-      if(document.getElementById('simResultBox')) runRouteSimulator();
+      if(document.getElementById('simResultBox')) runRouteSimulator(true);
     });
   }
 }
@@ -6980,6 +7089,7 @@ function syncPresetButtonsWithDates(){
 function onBatchDateRangeInput(){
   syncPresetButtonsWithDates();
   updateBatchPreview();
+  debouncedUpdateScheduleModalRouteAnalysis();
 }
 
 function applyBatchPreset(preset){
@@ -6994,6 +7104,7 @@ function applyBatchPreset(preset){
   }
   highlightBatchPresetButtons(preset);
   updateBatchPreview();
+  debouncedUpdateScheduleModalRouteAnalysis();
 }
 
 function getBatchHoraForDow(dow, fallbackHora){
@@ -7017,7 +7128,7 @@ function onBaseHoraChange(newHora){
   }
   renderSelectedDowTimesUI();
   if(schedModalMode === 'batch') updateBatchPreview();
-  updateScheduleModalRouteAnalysis();
+  debouncedUpdateScheduleModalRouteAnalysis();
 }
 
 function onDowTimeInput(dow, val){
@@ -7031,7 +7142,7 @@ function onDowTimeInput(dow, val){
     if(hInp) hInp.value = schedDowTimes[key];
   }
   updateBatchPreview();
-  updateScheduleModalRouteAnalysis();
+  debouncedUpdateScheduleModalRouteAnalysis();
 }
 
 function renderSelectedDowTimesUI(){
@@ -7088,6 +7199,7 @@ function toggleDowChip(btn){
   }
   renderSelectedDowTimesUI();
   updateBatchPreview();
+  debouncedUpdateScheduleModalRouteAnalysis();
 }
 
 function toggleBatchPreviewAll(){
@@ -7165,7 +7277,7 @@ function updateBatchPreview(){
   box.innerHTML = summaryHtml +
     '✅ <strong>' + dates.length + ' atendimento(s)</strong> serão criados:<br>' +
     '<span style="color:var(--ink);line-height:1.6;">' + sample + '</span>' + moreHtml;
-  updateScheduleModalRouteAnalysis();
+  debouncedUpdateScheduleModalRouteAnalysis();
 }
 
 async function submitSchedule(){
@@ -7193,131 +7305,147 @@ async function submitSchedule(){
     }
   }
 
-  // Filtra datas que já possuem agendamento ativo no mesmo horário para este paciente (evita duplicar escala)
+  // Filtra datas que já possuem agendamento ativo no mesmo horário para este paciente (evita duplicar exatamente o mesmo horário)
   var filteredDates = targetDates.filter(function(dt){
     var dtDow = new Date(dt + 'T12:00:00').getDay();
     var targetHora = schedModalMode === 'batch' ? getBatchHoraForDow(dtDow, hora) : hora;
     var dup = schedules.some(function(sc){
-      return sc.status !== 'Cancelado' && sc.data === dt && scheduleMatchesPatient(sc, p) && (schedModalMode === 'batch' || (sc.hora || '') === (targetHora || ''));
+      return sc.status !== 'Cancelado' && sc.data === dt && scheduleMatchesPatient(sc, p) && (sc.hora || '') === (targetHora || '');
     });
     return !dup;
   });
 
   if(filteredDates.length === 0){
-    alert('Este paciente já possui agendamento ativo na(s) data(s) selecionada(s).');
+    alert('Este paciente já possui agendamento ativo no mesmo horário na(s) data(s) selecionada(s). Altere o horário ou escolha outras datas.');
     return;
   }
 
   var btn = document.getElementById('schedSubmitBtn');
-  if(btn){ btn.disabled = true; btn.textContent = 'Sincronizando...'; }
-
-  // Mapa de atendimentos já usados em vínculos
-  var usedEntryIds = {};
-  schedules.forEach(function(sc){
-    if(sc.atendimentoId) usedEntryIds[sc.atendimentoId] = true;
-  });
-
-  var nowTs = Date.now();
-  var autoLinkedCount = 0;
-  var createdItems = filteredDates.map(function(dt, idx){
-    // Verifica se já existe um atendimento lançado manualmente para este paciente nesta data
-    var existingEntry = entries.find(function(e){
-      return e.data === dt && !usedEntryIds[e.id] && entryMatchesPatient(e, p);
-    });
-    var st = 'Agendado';
-    var linkedEntryId = '';
-    if(existingEntry){
-      st = 'Realizado';
-      linkedEntryId = existingEntry.id;
-      usedEntryIds[existingEntry.id] = true;
-      autoLinkedCount++;
-    }
-    var dtDow = new Date(dt + 'T12:00:00').getDay();
-    var itemHora = schedModalMode === 'batch' ? getBatchHoraForDow(dtDow, hora) : hora;
-    return {
-      id: 'ag_' + nowTs + '_' + idx,
-      pacienteId: p.id,
-      pacienteNome: legalName,
-      data: dt,
-      hora: (existingEntry && existingEntry.hora) ? existingEntry.hora : itemHora,
-      duracaoMin: duracao,
-      valor: valor,
-      status: st,
-      observacao: obs,
-      calendarEventId: '',
-      calendarId: calId,
-      atendimentoId: linkedEntryId,
-      criadoEm: new Date().toISOString()
-    };
-  });
-
-  createdItems.forEach(function(item){ schedules.push(item); });
-  saveLocalSchedules();
-
-  // Ajusta o mês da agenda para o primeiro agendamento criado
-  if(createdItems.length > 0 && createdItems[0].data){
-    var firstDt = new Date(createdItems[0].data + 'T12:00:00');
-    if(!isNaN(firstDt.getTime())){
-      agendaMonth = new Date(firstDt.getFullYear(), firstDt.getMonth(), 1);
-    }
-  }
-
-  closeModal();
-  renderAgendaTab();
-  renderList();
-  renderPatientsTab();
-  var toastMsg = createdItems.length === 1 ? 'Atendimento agendado!' : (createdItems.length + ' atendimentos agendados!');
-  if(autoLinkedCount > 0){
-    toastMsg += ' (' + autoLinkedCount + ' já realizado(s) vinculado(s) automaticamente)';
-  }
-  showToast(toastMsg, 'ok');
-
-  var patDisp = getPatientDisplayName(p);
-  var patTel = p.telefone || '';
-  var patEnd = [p.endereco, p.bairro, p.cidade].filter(Boolean).join(', ');
+  if(btn){ btn.disabled = true; btn.textContent = 'Salvando...'; }
 
   try{
-    if(createdItems.length === 1){
-      var singlePayload = Object.assign({
-        action: 'create_schedule',
-        pacienteDisplay: patDisp,
-        telefone: patTel,
-        endereco: patEnd
-      }, createdItems[0]);
-      var resp = await postAction(singlePayload);
-      if(resp && resp.calendarEventId){
-        createdItems[0].calendarEventId = resp.calendarEventId;
-        saveLocalSchedules();
-        renderAgendaTab();
-        showToast('Sincronizado com o Google Agenda!', 'ok');
-      }
-    } else {
-      var batchItems = createdItems.map(function(it){
-        return Object.assign({}, it, {
-          pacienteDisplay: patDisp,
-          telefone: patTel,
-          endereco: patEnd
-        });
+    // Mapa de atendimentos já usados em vínculos
+    var usedEntryIds = {};
+    schedules.forEach(function(sc){
+      if(sc.atendimentoId) usedEntryIds[sc.atendimentoId] = true;
+    });
+
+    var nowTs = Date.now();
+    var autoLinkedCount = 0;
+    var createdItems = filteredDates.map(function(dt, idx){
+      // Verifica se já existe um atendimento lançado manualmente para este paciente nesta data
+      var existingEntry = entries.find(function(e){
+        return e.data === dt && !usedEntryIds[e.id] && entryMatchesPatient(e, p);
       });
-      var respB = await postAction({
-        action: 'create_schedules_batch',
+      var st = 'Agendado';
+      var linkedEntryId = '';
+      if(existingEntry){
+        st = 'Realizado';
+        linkedEntryId = existingEntry.id;
+        usedEntryIds[existingEntry.id] = true;
+        autoLinkedCount++;
+      }
+      var dtDow = new Date(dt + 'T12:00:00').getDay();
+      var itemHora = schedModalMode === 'batch' ? getBatchHoraForDow(dtDow, hora) : hora;
+      return {
+        id: 'ag_' + nowTs + '_' + idx,
+        pacienteId: p.id,
+        pacienteNome: legalName,
+        data: dt,
+        hora: (existingEntry && existingEntry.hora) ? existingEntry.hora : itemHora,
+        duracaoMin: duracao,
+        valor: valor,
+        status: st,
+        observacao: obs,
+        calendarEventId: '',
         calendarId: calId,
-        items: batchItems
-      });
-      var evMap = (respB && (respB.eventMap || respB.eventIds)) || null;
-      if(evMap){
-        createdItems.forEach(function(it){
-          if(evMap[it.id]) it.calendarEventId = evMap[it.id];
-        });
-        saveLocalSchedules();
-        renderAgendaTab();
-      }
-      if(respB && respB.calendarSyncedCount > 0){
-        showToast(respB.calendarSyncedCount + ' evento(s) criados no Google Agenda!', 'ok');
+        atendimentoId: linkedEntryId,
+        criadoEm: new Date().toISOString()
+      };
+    });
+
+    createdItems.forEach(function(item){ schedules.push(item); });
+    saveLocalSchedules();
+
+    // Ajusta o mês da agenda para o primeiro agendamento criado se estiver fora do mês visível
+    if(createdItems.length > 0 && createdItems[0].data){
+      var firstDt = new Date(createdItems[0].data + 'T12:00:00');
+      if(!isNaN(firstDt.getTime())){
+        agendaMonth = new Date(firstDt.getFullYear(), firstDt.getMonth(), 1);
       }
     }
+
+    closeModal();
+    renderAgendaTab();
+    renderList();
+    renderPatientsTab();
+
+    var skippedCount = targetDates.length - filteredDates.length;
+    var toastMsg = createdItems.length === 1 ? 'Atendimento agendado!' : (createdItems.length + ' atendimentos agendados!');
+    if(autoLinkedCount > 0){
+      toastMsg += ' (' + autoLinkedCount + ' já realizado(s) vinculado(s) automaticamente)';
+    }
+    if(skippedCount > 0){
+      toastMsg += ' [' + skippedCount + ' já agendado(s)]';
+    }
+    showToast(toastMsg, 'ok');
+
+    var patDisp = getPatientDisplayName(p);
+    var patTel = p.telefone || '';
+    var patEnd = [p.endereco, p.bairro, p.cidade].filter(Boolean).join(', ');
+
+    // Sincronização assíncrona em segundo plano com o Google Apps Script e Google Agenda
+    (async function(){
+      try{
+        if(createdItems.length === 1){
+          var singlePayload = Object.assign({
+            action: 'create_schedule',
+            pacienteDisplay: patDisp,
+            telefone: patTel,
+            endereco: patEnd
+          }, createdItems[0]);
+          var resp = await postAction(singlePayload);
+          if(resp && resp.calendarEventId){
+            createdItems[0].calendarEventId = resp.calendarEventId;
+            saveLocalSchedules();
+            renderAgendaTab();
+            showToast('Sincronizado com o Google Agenda!', 'ok');
+          }
+        } else {
+          var batchItems = createdItems.map(function(it){
+            return Object.assign({}, it, {
+              pacienteDisplay: patDisp,
+              telefone: patTel,
+              endereco: patEnd
+            });
+          });
+          var respB = await postAction({
+            action: 'create_schedules_batch',
+            calendarId: calId,
+            items: batchItems
+          });
+          var evMap = (respB && (respB.eventMap || respB.eventIds)) || null;
+          if(evMap){
+            createdItems.forEach(function(it){
+              if(evMap[it.id]) it.calendarEventId = evMap[it.id];
+            });
+            saveLocalSchedules();
+            renderAgendaTab();
+          }
+          if(respB && respB.calendarSyncedCount > 0){
+            showToast(respB.calendarSyncedCount + ' evento(s) no Google Agenda (' + (calId || 'Scarlet') + ')!', 'ok');
+          }
+        }
+      }catch(syncErr){
+        console.warn('Aviso ao sincronizar agendamento em segundo plano:', syncErr);
+        showToast('Agendamento salvo no app! Google Agenda sincronizará na próxima conexão.', 'info');
+      }
+    })();
+
   }catch(err){
-    console.warn('Aviso ao sincronizar agendamento com Apps Script:', err);
+    console.error('Erro ao submeter agendamento:', err);
+    alert('Erro ao salvar agendamento: ' + err.message);
+    if(btn){ btn.disabled = false; btn.textContent = 'Salvar e Sincronizar'; }
   }
 }
 

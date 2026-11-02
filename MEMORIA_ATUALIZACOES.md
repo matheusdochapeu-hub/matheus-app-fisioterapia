@@ -1,7 +1,28 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `02/11/2026`  
-Versão do Service Worker: `atend-v43` (`sw.js`)
+Versão do Service Worker: `atend-v44` (`sw.js`)
+
+---
+
+## 11. Auditoria e Validação Completa do Motor de Rotas, Deslocamento e Combustível (`v44`)
+- **Testes ao Vivo no Back-end do Google Apps Script (`calc_routes_batch`):**
+  - Executados testes diretamente no endpoint de produção (`https://script.google.com/macros/s/AKfycbwYFDh0-sZSZut51QJriLORBta_D_5BX3xJyeJm38qhERnKl1D4HgGA9oalxYDNQ28EbQ/exec`), validando que o `Maps.newDirectionFinder()` do Google Apps Script calcula trajetos reais com precisão turn-by-turn de trânsito em Ribeirão Preto:
+    - *Vila Tibério &rarr; Centro (Rua General Osório, 500):* **4,0 km · 11 min**
+    - *Centro &rarr; Jd. Botânico (Av. Prof. João Fiúsa, 1500):* **4,3 km · 11 min**
+    - *Jd. Botânico &rarr; Bonfim Paulista:* **7,0 km · 8 min**
+    - *Vila Tibério &rarr; USP Monte Alegre (Av. Bandeirantes, 3900):* **4,7 km · 9 min**
+- **Correção de Crash no Simulador de Rotas (`TypeError`):**
+  - *Identificação:* Caso um paciente tivesse endereço não cadastrado ou bairro não catalogado, a função `getRouteSyncOrApprox` retornava `null`. No método `runRouteSimulator`, a expressão `r.distanceKm` causava `TypeError: Cannot read properties of null (reading 'distanceKm')`, travando a renderização do simulador.
+  - *Solução:* Tratamento defensivo rigoroso com fallback urbano automático (`4.5 km · 12 min`) enquanto a rota exata é calculada via API do Google Maps, impedindo qualquer travamento de tela.
+- **Ampliação da Cobertura de Bairros de Ribeirão Preto (`RP_COORDS_REF`):**
+  - Expandida a tabela de coordenadas para 19 regiões e bairros chave da cidade (incluindo Vila Seixas, Boulevard, Santa Úrsula, Jardim Paulistano, Palmares, Shopping Iguatemi, Ribeirão Verde, San Marco / Recanto das Acácias e Cândido Portinari).
+- **Tratamento de Estado Vazio no Ranking de Proximidade:**
+  - Quando os pacientes ainda não possuem endereços cadastrados, o assistente exibe um card explicativo amigável orientando o usuário a preencher o endereço ou bairro na ficha do paciente.
+- **Testes Automatizados de Rotas:**
+  - Adicionados testes específicos no `test/helpers.test.js` para `findApproxCoordsRP`, `haversineRoadEstimate`, `getRouteSyncOrApprox`, `calcFuelMetrics` e tolerância a dados vazios (total de 27 testes passando 100%).
+- **Cache do Service Worker:**
+  - Atualizado para `atend-v44` em `sw.js`.
 
 ---
 

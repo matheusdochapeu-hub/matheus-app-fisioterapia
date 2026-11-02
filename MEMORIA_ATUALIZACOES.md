@@ -1,7 +1,7 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `01/11/2026`  
-Versão do Service Worker: `atend-v35` (`sw.js`)
+Versão do Service Worker: `atend-v36` (`sw.js`)
 
 ---
 
@@ -172,6 +172,13 @@ Versão do Service Worker: `atend-v35` (`sw.js`)
     - Badge visual `👤 Organizadora Principal: scarletsantos7@gmail.com` adicionado no modal de configurações.
     - Texto explicativo de que a sincronização ocorre diretamente no calendário sem e-mails.
     - Sincronização inteligente dos parâmetros de `data.config` no carregamento da planilha.
+- **`atend-v36`:** Homologação da Nova URL de Implantação e Diagnóstico da Conta Executora USP:
+  - **Homologação da Nova URL:** Atualizada a constante `SCRIPT_URL` em `atendimentos.html` para `https://script.google.com/macros/s/AKfycbwYFDh0-sZSZut51QJriLORBta_D_5BX3xJyeJm38qhERnKl1D4HgGA9oalxYDNQ28EbQ/exec`.
+  - **Sucesso no `doGet`:** Retornou com sucesso todas as 8 abas (`atendimentos`, `pacientes`, `evolucoes`, `exercicios`, `rotinas`, `agendamentos`, `config`, `organizer`), com Scarlet Santos oficialmente registrada na planilha.
+  - **Sucesso no `doPost` (`test_calendar`):** Respondeu com `success: true`, `sendInvites: false` e mensagem confirmando que nenhum e-mail de convite é disparado.
+  - **Diagnóstico da Conta Google Executora:** Identificado no `calendarName` que a planilha/Apps Script está sendo executada pela conta Google `matheusrodrigues1917@usp.br`. Portanto, para que o compartilhamento da agenda da Scarlet Santos seja reconhecido com gravação direta, o compartilhamento deve incluir a conta `matheusrodrigues1917@usp.br` com permissão "Fazer alterações nos eventos".
+  - **Ajuste de Tipagem em `PrecoGasolina` (`Code.gs`):** Ajustado o valor padrão de combustível na aba `Configuracoes` para o tipo numérico `6.10` com proteção em `formatCellValue_`, evitando que planilhas em português convertam a string `'6.10'` para a data `06/10`.
+
 
 
 

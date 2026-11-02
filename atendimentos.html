@@ -5858,7 +5858,13 @@ var RP_COORDS_REF = [
   { match: ['bonfim paulista', 'alphaville', 'quinta da primavera', 'guaporé', 'guapore'], lat: -21.2550, lon: -47.8090 },
   { match: ['city ribeirao', 'city ribeirão', 'jardim canada', 'jardim canadá'], lat: -21.2240, lon: -47.8210 },
   { match: ['planalto verde', ' adao do carmo', 'adão do carmo', 'portal do alto'], lat: -21.1480, lon: -47.8490 },
-  { match: ['simioni', 'adelino simioni', 'quintino', 'quintino facci'], lat: -21.1280, lon: -47.8060 }
+  { match: ['simioni', 'adelino simioni', 'quintino', 'quintino facci'], lat: -21.1280, lon: -47.8060 },
+  { match: ['vila seixas', 'boulevard', 'santa ursula', 'santa úrsula'], lat: -21.1820, lon: -47.8050 },
+  { match: ['jardim paulistano', 'jardim palmares', 'palmares'], lat: -21.1890, lon: -47.7850 },
+  { match: ['iguatemi', 'shopping iguatemi'], lat: -21.2280, lon: -47.8150 },
+  { match: ['ribeirao verde', 'ribeirão verde', 'complexo ribeirao verde'], lat: -21.1350, lon: -47.7600 },
+  { match: ['san marco', 'recanto das acacias', 'recanto das acácias'], lat: -21.2420, lon: -47.8150 },
+  { match: ['candido portinari', 'cândido portinari', 'jardim aero clube'], lat: -21.1550, lon: -47.7500 }
 ];
 
 function findApproxCoordsRP(addr){
@@ -5897,20 +5903,33 @@ function haversineRoadEstimate(c1, c2){
 function getRouteSyncOrApprox(origin, dest){
   if(!origin || !dest) return null;
   if(normAddrKey(origin) === normAddrKey(dest)){
-    return { ok: true, distanceKm: 0.4, durationMin: 2 };
+    return { ok: true, distanceKm: 0.4, durationMin: 2, approx: false };
   }
   var key = makeRoutePairKey(origin, dest);
   var cache = getRouteCacheMap();
   if(cache[key] && cache[key].ok){
     return cache[key];
   }
-  // Estimativa imediata se reconhecer os bairros de Ribeirão Preto enquanto busca rota exata em background
+  // Estimativa baseada nos bairros de Ribeirão Preto enquanto busca rota exata via Maps
   var c1 = findApproxCoordsRP(origin);
   var c2 = findApproxCoordsRP(dest);
   if(c1 && c2){
     return haversineRoadEstimate(c1, c2);
   }
-  return null;
+  // Se apenas um dos pontos tiver coordenadas reconhecidas, usa o centro de RP (-21.1775, -47.8103) para estimar
+  var centerRP = { lat: -21.1775, lon: -47.8103 };
+  if(c1 || c2){
+    var est = haversineRoadEstimate(c1 || centerRP, c2 || centerRP);
+    est.approx = true;
+    return est;
+  }
+  // Média urbana típica de deslocamento em Ribeirão Preto (~4.5 km, ~12 min) enquanto calcula rota exata via Maps
+  return {
+    ok: true,
+    distanceKm: 4.5,
+    durationMin: 12,
+    approx: true
+  };
 }
 
 async function geocodeAddressNominatim(addr){
@@ -7354,15 +7373,22 @@ function runRouteSimulator(skipFetch){
   if(originAddr && activeOthers.length > 0){
     var rows = activeOthers.map(function(p){
       var pAddr = getPatientFullAddress(p);
+      if(!pAddr) return null;
       pairsToLoad.push({ id: 'mat_' + p.id, origin: originAddr, destination: pAddr });
-      var r = getRouteSyncOrApprox(originAddr, pAddr);
+      var r = getRouteSyncOrApprox(originAddr, pAddr) || { ok: true, distanceKm: 4.5, durationMin: 12, approx: true };
       return { patient: p, route: r, fuel: calcFuelCost(r.distanceKm) };
-    }).sort(function(a,b){ return a.route.durationMin - b.route.durationMin; });
+    }).filter(Boolean).sort(function(a,b){
+      var durA = (a.route && typeof a.route.durationMin === 'number') ? a.route.durationMin : 999;
+      var durB = (b.route && typeof b.route.durationMin === 'number') ? b.route.durationMin : 999;
+      return durA - durB;
+    });
 
     matBox.innerHTML = '<div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:6px;">📍 Pacientes mais próximos de <u>' + escapeHtml(originLabel) + '</u>:</div>' +
       '<div style="display:flex;flex-direction:column;gap:5px;max-height:200px;overflow-y:auto;">' +
       rows.map(function(item){
-        var ok9 = item.route.durationMin <= 9;
+        var dur = (item.route && item.route.durationMin) || 12;
+        var dist = (item.route && item.route.distanceKm) || 4.5;
+        var ok9 = dur <= 9;
         var mapsUrl = buildGoogleMapsDirectionsUrl(originAddr, [getPatientFullAddress(item.patient)]);
         var archTag = item.patient.arquivado === 'Sim' ? ' <span style="font-size:10px;color:var(--ink-faint);">(Arquivado)</span>' : '';
         return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;border-radius:8px;background:'+(ok9?'var(--ok-bg)':'var(--surface)')+';border:1px solid '+(ok9?'rgba(94,123,71,0.35)':'var(--line)')+';font-size:12px;">' +
@@ -7373,7 +7399,7 @@ function runRouteSimulator(skipFetch){
           '</div>' +
           '<div style="display:flex;align-items:center;gap:6px;">' +
             '<div style="text-align:right;">' +
-              '<div style="font-weight:800;color:'+(ok9?'var(--ok)':'var(--primary-deep)')+';">' + item.route.durationMin + ' min (' + formatDistanceKm(item.route.distanceKm) + ')</div>' +
+              '<div style="font-weight:800;color:'+(ok9?'var(--ok)':'var(--primary-deep)')+';">' + dur + ' min (' + formatDistanceKm(dist) + ')</div>' +
               '<div style="font-size:10px;color:'+(ok9?'var(--ok)':'var(--ink-soft)')+';">' + (ok9 ? '✅ Encaixe 8–9 min' : '⏰ Janela > 10 min') + '</div>' +
             '</div>' +
             '<a href="' + escapeHtml(mapsUrl) + '" target="_blank" rel="noopener" class="btn small ghost" style="width:auto;padding:4px 7px;font-size:11px;text-decoration:none;" title="Ver rota no Google Maps">🗺️</a>' +
@@ -7382,7 +7408,10 @@ function runRouteSimulator(skipFetch){
       }).join('') +
       '</div>';
   } else {
-    matBox.innerHTML = '';
+    matBox.innerHTML = '<div style="background:var(--surface);border:1px dashed var(--line);border-radius:8px;padding:12px;font-size:11.5px;color:var(--ink-soft);line-height:1.45;">' +
+      'ℹ️ <strong>Nenhum outro paciente com endereço cadastrado no momento.</strong><br>' +
+      'Para que o ranking calcule os pacientes mais próximos e o custo de gasolina, preencha o campo de endereço ou bairro na ficha de cada paciente (aba Pacientes &rarr; Editar).' +
+    '</div>';
   }
 
   if(!skipFetch && pairsToLoad.length > 0){

@@ -1,7 +1,23 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `02/11/2026`  
-Versão do Service Worker: `atend-v42` (`sw.js`)
+Versão do Service Worker: `atend-v43` (`sw.js`)
+
+---
+
+## 10. Correção do Modal de Férias, UX Uniforme do Calendário e Ocultação do Banner do Google Agenda (`v43`)
+- **Correção Definitiva do Botão "Férias / Ausência" (`openVacationModal`):**
+  - Identificado que o modal de férias/ausência estava sem o container overlay `.modal-bg`, sendo injetado no rodapé sem `position: fixed; z-index: 90` (ficando invisível na tela do celular).
+  - Reestruturado com o padrão de modais do app: `.modal-bg` com backdrop blur + `.modal` com `.grabber`, abrindo com animação slide-up responsiva e fechamento ao tocar no fundo ou botão Cancelar.
+- **UX Uniforme do Calendário e Botões com Tamanhos Similares:**
+  - **Células do Calendário:** Definida altura estrita de `44px` para todas as células (`.cal-day` e `.cal-day.empty`), eliminando o estiramento da primeira linha de dias (dias 1, 2 e 3 que apareciam altos demais no celular). Agora todos os dias do mês possuem exatamente o mesmo tamanho e proporção.
+  - **Chips de Resumo do Mês (`.agenda-stats`):** Grid uniforme de 4 colunas com número destacado no topo e rótulo centralizado embaixo, acabando com cortes de texto na tela do smartphone.
+  - **Barra de Ações Rápidas (`.agenda-action-grid`):** Layout simétrico com 2 botões na linha superior (`[ 📅 + Agendar Sessão ]` e `[ 🏖️ Férias / Ausência ]`) com exatos 50% de largura e 42px de altura, seguidos por `[ 🚗 Rotas & Distâncias ]` ocupando 100% com a mesma altura e tipografia padronizada.
+- **Ocultação e Recolhimento do Vínculo com Google Agenda:**
+  - O banner persistente do Google Agenda e o botão "Status Agenda" foram completamente removidos da tela principal da Agenda quando a agenda já está vinculada (`calId`).
+  - O status e a troca de conta permanecem protegidos e disponíveis na tela de Configurações (ícone ⚙️ no cabeçalho) e no modal de agendamento.
+- **Cache do Service Worker:**
+  - Atualizado para `atend-v43` em `sw.js`.
 
 ---
 

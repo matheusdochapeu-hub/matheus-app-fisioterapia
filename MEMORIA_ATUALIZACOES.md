@@ -1,7 +1,23 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `02/11/2026`  
-Versão do Service Worker: `atend-v46` (`sw.js`)
+Versão do Service Worker: `atend-v47` (`sw.js`)
+
+---
+
+## 15. Nova Implantação do Google Apps Script e Eliminação Definitiva da Duplicidade de Pacientes (`v47`)
+- **Homologação e Conexão da Nova Implantação:**
+  - Atualizada a constante `SCRIPT_URL` em `atendimentos.html` para o novo endpoint de produção: `https://script.google.com/macros/s/AKfycbz9uHQZiq_eNMs7pA4_uiI_qLxcrkG7BuW_ThjLt7yRh7cBuHT3Pg8B2nIn402JrlO7Vw/exec`.
+  - Executados testes automatizados ao vivo via GET e POST (`test_calendar`), confirmando integridade operacional, retorno dos 8 pacientes da planilha e sincronização nativa com Google Agenda.
+  - Implementada migração automática transparente em `init()` para atualizar a configuração salva no navegador de qualquer dispositivo para o novo endpoint.
+- **Eliminação Definitiva da Duplicidade de Pacientes:**
+  - *Diagnóstico do Bug:* Quando pacientes eram criados provisoriamente em cache local (`pac_auto_...`), a mesclagem em `loadData()` comparava apenas o `id` estrito. Ao receber os pacientes oficiais da planilha (`p1786...`), o sistema adicionava os dois registros lado a lado (ex.: "Dona Diva" oficial e "Dona Diva" local), duplicando todos os nomes nos selects e listas.
+  - *Motor Canônico de Deduplicação (`deduplicatePatientsList`):* Unifica registros com mesmo ID, mesmo nome (`normName(nome)`) ou cruzamento com `nomeFantasia`/`oldNome`. O ID oficial da planilha tem precedência sobre IDs auto-gerados (`pac_auto_...`), mesclando telefones, endereços e demais metadados sem perda de informação.
+  - *Purga Imediata no Dispositivo:* Aplicada em `init()` sobre `ft_local_patients` no `localStorage`, eliminando duplicatas residuais de celulares e navegadores em 0ms.
+  - *Filtro de Segurança nos Selects:* Aplicada blindagem defensiva com `filterUniqueForOptions` em `openScheduleModal`, `populatePatientFilter`, `populateAgendaFilters`, `populateEvolutionsFilters`, `openNewEntry`, `openNewEvolution` e `renderPatientsTab`, garantindo que nenhuma opção duplicada seja renderizada.
+- **Service Worker & Testes Automatizados:**
+  - Service worker atualizado para `atend-v47` em `sw.js`.
+  - 38 testes unitários passando com 100% de sucesso (3 novos testes adicionados especificamente para cenários de deduplicação e mesclagem de IDs).
 
 ---
 

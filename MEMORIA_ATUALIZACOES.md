@@ -1,7 +1,7 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `01/11/2026`  
-Versão do Service Worker: `atend-v37` (`sw.js`)
+Versão do Service Worker: `atend-v38` (`sw.js`)
 
 ---
 
@@ -188,6 +188,12 @@ Versão do Service Worker: `atend-v37` (`sw.js`)
     - **Destaque Visual de "Hoje" no Calendário:** O dia atual agora recebe badge e contorno em destaque com a palavra **"HOJE"** em negrito dentro da grade, facilitando a visualização rápida da escala do dia.
     - **Filtro Rápido com 1 Toque nos Cards de Estatísticas:** Os chips de KPI (*Agendados no mês*, *A realizar*, *Realizados*) agora são clicáveis e filtram a lista abaixo imediatamente pelo status selecionado (`setAgendaStatusFilter`).
     - **Aprimoramento do Estado Vazio:** Quando um dia sem agendamentos é selecionado no calendário, o card exibe tanto o botão **"+ Agendar Atendimento"** (com a data já pré-selecionada) quanto o botão **"Ver mês inteiro"**.
+- **`atend-v38`:** Banner do Google Agenda Retraível e Ocultável ("Oculte ou Retraia"):
+  - **Banner Retraído por Padrão:** O banner da agenda agora inicia retraído (`.collapsed`) por padrão quando a agenda já está vinculada, ocupando apenas uma linha fina e elegante no topo da tela.
+  - **Expansão e Recolhimento Dinâmico com Chevron (`▼ / ▲`):** Um toque no banner ou no chevron alterna entre a visão compacta (apenas status e botão de configuração) e a visão expandida com a descrição completa.
+  - **Botão de Fechar/Ocultar (`✕`):** Adicionado botão de fechar que oculta completamente o banner da tela (`localStorage.setItem('ft_gcal_banner_dismissed', 'true')`).
+  - **Botão Discreto de Restauração:** Ao ser ocultado, um botão discreto **"📅 Status Agenda"** surge na barra de ações ao lado de *Rotas & Distâncias*, permitindo reexibir o status a qualquer momento sem poluir a interface.
+
 
 
 

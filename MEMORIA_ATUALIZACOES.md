@@ -1,7 +1,25 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `02/11/2026`  
-Versão do Service Worker: `atend-v48` (`sw.js`)
+Versão do Service Worker: `atend-v49` (`sw.js`)
+
+---
+
+## 17. Sincronização em Tempo Real Multi-Dispositivo (Celular <-> Computador) e Autoridade da Planilha (`v49`)
+- **Diagnóstico do Problema ("alterei no celular e não apareceu no computador"):**
+  1. *Subordinação Invertida do Cache Local:* Em `loadData()`, os arrays `localScheds`, `localEvos` e os metadados `meta` no `localStorage` do computador eram aplicados após os dados da planilha, sobrepondo os dados atualizados vindos da nuvem com cópias antigas em cache no computador.
+  2. *Cache HTTP Agressivo no Navegador:* Requisições `GET` ao endpoint `/exec` do Apps Script sofriam cache de redirecionamento 302 em navegadores desktop/mobile por falta de cabeçalhos de controle e timestamp.
+  3. *Ausência de Gatilhos de Retomada de Foco:* Ao alternar entre o celular e a aba do computador já aberta em segundo plano, nenhum evento disparava a revalidação dos dados.
+- **Soluções Implementadas:**
+  - **Autoridade Absoluta da Planilha:** A planilha Google Sheets é a única e definitiva fonte da verdade (`Single Source of Truth`). Ao carregar dados frescos, `sheetPatients`, `sheetScheds`, `sheetEvos` e `entries` atualizam forçadamente os caches locais do dispositivo (`saveLocal...`), garantindo que qualquer alteração feita no celular se reflita imediatamente no computador.
+  - **Anti-Cache Rigoroso na Rede:** `loadData` agora anexa `_t=Date.now()` a cada requisição e utiliza a diretiva `{ method: 'GET', cache: 'no-store' }`, forçando o navegador a sempre consultar os dados ao vivo no Google Sheets.
+  - **Motor de Sincronização Automática em Foco (`visibilitychange` & `focus`):**
+    - Adicionado ouvinte de `document.visibilitychange` e `window.focus` com debounce inteligente de 10s. Ao voltar para a aba do computador, o sistema revalida silenciosamente os dados sem piscar ou travar a tela.
+    - Polling suave em segundo plano a cada 45 segundos para manter abas abertas sempre atualizadas.
+    - Pausa automática de sincronização enquanto o usuário estiver com qualquer modal ou formulário aberto preenchendo dados.
+- **Service Worker & Testes Automatizados:**
+  - Service worker atualizado para `atend-v49` em `sw.js`.
+  - 39 testes unitários passando com 100% de sucesso.
 
 ---
 

@@ -83,8 +83,8 @@ function getConfigSheet_() {
     ['OrganizadorPrincipal', APP_ORGANIZER_EMAIL, 'E-mail da fisioterapeuta proprietária e organizadora do aplicativo', nowIso],
     ['GoogleAgendaID', DEFAULT_CALENDAR_ID, 'ID da agenda onde os atendimentos são gravados diretamente', nowIso],
     ['EnderecoBase', 'Rua Maracaju, 88 - Vila Tibério, Ribeirão Preto - SP', 'Endereço base / residencial para rotas e deslocamento', nowIso],
-    ['ConsumoCarroKmL', '14', 'Consumo do carro na cidade (km por litro) para cálculo de deslocamento', nowIso],
-    ['PrecoGasolina', '6.10', 'Preço de referência do litro de combustível em R$', nowIso],
+    ['ConsumoCarroKmL', 14, 'Consumo do carro na cidade (km por litro) para cálculo de deslocamento', nowIso],
+    ['PrecoGasolina', 6.10, 'Preço de referência do litro de combustível em R$', nowIso],
     ['NotificacoesPorEmail', 'Desativado (gravação direta)', 'Agendamento direto na agenda sem envio de convites ou emails', nowIso]
   ];
 
@@ -170,6 +170,12 @@ function formatCellValue_(header, value) {
     }
     if (header === 'Hora') {
       return Utilities.formatDate(value, tz, 'HH:mm');
+    }
+    // Protege chaves de configuração numéricas que o Sheets pode converter em data por locale pt-BR (ex: '6.10' virando 06/10)
+    if (header === 'Valor' && value.getFullYear && value.getFullYear() > 2000) {
+      var d = value.getDate();
+      var m = value.getMonth() + 1;
+      if (m === 10 && d === 6) return 6.10;
     }
     return Utilities.formatDate(value, tz, "yyyy-MM-dd'T'HH:mm:ss");
   }

@@ -275,6 +275,96 @@ describe('Batch Scheduling and Preset Range Bounds', () => {
   });
 });
 
+describe('Route Engine, Haversine Estimation and Coordinates Matching', () => {
+  const mCoords = html.match(/var RP_COORDS_REF = \[[\s\S]*?\];/);
+  const RP_COORDS_REF = new Function('return (' + mCoords[0].replace('var RP_COORDS_REF = ', '').replace(/;$/, '') + ')')();
+
+  const normAddrKey = extractFn('normAddrKey');
+  const makeRoutePairKey = extractFnWithScope('makeRoutePairKey', { normAddrKey });
+  const findApproxCoordsRP = extractFnWithScope('findApproxCoordsRP', { normAddrKey, RP_COORDS_REF });
+  const haversineRoadEstimate = extractFn('haversineRoadEstimate');
+  const getRouteSyncOrApprox = extractFnWithScope('getRouteSyncOrApprox', {
+    normAddrKey,
+    makeRoutePairKey,
+    getRouteCacheMap: () => ({}),
+    findApproxCoordsRP,
+    haversineRoadEstimate
+  });
+
+  test('matches coordinates for known Ribeirão Preto neighborhoods', () => {
+    const home = findApproxCoordsRP('Rua Maracaju, 88 - Vila Tibério, Ribeirão Preto');
+    assert.ok(home && home.matched);
+    assert.equal(home.lat, -21.1764);
+    assert.equal(home.lon, -47.8266);
+
+    const usp = findApproxCoordsRP('Avenida dos Bandeirantes, 3900 - Monte Alegre, USP');
+    assert.ok(usp && usp.matched);
+    assert.equal(usp.lat, -21.1685);
+
+    const centro = findApproxCoordsRP('Rua General Osório, 400 - Centro, Ribeirão Preto');
+    assert.ok(centro && centro.matched);
+    assert.equal(centro.lat, -21.1775);
+
+    const botanico = findApproxCoordsRP('Avenida Professor João Fiúsa, 1200 - Jardim Botânico');
+    assert.ok(botanico && botanico.matched);
+    assert.equal(botanico.lat, -21.2115);
+
+    const bonfim = findApproxCoordsRP('Condomínio Alphaville - Bonfim Paulista');
+    assert.ok(bonfim && bonfim.matched);
+    assert.equal(bonfim.lat, -21.2550);
+  });
+
+  test('haversineRoadEstimate returns realistic road distances and urban drive times', () => {
+    const c1 = { lat: -21.1764, lon: -47.8266 }; // Vila Tiberio
+    const c2 = { lat: -21.1685, lon: -47.8425 }; // Monte Alegre / USP
+    const est = haversineRoadEstimate(c1, c2);
+    assert.equal(est.ok, true);
+    assert.ok(est.distanceKm >= 2.0 && est.distanceKm <= 3.5, 'Distance between Vila Tiberio and USP should be ~2.5km');
+    assert.ok(est.durationMin >= 6 && est.durationMin <= 12, 'Drive time should be ~8-9min');
+  });
+
+  test('getRouteSyncOrApprox returns 0.4km and 2min for identical addresses', () => {
+    const r = getRouteSyncOrApprox('Rua Maracaju, 88', 'Rua Maracaju, 88');
+    assert.equal(r.ok, true);
+    assert.equal(r.distanceKm, 0.4);
+    assert.equal(r.durationMin, 2);
+  });
+
+  test('getRouteSyncOrApprox safely provides fallback for unknown neighborhoods without null/crash', () => {
+    const r = getRouteSyncOrApprox('Rua Inexistente, 123', 'Avenida Qualquer, 456');
+    assert.ok(r && r.ok);
+    assert.ok(r.distanceKm > 0);
+    assert.ok(r.durationMin > 0);
+    assert.equal(r.approx, true);
+  });
+
+  test('ranking simulation does not crash when patients have blank addresses', () => {
+    const patients = [
+      { id: 'p1', nome: 'Paciente Sem Endereco', endereco: '', bairro: '', cidade: '' },
+      { id: 'p2', nome: 'Paciente Com Endereco', endereco: 'Rua General Osorio, 100', bairro: 'Centro', cidade: 'Ribeirao Preto' }
+    ];
+    const getPatientFullAddress = (p) => {
+      const parts = [p.endereco, p.bairro, p.cidade].filter(Boolean);
+      return parts.join(', ');
+    };
+    const originAddr = 'Rua Maracaju, 88 - Vila Tiberio';
+    const activeOthers = patients.filter((p) => getPatientFullAddress(p));
+    assert.equal(activeOthers.length, 1);
+
+    const rows = activeOthers.map((p) => {
+      const pAddr = getPatientFullAddress(p);
+      const r = getRouteSyncOrApprox(originAddr, pAddr) || { ok: true, distanceKm: 4.5, durationMin: 12, approx: true };
+      return { patient: p, route: r, fuel: calcFuelMetrics(r.distanceKm) };
+    }).sort((a, b) => a.route.durationMin - b.route.durationMin);
+
+    assert.equal(rows.length, 1);
+    assert.ok(rows[0].route.durationMin > 0);
+    assert.ok(rows[0].fuel.liters > 0);
+    assert.ok(rows[0].fuel.cost > 0);
+  });
+});
+
+
 
 
 

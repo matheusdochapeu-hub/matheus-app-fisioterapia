@@ -1128,7 +1128,7 @@
    Insira o link gerado em "Implantar > App da Web" (/exec).
    Se vazio, o app solicitará o link na primeira inicialização.
    ============================================================ */
-var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwYFDh0-sZSZut51QJriLORBta_D_5BX3xJyeJm38qhERnKl1D4HgGA9oalxYDNQ28EbQ/exec';
+var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz9uHQZiq_eNMs7pA4_uiI_qLxcrkG7BuW_ThjLt7yRh7cBuHT3Pg8B2nIn402JrlO7Vw/exec';
 var APP_ORGANIZER_EMAIL = 'scarletsantos7@gmail.com';
 var DEFAULT_CALENDAR_ID = 'scarletsantos7@gmail.com';
 var DEFAULT_HOME_ADDRESS = 'Rua Maracaju, 88 - Vila Tibério, Ribeirão Preto - SP';
@@ -1285,6 +1285,79 @@ function isNonPatientRecord(p){
 /* Agendamento que é bloqueio de agenda (férias / ausência), não um atendimento de paciente. */
 function isBlockSchedule(sc){
   return !!sc && (sc.pacienteId === '__BLOQUEIO__' || sc.status === 'Ausência' || sc.status === 'Férias' || sc.tipo === 'Bloqueio');
+}
+
+/* Deduplica uma lista de pacientes, unificando registros com mesmo ID ou mesmo nome (nome ou nomeFantasia).
+   Preserva o ID oficial da planilha (ex.: p1786...) em detrimento de IDs provisórios/auto-gerados (pac_auto_...).
+   Mescla dados cadastrais (telefone, endereço, valorPadrao, foto, etc.) para que nenhuma informação seja perdida. */
+function deduplicatePatientsList(list){
+  if(!Array.isArray(list)) return [];
+  var result = [];
+  var indexByKey = {};
+
+  for(var i = 0; i < list.length; i++){
+    var p = list[i];
+    if(!p || isNonPatientRecord(p)) continue;
+
+    var pId = String(p.id || '').trim();
+    var nNome = normName(p.nome);
+    var nFant = normName(p.nomeFantasia);
+    var nOld = normName(p.oldNome);
+
+    var matchIdx = -1;
+    if(pId && indexByKey['id:' + pId] !== undefined){
+      matchIdx = indexByKey['id:' + pId];
+    } else if(nNome && indexByKey['nome:' + nNome] !== undefined){
+      matchIdx = indexByKey['nome:' + nNome];
+    } else if(nFant && indexByKey['fant:' + nFant] !== undefined){
+      matchIdx = indexByKey['fant:' + nFant];
+    } else if(nNome && indexByKey['fant:' + nNome] !== undefined){
+      matchIdx = indexByKey['fant:' + nNome];
+    } else if(nFant && indexByKey['nome:' + nFant] !== undefined){
+      matchIdx = indexByKey['nome:' + nFant];
+    } else if(nOld && indexByKey['nome:' + nOld] !== undefined){
+      matchIdx = indexByKey['nome:' + nOld];
+    }
+
+    if(matchIdx === -1){
+      var copy = Object.assign({}, p);
+      var idx = result.length;
+      result.push(copy);
+      if(pId) indexByKey['id:' + pId] = idx;
+      if(nNome) indexByKey['nome:' + nNome] = idx;
+      if(nFant) indexByKey['fant:' + nFant] = idx;
+      if(nOld) indexByKey['old:' + nOld] = idx;
+    } else {
+      var target = result[matchIdx];
+      var targetIsAuto = String(target.id || '').indexOf('pac_auto_') === 0;
+      var currentIsOfficial = pId && pId.indexOf('pac_auto_') !== 0;
+      if(targetIsAuto && currentIsOfficial){
+        target.id = p.id;
+        indexByKey['id:' + pId] = matchIdx;
+      }
+      if(!target.nome && p.nome) target.nome = p.nome;
+      if(!target.nomeFantasia && p.nomeFantasia) target.nomeFantasia = p.nomeFantasia;
+      if(!target.telefone && p.telefone) target.telefone = p.telefone;
+      if((target.valorPadrao === undefined || target.valorPadrao === '') && p.valorPadrao) target.valorPadrao = p.valorPadrao;
+      if(!target.formaPagamento && p.formaPagamento) target.formaPagamento = p.formaPagamento;
+      if(!target.endereco && p.endereco) target.endereco = p.endereco;
+      if(!target.bairro && p.bairro) target.bairro = p.bairro;
+      if(!target.cidade && p.cidade) target.cidade = p.cidade;
+      if(!target.dataNascimento && p.dataNascimento) target.dataNascimento = p.dataNascimento;
+      if(!target.contato02 && p.contato02) target.contato02 = p.contato02;
+      if(!target.documento && p.documento) target.documento = p.documento;
+      if(!target.diagClinico && p.diagClinico) target.diagClinico = p.diagClinico;
+      if(!target.diagFuncional && p.diagFuncional) target.diagFuncional = p.diagFuncional;
+      if(!target.objetivos && p.objetivos) target.objetivos = p.objetivos;
+      if(!target.foto && p.foto) target.foto = p.foto;
+      if(p.arquivado === 'Sim') target.arquivado = 'Sim';
+
+      if(pId && indexByKey['id:' + pId] === undefined) indexByKey['id:' + pId] = matchIdx;
+      if(nNome && indexByKey['nome:' + nNome] === undefined) indexByKey['nome:' + nNome] = matchIdx;
+      if(nFant && indexByKey['fant:' + nFant] === undefined) indexByKey['fant:' + nFant] = matchIdx;
+    }
+  }
+  return result;
 }
 
 function entryMatchesPatient(e, p){
@@ -1706,18 +1779,9 @@ async function loadData(){
     });
 
     var localPatients = getLocalPatients();
-    var patMap = {};
-    sheetPatients.forEach(function(p){ patMap[p.id] = p; });
-    localPatients.forEach(function(lp){
-      if(!patMap[lp.id]){
-        patMap[lp.id] = lp;
-      } else {
-        patMap[lp.id] = Object.assign({}, patMap[lp.id], lp);
-      }
-    });
-    patients = Object.keys(patMap).map(function(k){ return patMap[k]; }).filter(function(p){
-      return !isNonPatientRecord(p);
-    });
+    // Mescla registros da planilha (oficiais) com registros locais deduplicando por ID e Nome
+    var combinedPatients = (sheetPatients || []).concat(localPatients || []);
+    patients = deduplicatePatientsList(combinedPatients);
 
     // Auto-descoberta: garante que pacientes com histórico em atendimentos ou agendamentos nunca desapareçam do app
     var existingNamesMap = {};
@@ -1768,6 +1832,7 @@ async function loadData(){
       }
     });
 
+    patients = deduplicatePatientsList(patients);
     saveLocalPatients();
 
     var sheetEvos = (data.evolucoes || []).map(function(r){
@@ -1883,7 +1948,7 @@ function loadLocalDataSnapshot(){
     if(schedules.length === 0) schedules = getLocalSchedules();
     if(evolutions.length === 0) evolutions = getLocalEvolutions();
 
-    patients = patients.filter(function(p){ return !isNonPatientRecord(p); });
+    patients = deduplicatePatientsList(patients);
     entries = entries.filter(function(e){ return !isInvalidPatientName(e.nome); });
     schedules = schedules.filter(function(s){ return isBlockSchedule(s) || !isInvalidPatientName(s.pacienteNome); });
 
@@ -2010,14 +2075,14 @@ function getLocalPatients(){
   try{
     var raw = localStorage.getItem('ft_local_patients');
     var list = raw ? JSON.parse(raw) : [];
-    return list.filter(function(p){ return !isNonPatientRecord(p); });
+    return deduplicatePatientsList(list);
   }catch(e){ return []; }
 }
 
 function saveLocalPatients(){
   try{
-    var cleanPatients = (patients || []).filter(function(p){ return !isNonPatientRecord(p); });
-    localStorage.setItem('ft_local_patients', JSON.stringify(cleanPatients));
+    patients = deduplicatePatientsList(patients || []);
+    localStorage.setItem('ft_local_patients', JSON.stringify(patients));
   }catch(e){}
 }
 
@@ -2163,6 +2228,7 @@ function renderSinglePatientCardHtml(p){
 }
 
 function renderPatientsTab(){
+  patients = deduplicatePatientsList(patients);
   var container = document.getElementById('patientsContainer');
   var countEl = document.getElementById('patientListCount');
   if(!container) return;
@@ -3308,8 +3374,17 @@ function populateEvolutionsFilters(){
   var pSel = document.getElementById('evoFilterPatient');
   if(pSel){
     var cur = pSel.value;
+    patients = deduplicatePatientsList(patients);
+    var sortedP = deduplicatePatientsList(patients.slice()).sort(function(a,b){ return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b),'pt-BR'); });
+    var seenKeys = {};
+    var uniqueP = sortedP.filter(function(p){
+      var k = normName(getPatientDisplayName(p));
+      if(!k || seenKeys[k]) return false;
+      seenKeys[k] = true;
+      return true;
+    });
     pSel.innerHTML = '<option value="">Todos os pacientes</option>' +
-      patients.slice().sort(function(a,b){ return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b),'pt-BR'); }).map(function(p){
+      uniqueP.map(function(p){
         return '<option value="'+p.id+'">'+escapeHtml(getPatientDisplayName(p))+'</option>';
       }).join('');
     pSel.value = cur;
@@ -3410,7 +3485,15 @@ function openNewEvolution(preSelectPatientId){
   }
 
   var now = new Date();
-  var options = patients.slice().sort(function(a,b){ return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b),'pt-BR'); }).map(function(p){
+  patients = deduplicatePatientsList(patients);
+  var sortedP = deduplicatePatientsList(patients.slice()).sort(function(a,b){ return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b),'pt-BR'); });
+  var seenOptKeys = {};
+  var options = sortedP.filter(function(p){
+    var k = normName(getPatientDisplayName(p));
+    if(!k || seenOptKeys[k]) return false;
+    seenOptKeys[k] = true;
+    return true;
+  }).map(function(p){
     var sel = (preSelectPatientId && p.id === preSelectPatientId) ? 'selected' : '';
     return '<option value="'+p.id+'" '+sel+'>'+escapeHtml(getPatientDisplayName(p))+'</option>';
   }).join('');
@@ -3895,11 +3978,20 @@ function populatePatientFilter(){
   var sel = document.getElementById('patientFilter');
   if(!sel) return;
   var current = sel.value;
-  var sortedPatients = patients.slice().sort(function(a,b){
+  patients = deduplicatePatientsList(patients);
+  var sortedPatients = deduplicatePatientsList(patients.slice()).sort(function(a,b){
     return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b),'pt-BR');
   });
 
-  sel.innerHTML = '<option value="">Todos os pacientes</option>' + sortedPatients.map(function(p){
+  var seenOptKeys = {};
+  var uniqueSorted = sortedPatients.filter(function(p){
+    var k = normName(getPatientDisplayName(p));
+    if(!k || seenOptKeys[k]) return false;
+    seenOptKeys[k] = true;
+    return true;
+  });
+
+  sel.innerHTML = '<option value="">Todos os pacientes</option>' + uniqueSorted.map(function(p){
     var label = escapeHtml(getPatientDisplayName(p)) + (p.arquivado === 'Sim' ? ' (Finalizado)' : '');
     return '<option value="'+escapeHtml(p.id)+'">'+label+'</option>';
   }).join('');
@@ -4095,7 +4187,15 @@ function openNewEntry(patientId, returnContext){
     return;
   }
   var now = new Date();
-  var options = patients.slice().sort(function(a,b){ return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b),'pt-BR'); }).map(function(p){
+  patients = deduplicatePatientsList(patients);
+  var sortedP = deduplicatePatientsList(patients.slice()).sort(function(a,b){ return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b),'pt-BR'); });
+  var seenOptKeys = {};
+  var options = sortedP.filter(function(p){
+    var k = normName(getPatientDisplayName(p));
+    if(!k || seenOptKeys[k]) return false;
+    seenOptKeys[k] = true;
+    return true;
+  }).map(function(p){
     var sel = (patientId && p.id === patientId) ? 'selected' : '';
     return '<option value="'+escapeHtml(p.nome)+'" data-pid="'+escapeHtml(p.id)+'" data-valor="'+escapeHtml(p.valorPadrao||'')+'" '+sel+'>'+escapeHtml(getPatientDisplayName(p))+'</option>';
   }).join('');
@@ -6435,27 +6535,40 @@ function populateAgendaFilters(){
   var sel = document.getElementById('agendaFilterPatient');
   if(!sel) return;
   var cur = sel.value;
-  var activeList = patients.filter(function(p){ return p.arquivado !== 'Sim'; }).sort(function(a,b){
+  patients = deduplicatePatientsList(patients);
+  var activeList = deduplicatePatientsList(patients.filter(function(p){ return p.arquivado !== 'Sim'; })).sort(function(a,b){
     return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b), 'pt-BR');
   });
-  var archivedList = patients.filter(function(p){ return p.arquivado === 'Sim'; }).sort(function(a,b){
+  var archivedList = deduplicatePatientsList(patients.filter(function(p){ return p.arquivado === 'Sim'; })).sort(function(a,b){
     return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b), 'pt-BR');
   });
 
+  var seenOptKeys = {};
+  function filterUniqueForSelect(arr){
+    return arr.filter(function(p){
+      var k = normName(getPatientDisplayName(p));
+      if(!k || seenOptKeys[k]) return false;
+      seenOptKeys[k] = true;
+      return true;
+    });
+  }
+  var uniqueActive = filterUniqueForSelect(activeList);
+  var uniqueArchived = filterUniqueForSelect(archivedList);
+
   var optsHtml = '<option value="">Todos os pacientes</option>';
-  if(activeList.length > 0 && archivedList.length > 0){
+  if(uniqueActive.length > 0 && uniqueArchived.length > 0){
     optsHtml += '<optgroup label="Pacientes Ativos">' +
-      activeList.map(function(p){
+      uniqueActive.map(function(p){
         return '<option value="'+p.id+'">'+escapeHtml(getPatientDisplayName(p))+'</option>';
       }).join('') +
     '</optgroup>' +
     '<optgroup label="Pacientes Arquivados">' +
-      archivedList.map(function(p){
+      uniqueArchived.map(function(p){
         return '<option value="'+p.id+'">'+escapeHtml(getPatientDisplayName(p))+' (Arquivado)</option>';
       }).join('') +
     '</optgroup>';
   } else {
-    var allP = activeList.concat(archivedList);
+    var allP = uniqueActive.concat(uniqueArchived);
     optsHtml += allP.map(function(p){
       var archTag = p.arquivado === 'Sim' ? ' (Arquivado)' : '';
       return '<option value="'+p.id+'">'+escapeHtml(getPatientDisplayName(p)) + archTag + '</option>';
@@ -6835,10 +6948,11 @@ var schedActivePreset = '';
 var schedShowAllPreview = false;
 
 function openScheduleModal(preSelectPatientId, preSelectDate){
-  var activePatients = patients.filter(function(p){ return p.arquivado !== 'Sim'; }).sort(function(a,b){
+  patients = deduplicatePatientsList(patients);
+  var activePatients = deduplicatePatientsList(patients.filter(function(p){ return p.arquivado !== 'Sim'; })).sort(function(a,b){
     return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b), 'pt-BR');
   });
-  var archivedPatients = patients.filter(function(p){ return p.arquivado === 'Sim'; }).sort(function(a,b){
+  var archivedPatients = deduplicatePatientsList(patients.filter(function(p){ return p.arquivado === 'Sim'; })).sort(function(a,b){
     return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b), 'pt-BR');
   });
   if(patients.length === 0){
@@ -6867,22 +6981,34 @@ function openScheduleModal(preSelectPatientId, preSelectDate){
   var defDow = dStart.getDay();
   schedDowTimes[String(defDow)] = '14:00';
 
+  var seenOptKeys = {};
+  function filterUniqueForOptions(arr){
+    return arr.filter(function(p){
+      var k = normName(getPatientDisplayName(p));
+      if(!k || seenOptKeys[k]) return false;
+      seenOptKeys[k] = true;
+      return true;
+    });
+  }
+  var uniqueActive = filterUniqueForOptions(activePatients);
+  var uniqueArchived = filterUniqueForOptions(archivedPatients);
+
   var patOptions = '';
-  if(activePatients.length > 0 && archivedPatients.length > 0){
+  if(uniqueActive.length > 0 && uniqueArchived.length > 0){
     patOptions += '<optgroup label="Pacientes Ativos">' +
-      activePatients.map(function(p){
+      uniqueActive.map(function(p){
         var sel = (firstPat && p.id === firstPat.id) ? 'selected' : '';
         return '<option value="'+p.id+'" '+sel+'>'+escapeHtml(getPatientDisplayName(p))+'</option>';
       }).join('') +
     '</optgroup>' +
     '<optgroup label="Pacientes Arquivados">' +
-      archivedPatients.map(function(p){
+      uniqueArchived.map(function(p){
         var sel = (firstPat && p.id === firstPat.id) ? 'selected' : '';
         return '<option value="'+p.id+'" '+sel+'>'+escapeHtml(getPatientDisplayName(p))+' (Arquivado)</option>';
       }).join('') +
     '</optgroup>';
   } else {
-    var allP = activePatients.length > 0 ? activePatients : archivedPatients;
+    var allP = uniqueActive.length > 0 ? uniqueActive : uniqueArchived;
     patOptions = allP.map(function(p){
       var sel = (firstPat && p.id === firstPat.id) ? 'selected' : '';
       var archTag = p.arquivado === 'Sim' ? ' (Arquivado)' : '';
@@ -8856,13 +8982,13 @@ async function init(){
     }
   }catch(e){}
 
-  // Purga imediata de registros inválidos (como nomes de exercícios antigos) salvos em cache no dispositivo
+  // Purga imediata de registros inválidos e duplicatas salvos em cache no dispositivo
   try{
     var rawP = localStorage.getItem('ft_local_patients');
     if(rawP){
       var listP = JSON.parse(rawP);
-      var filtP = listP.filter(function(p){ return !isNonPatientRecord(p); });
-      if(filtP.length !== listP.length) localStorage.setItem('ft_local_patients', JSON.stringify(filtP));
+      var filtP = deduplicatePatientsList(listP);
+      localStorage.setItem('ft_local_patients', JSON.stringify(filtP));
     }
     var rawE = localStorage.getItem('ft_local_entries');
     if(rawE){

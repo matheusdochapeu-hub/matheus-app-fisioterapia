@@ -1228,6 +1228,18 @@ function normName(s){
     .replace(/[\u0300-\u036f]/g, '');
 }
 
+var NON_PATIENT_NAMES = ['agachamento', 'flexao', 'prancha', 'exercicio', 'rotina', 'alongamento'];
+
+function isInvalidPatientName(name){
+  if(!name) return true;
+  var n = normName(name);
+  if(!n) return true;
+  for(var i = 0; i < NON_PATIENT_NAMES.length; i++){
+    if(n === NON_PATIENT_NAMES[i] || n.indexOf(NON_PATIENT_NAMES[i]) === 0) return true;
+  }
+  return false;
+}
+
 function entryMatchesPatient(e, p){
   if(!e || !p) return false;
   var en = normName(e.nome);
@@ -1576,7 +1588,9 @@ async function loadData(){
     if(!res.ok) throw new Error('HTTP ' + res.status);
     var data = await res.json();
 
-    entries = (data.atendimentos || []).map(function(r){
+    entries = (data.atendimentos || []).filter(function(r){
+      return !isInvalidPatientName(r.Paciente);
+    }).map(function(r){
       return {
         id: String(r.ID),
         nome: r.Paciente || '',
@@ -1591,7 +1605,9 @@ async function loadData(){
     });
     saveLocalEntries();
 
-    var sheetPatients = (data.pacientes || []).map(function(r){
+    var sheetPatients = (data.pacientes || []).filter(function(r){
+      return !isInvalidPatientName(r.Nome) && !isInvalidPatientName(r.NomeFantasia);
+    }).map(function(r){
       var pid = String(r.ID);
       var meta = getLocalPatientMeta(pid);
       var valPadrao = (meta.valorPadrao !== undefined && meta.valorPadrao !== '') ? meta.valorPadrao : (r.ValorPadrao || '');
@@ -1635,7 +1651,9 @@ async function loadData(){
         patMap[lp.id] = Object.assign({}, patMap[lp.id], lp);
       }
     });
-    patients = Object.keys(patMap).map(function(k){ return patMap[k]; });
+    patients = Object.keys(patMap).map(function(k){ return patMap[k]; }).filter(function(p){
+      return !isInvalidPatientName(p.nome) && !isInvalidPatientName(p.nomeFantasia);
+    });
 
     // Auto-descoberta: garante que pacientes com histórico em atendimentos ou agendamentos nunca desapareçam do app
     var existingNamesMap = {};
@@ -1646,10 +1664,11 @@ async function loadData(){
     });
 
     var scanNames = [];
-    entries.forEach(function(e){ if(e.nome && scanNames.indexOf(e.nome) === -1) scanNames.push(e.nome); });
-    (data.agendamentos || []).forEach(function(sc){ if(sc.PacienteNome && scanNames.indexOf(sc.PacienteNome) === -1) scanNames.push(sc.PacienteNome); });
+    entries.forEach(function(e){ if(e.nome && !isInvalidPatientName(e.nome) && scanNames.indexOf(e.nome) === -1) scanNames.push(e.nome); });
+    (data.agendamentos || []).forEach(function(sc){ if(sc.PacienteNome && !isInvalidPatientName(sc.PacienteNome) && scanNames.indexOf(sc.PacienteNome) === -1) scanNames.push(sc.PacienteNome); });
 
     scanNames.forEach(function(rawName){
+      if(isInvalidPatientName(rawName)) return;
       var n = normName(rawName);
       if(n && !existingNamesMap[n]){
         existingNamesMap[n] = true;
@@ -1772,13 +1791,15 @@ async function loadData(){
 function getLocalEntries(){
   try{
     var raw = localStorage.getItem('ft_local_entries');
-    return raw ? JSON.parse(raw) : [];
+    var list = raw ? JSON.parse(raw) : [];
+    return list.filter(function(e){ return !isInvalidPatientName(e.nome); });
   }catch(e){ return []; }
 }
 
 function saveLocalEntries(){
   try{
-    localStorage.setItem('ft_local_entries', JSON.stringify(entries));
+    var cleanEntries = (entries || []).filter(function(e){ return !isInvalidPatientName(e.nome); });
+    localStorage.setItem('ft_local_entries', JSON.stringify(cleanEntries));
   }catch(e){}
 }
 
@@ -1788,6 +1809,10 @@ function loadLocalDataSnapshot(){
     if(patients.length === 0) patients = getLocalPatients();
     if(schedules.length === 0) schedules = getLocalSchedules();
     if(evolutions.length === 0) evolutions = getLocalEvolutions();
+
+    patients = patients.filter(function(p){ return !isInvalidPatientName(p.nome) && !isInvalidPatientName(p.nomeFantasia); });
+    entries = entries.filter(function(e){ return !isInvalidPatientName(e.nome); });
+    schedules = schedules.filter(function(s){ return !isInvalidPatientName(s.pacienteNome); });
 
     if(entries.length > 0 || patients.length > 0 || schedules.length > 0){
       reconcileSchedulesWithEntries();
@@ -1911,13 +1936,15 @@ function saveLocalEvolutions(){
 function getLocalPatients(){
   try{
     var raw = localStorage.getItem('ft_local_patients');
-    return raw ? JSON.parse(raw) : [];
+    var list = raw ? JSON.parse(raw) : [];
+    return list.filter(function(p){ return !isInvalidPatientName(p.nome) && !isInvalidPatientName(p.nomeFantasia); });
   }catch(e){ return []; }
 }
 
 function saveLocalPatients(){
   try{
-    localStorage.setItem('ft_local_patients', JSON.stringify(patients));
+    var cleanPatients = (patients || []).filter(function(p){ return !isInvalidPatientName(p.nome) && !isInvalidPatientName(p.nomeFantasia); });
+    localStorage.setItem('ft_local_patients', JSON.stringify(cleanPatients));
   }catch(e){}
 }
 
@@ -8254,6 +8281,22 @@ async function init(){
       localStorage.setItem('ft_calendar_id', DEFAULT_CALENDAR_ID);
     }
   }catch(e){}
+
+  // Purga imediata de registros inválidos (como nomes de exercícios antigos) salvos em cache no dispositivo
+  try{
+    var rawP = localStorage.getItem('ft_local_patients');
+    if(rawP){
+      var listP = JSON.parse(rawP);
+      var filtP = listP.filter(function(p){ return !isInvalidPatientName(p.nome) && !isInvalidPatientName(p.nomeFantasia); });
+      if(filtP.length !== listP.length) localStorage.setItem('ft_local_patients', JSON.stringify(filtP));
+    }
+    var rawE = localStorage.getItem('ft_local_entries');
+    if(rawE){
+      var listE = JSON.parse(rawE);
+      var filtE = listE.filter(function(e){ return !isInvalidPatientName(e.nome); });
+      if(filtE.length !== listE.length) localStorage.setItem('ft_local_entries', JSON.stringify(filtE));
+    }
+  }catch(eClean){}
 
   var savedTab = 'pacientes';
   try{ savedTab = localStorage.getItem('active_tab') || 'pacientes'; }catch(e){}

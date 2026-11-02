@@ -114,18 +114,33 @@ Versão do Service Worker: `atend-v31` (`sw.js`)
     - **No Agendamento de Sessões / Escala (`openScheduleModal`):** Painel dinâmico que analisa em tempo real o paciente e o horário escolhido em relação à casa da Scarlet e a atendimentos adjacentes do mesmo dia, alertando sobre a regra de 8–9 min ou recomendação de casa/rua antes mesmo de salvar.
     - **Simulador Geral de Rotas (`openRouteSimulatorModal`):** Botão **🚗 Rotas & Distâncias** na aba Agenda para simular trajetos entre quaisquer pacientes ou a partir de casa, testar cenários rápidos e ver a matriz de proximidade completa.
   - **Motor Híbrido de Rotas (Google Maps + Fallback Local):** `Code.gs` com handler `calc_routes_batch` usando `Maps.newDirectionFinder()` do Google Apps Script (direções de trânsito reais sem necessidade de chave externa de API); fallback inteligente no navegador com OSRM/Nominatim e coordenadas dos bairros de Ribeirão Preto (`RP_COORDS_REF`), com cache persistido em `localStorage` (`ft_route_cache_v1`).
-- **`atend-v33`:** Verificação Aprofundada do Google Agenda (`scarletsantos7@gmail.com`) e Auditoria Geral de Incongruências:
-  - **Verificação do Vínculo com o Google Agenda da Scarlet:**
-    - **Proteção Contra Erro de Auto-Convite (`resolveUserCalendar_` em `Code.gs`):** O `Code.gs` agora identifica se a conta do Apps Script executando a operação pertence à própria Scarlet (`scarletsantos7@gmail.com`). Nesse caso, `guestEmail` fica nulo e a gravação ocorre diretamente na agenda padrão, evitando a exceção do Google Agenda ao tentar convidar o próprio criador do evento. Se executado por outra conta, adiciona Scarlet como convidada para inserção automática na agenda dela.
-    - **Correção de Timezone Explícito (`parseScheduleDates_` em `Code.gs`):** As datas/horas agora são processadas com `Utilities.parseDate(...)` considerando o fuso da planilha (`SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone()`) ou `America/Sao_Paulo`, prevenindo deslocamentos indevidos de horário no celular da usuária caso o script esteja em fuso GMT ou Nova York.
-    - **Exclusão Real de Eventos Cancelados no Google Agenda:** Em `updateCalendarEventForSchedule_` (`Code.gs`) e `cancelScheduleStatus` (`atendimentos.html`), ao cancelar uma sessão o evento é removido do Google Agenda e a chave `CalendarEventId` é limpa na planilha, liberando a agenda da Scarlet. Ao reativar a sessão, um novo evento é criado e o novo ID é gravado.
-    - **Migração Automática do E-mail Padrão no Front-End:** Garante que contas antigas que continham `'primary'` no `localStorage` passem a usar `scarletsantos7@gmail.com` por padrão.
-    - **Mensagem Amigável no Teste de Conexão (`test_calendar`):** Retorna no modal se os eventos estão sendo gravados diretamente ou vinculados via convite para Scarlet.
-  - **Correção de Incongruências no Front-End (`atendimentos.html`):**
-    - **Correção de Nomes de Funções (`buildGoogleMapsDirectionsUrl` vs `buildGoogleMapsDirUrl`):** Corrigida a chamada no simulador de rotas e criados aliases de compatibilidade para evitar `ReferenceError`.
-    - **Criação de Aliases de Rotas e Combustível:** Implementadas as funções `formatDistanceKm`, `parseTimeMinutes`, `formatTimeMinutes`, `formatDurationHuman` e `calcFuelCost`, garantindo interoperabilidade entre modais.
-    - **Conformidade RFC 5545 em Arquivos `.ics` (`exportSchedulesICS`):** Adicionada a propriedade obrigatória `DTSTAMP`, permitindo importação limpa sem avisos em qualquer calendário (iOS, Google, macOS, Windows).
-  - **Testes Unitários:** 24 testes unitários automatizados passando com 100% de sucesso.
+- **`atend-v34`:** Revisão Completa dos Agendamentos, Fim dos Travamentos, Resolução de Pacientes Desaparecidos e Validação Integral dos Tipos de Escala:
+  - **Fim dos Travamentos e Congelamentos no Agendamento:**
+    - **Eliminação de Loop Recurso no Assistente de Rotas (`updateScheduleModalRouteAnalysis`):** Adicionado controle estrito com parâmetro `skipFetch` e debouncing (`debouncedUpdateScheduleModalRouteAnalysis`, 180ms). O retorno das rotas calculadas não mais dispara novas requisições em cascata, eliminando travamento da interface e sobrecarga no Apps Script.
+    - **Correção da Verificação de Duplicidade em Lote (`submitSchedule`):** Corrigido bug crítico onde a condição `(schedModalMode === 'batch' || (sc.hora || '') === (targetHora || ''))` avaliava para `true` para qualquer sessão preexistente do paciente na data selecionada, descartando as datas corretas e disparando alerta falso de duplicidade. A validação agora compara de forma estrita o paciente, data e horário exato `(sc.hora || '') === (targetHora || '')`.
+    - **UI Otimista Não-Bloqueante (`submitSchedule`):** O agendamento é salvo imediatamente no estado local (`schedules` e `localStorage`), o modal fecha instantaneamente e a tela é atualizada na hora. A sincronização com o Google Apps Script e Google Agenda roda em segundo plano de forma assíncrona com `try/catch` e notificações toast informativas, garantindo que o botão nunca fique travado em "Sincronizando...".
+    - **Desbloqueio de Concorrência no Back-End (`Code.gs`):** As ações de leitura `calc_routes_batch` e `test_calendar` foram movidas para fora do lock exclusivo de planilha (`LockService.getScriptLock()`), retornando imediatamente sem prender ou travar as operações de escrita de agendamento em lote.
+    - **Gravação em Bloco e Otimização no Google Apps Script (`create_schedules_batch`):** Pré-carregamento dos metadados do paciente e resolução de calendário uma única vez por lote, gravação atômica em uma única chamada de planilha (`setValues`) e tratamento de exceção individual por evento para evitar que a falha em um evento aborte o lote.
+  - **Resolução dos Pacientes Desaparecidos ("Alguns pacientes não aparecem"):**
+    - **Exibição Universal de Pacientes no Agendamento (`openScheduleModal`):** O seletor de pacientes agora exibe todos os pacientes cadastrados, agrupando-os de forma clara entre `Pacientes Ativos` e `Pacientes Arquivados` (com tag explicativa `(Arquivado)`). Pacientes arquivados ou importados agora estão sempre acessíveis para agendamento.
+    - **Filtro de Pacientes na Aba Agenda (`populateAgendaFilters`):** O filtro da agenda agora contempla todos os pacientes (ativos e arquivados), permitindo filtrar o histórico ou a escala de qualquer paciente.
+    - **Correspondência Flexível de Agendamentos (`renderAgendaTab`):** Ao filtrar por paciente, a verificação agora checa tanto o ID quanto o nome legal e nome fantasia (`scheduleMatchesPatient`), assegurando que agendamentos vinculados por nome não sejam omitidos.
+    - **Persistência Local e Prevenção de Perda de Pacientes (`getLocalPatients` e `saveLocalPatients`):** Pacientes criados ou atualizados no dispositivo agora são salvos imediatamente no `localStorage` (`ft_local_patients`) e mesclados em `loadData()`. Se a gravação na planilha falhar por lentidão ou conexão, o paciente NÃO é mais apagado da memória; ele permanece salvo localmente com aviso transparente.
+    - **Acesso Completo no Simulador de Rotas (`openRouteSimulatorModal` e `runRouteSimulator`):** Todos os pacientes cadastrados que possuem endereço podem ser selecionados para comparação de rotas e janelas de atendimento.
+  - **Validação Rigorosa de Todos os Tipos de Agendamento:**
+    - **Sessão Única (`single`):** Criação rápida com data, horário, duração e valor avulso, integrando cálculo de rota com a regra de 8-9 min.
+    - **Esta Semana (`week`):** Seleção rápida da semana corrente (Segunda a Domingo) com chips de dias da semana e horários independentes.
+    - **Próximas 2 Semanas (`2weeks`):** Planejamento quinzenal (14 dias à frente) respeitando dias de atendimento e horários configurados.
+    - **Este Mês Inteiro (`month`):** Escala integral do mês do calendário com preview instantâneo e contagem de sessões.
+    - **Próximo Mês (`nextmonth`):** Geração antecipada para o mês subsequente com avanço automático do calendário para o mês agendado.
+    - **Horários Diferentes por Dia da Semana (`schedDowTimesBox`):** Suporte total a agendas flexíveis (ex: Terça às 14:00 e Quinta às 10:00 para o mesmo paciente), com gravação precisa tanto no app quanto nos eventos individuais do Google Agenda.
+  - **Vínculo e Conexão com Google Agenda da Scarlet (`scarletsantos7@gmail.com`):**
+    - E-mail padrão configurado nativamente no front-end e no back-end.
+    - Verificação em `resolveUserCalendar_` pronta para gravação direta ou via convite sincronizado com o e-mail dela.
+    - Função `autorizarGoogleAgenda` pronta no Apps Script.
+    - Teste de conexão funcional pelo modal de configurações com resposta instantânea.
+  - **Suíte de Testes Automatizados:** 26 testes unitários automatizados passando com 100% de sucesso.
+
 
 
 

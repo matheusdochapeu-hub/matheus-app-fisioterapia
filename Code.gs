@@ -366,13 +366,34 @@ function pad2_(n) {
 function parseScheduleDates_(dataStr, horaStr, duracaoMin) {
   var dParts = String(dataStr || '').split('-');
   if (dParts.length !== 3) return null;
-  var hParts = String(horaStr || '09:00').split(':');
   var y = parseInt(dParts[0], 10);
   var m = parseInt(dParts[1], 10);
   var d = parseInt(dParts[2], 10);
-  var hh = parseInt(hParts[0] || '9', 10);
-  var mm = parseInt(hParts[1] || '0', 10);
-  if (isNaN(y) || isNaN(m) || isNaN(d) || isNaN(hh) || isNaN(mm)) return null;
+  if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
+
+  var horaClean = String(horaStr || '').trim().toLowerCase();
+  var isAllDay = !horaClean || horaClean.indexOf('dia') !== -1 || horaClean.indexOf('inteiro') !== -1 || horaClean === 'bloqueio';
+
+  var hh = 9;
+  var mm = 0;
+  var dur = parseInt(duracaoMin, 10);
+
+  if (isAllDay) {
+    hh = 8;
+    mm = 0;
+    if (!dur || dur <= 0) dur = 720; // 08:00 às 20:00 (12 horas)
+  } else {
+    var hParts = horaClean.split(':');
+    hh = parseInt(hParts[0] || '9', 10);
+    mm = parseInt(hParts[1] || '0', 10);
+    if (isNaN(hh) || isNaN(mm)) {
+      hh = 8;
+      mm = 0;
+      if (!dur || dur <= 0) dur = 720;
+    } else {
+      if (!dur || dur <= 0) dur = 50;
+    }
+  }
 
   var tz = 'America/Sao_Paulo';
   try {
@@ -393,8 +414,6 @@ function parseScheduleDates_(dataStr, horaStr, duracaoMin) {
   }
   if (!start || isNaN(start.getTime())) return null;
 
-  var dur = parseInt(duracaoMin, 10);
-  if (!dur || dur <= 0) dur = 50;
   var end = new Date(start.getTime() + dur * 60000);
   return { start: start, end: end };
 }
@@ -504,6 +523,42 @@ function enrichScheduleItemWithPatient_(item) {
   return item;
 }
 
+function buildCalendarTitleAndDesc_(item) {
+  var isBlock = item.pacienteId === '__BLOQUEIO__' || item.status === 'Ausência' || item.status === 'Férias' || item.tipo === 'Bloqueio';
+  if (isBlock) {
+    var bTitle = (item.pacienteNome || '🏖️ Férias');
+    if (item.observacao) bTitle += ': ' + item.observacao;
+    var bLines = [
+      '🚫 Bloqueio de Horário / Ausência de Trabalho',
+      'Tipo: ' + (item.pacienteNome || 'Férias / Ausência'),
+      'Motivo: ' + (item.observacao || 'Registrado no App Fisioterapia'),
+      'Organizadora: ' + APP_ORGANIZER_EMAIL,
+      'Sincronizado automaticamente (sem envio de e-mails).'
+    ];
+    return {
+      title: bTitle,
+      description: bLines.join('\n'),
+      location: ''
+    };
+  }
+
+  var prefix = item.status === 'Realizado' ? '✓ ' : '';
+  var title = prefix + 'Fisioterapia: ' + (item.pacienteDisplay || item.pacienteNome || 'Paciente');
+  var descLines = [
+    'Paciente: ' + (item.pacienteNome || item.pacienteDisplay || ''),
+    'Organizadora: ' + APP_ORGANIZER_EMAIL
+  ];
+  if (item.telefone) descLines.push('Telefone: ' + item.telefone);
+  if (item.observacao) descLines.push('Observações: ' + item.observacao);
+  descLines.push('Sincronizado diretamente pelo App Fisioterapia (sem envio de e-mails).');
+
+  return {
+    title: title,
+    description: descLines.join('\n'),
+    location: item.endereco || ''
+  };
+}
+
 function createCalendarEventForSchedule_(item) {
   try {
     enrichScheduleItemWithPatient_(item);
@@ -512,30 +567,21 @@ function createCalendarEventForSchedule_(item) {
     var resolved = resolveUserCalendar_(item.calendarId);
     if (!resolved.cal) return { eventId: '', warning: 'Agenda não encontrada.' };
 
-    var prefix = item.status === 'Realizado' ? '✓ ' : '';
-    var title = prefix + 'Fisioterapia: ' + (item.pacienteDisplay || item.pacienteNome || 'Paciente');
-    var descLines = [
-      'Paciente: ' + (item.pacienteNome || item.pacienteDisplay || ''),
-      'Organizadora: ' + APP_ORGANIZER_EMAIL
-    ];
-    if (item.telefone) descLines.push('Telefone: ' + item.telefone);
-    if (item.observacao) descLines.push('Observações: ' + item.observacao);
-    descLines.push('Sincronizado diretamente pelo App Fisioterapia (sem envio de e-mails).');
-
+    var calData = buildCalendarTitleAndDesc_(item);
     var opts = {
-      location: item.endereco || '',
-      description: descLines.join('\n'),
+      location: calData.location,
+      description: calData.description,
       sendInvites: false
     };
 
     var ev = null;
     try {
-      ev = resolved.cal.createEvent(title, dates.start, dates.end, opts);
+      ev = resolved.cal.createEvent(calData.title, dates.start, dates.end, opts);
     } catch (writeErr) {
       // Se não conseguiu escrever diretamente na agenda informada, grava na agenda padrão sem convidar
       var defCal = CalendarApp.getDefaultCalendar();
       if (defCal && defCal.getId() !== resolved.cal.getId()) {
-        ev = defCal.createEvent(title, dates.start, dates.end, opts);
+        ev = defCal.createEvent(calData.title, dates.start, dates.end, opts);
       } else {
         throw writeErr;
       }
@@ -577,20 +623,12 @@ function updateCalendarEventForSchedule_(item) {
       return createCalendarEventForSchedule_(item);
     }
 
-    var prefix = item.status === 'Realizado' ? '✓ ' : '';
-    var title = prefix + 'Fisioterapia: ' + (item.pacienteDisplay || item.pacienteNome || 'Paciente');
-    var descLines = [
-      'Paciente: ' + (item.pacienteNome || item.pacienteDisplay || ''),
-      'Organizadora: ' + APP_ORGANIZER_EMAIL
-    ];
-    if (item.telefone) descLines.push('Telefone: ' + item.telefone);
-    if (item.observacao) descLines.push('Observações: ' + item.observacao);
-    descLines.push('Sincronizado diretamente pelo App Fisioterapia (sem envio de e-mails).');
+    var calData = buildCalendarTitleAndDesc_(item);
 
-    ev.setTitle(title);
+    ev.setTitle(calData.title);
     ev.setTime(dates.start, dates.end);
-    if (item.endereco !== undefined) ev.setLocation(item.endereco || '');
-    ev.setDescription(descLines.join('\n'));
+    if (item.endereco !== undefined) ev.setLocation(calData.location);
+    ev.setDescription(calData.description);
     return { eventId: ev.getId(), warning: '' };
   } catch (err) {
     return { eventId: item.calendarEventId || '', warning: err.message || String(err) };
@@ -884,25 +922,16 @@ function doPost(e) {
         try {
           var dates = parseScheduleDates_(it.data, it.hora, it.duracaoMin);
           if (dates && resolvedCal && resolvedCal.cal) {
-            var prefix = it.status === 'Realizado' ? '✓ ' : '';
-            var title = prefix + 'Fisioterapia: ' + (it.pacienteDisplay || it.pacienteNome || 'Paciente');
-            var descLines = [
-              'Paciente: ' + (it.pacienteNome || it.pacienteDisplay || ''),
-              'Organizadora: ' + APP_ORGANIZER_EMAIL
-            ];
-            if (it.telefone) descLines.push('Telefone: ' + it.telefone);
-            if (it.observacao) descLines.push('Observações: ' + it.observacao);
-            descLines.push('Sincronizado diretamente pelo App Fisioterapia (sem envio de e-mails).');
-
+            var calData = buildCalendarTitleAndDesc_(it);
             var opts = {
-              location: it.endereco || '',
-              description: descLines.join('\n'),
+              location: calData.location,
+              description: calData.description,
               sendInvites: false
             };
 
             var ev = null;
             try {
-              ev = resolvedCal.cal.createEvent(title, dates.start, dates.end, opts);
+              ev = resolvedCal.cal.createEvent(calData.title, dates.start, dates.end, opts);
             } catch (wErr) {
               if (!defCalFallback) {
                 try { defCalFallback = CalendarApp.getDefaultCalendar(); } catch (eDef) {}

@@ -227,5 +227,54 @@ describe('Route and Fuel Assistant helpers', () => {
   });
 });
 
+describe('Batch Scheduling and Preset Range Bounds', () => {
+  const pad = (n) => (n < 10 ? '0' : '') + n;
+  const isoDate = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  const agendaMonth = new Date(2026, 10, 1); // Nov 2026
+
+  const getPresetRangeBounds = extractFnWithScope('getPresetRangeBounds', { isoDate, agendaMonth });
+
+  test('getPresetRangeBounds calculates correct bounds for week, 2weeks, month, nextmonth', () => {
+    const bWeek = getPresetRangeBounds('week');
+    assert.ok(bWeek && bWeek.start && bWeek.end);
+    assert.ok(bWeek.start <= bWeek.end);
+
+    const b2w = getPresetRangeBounds('2weeks');
+    assert.ok(b2w && b2w.start && b2w.end);
+    assert.ok(b2w.start <= b2w.end);
+
+    const bMonth = getPresetRangeBounds('month');
+    assert.equal(bMonth.start, '2026-11-01');
+    assert.equal(bMonth.end, '2026-11-30');
+
+    const bNextMonth = getPresetRangeBounds('nextmonth');
+    assert.equal(bNextMonth.start, '2026-12-01');
+    assert.equal(bNextMonth.end, '2026-12-31');
+  });
+
+  test('schedule duplicate check permits different hours on same day, blocks exact duplicate', () => {
+    const p = { id: 'p1', nome: 'Dona Maria', nomeFantasia: 'Maria' };
+    const schedules = [
+      { id: 'ag1', pacienteId: 'p1', data: '2026-11-10', hora: '14:00', status: 'Agendado' }
+    ];
+
+    const isDupExact = schedules.some((sc) => (
+      sc.status !== 'Cancelado' && sc.data === '2026-11-10' && sc.pacienteId === p.id && (sc.hora || '') === '14:00'
+    ));
+    assert.equal(isDupExact, true, 'Exact same date and hour must be identified as duplicate');
+
+    const isDupDifferentHour = schedules.some((sc) => (
+      sc.status !== 'Cancelado' && sc.data === '2026-11-10' && sc.pacienteId === p.id && (sc.hora || '') === '16:00'
+    ));
+    assert.equal(isDupDifferentHour, false, 'Different hour on same date must NOT be blocked');
+
+    const isDupCancelled = schedules.some((sc) => (
+      sc.status !== 'Cancelado' && sc.data === '2026-11-10' && sc.pacienteId === p.id && (sc.hora || '') === '14:00' && sc.status === 'Cancelado'
+    ));
+    assert.equal(isDupCancelled, false);
+  });
+});
+
+
 
 

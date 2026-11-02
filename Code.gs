@@ -1055,7 +1055,6 @@ function doPost(e) {
       if (evIdToDel) {
         deleteCalendarEventForSchedule_(evIdToDel, calIdToDel);
       }
-      deleteRowById_(sAgDel, body.id);
 
     /* ---------- Evoluções Clínicas ---------- */
     } else if (body.action === 'create_evolution') {

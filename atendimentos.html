@@ -1262,6 +1262,31 @@ function isInvalidPatientName(name){
   return false;
 }
 
+/* Nome Fantasia é opcional: vazio é aceito; só é rejeitado se preenchido com termo reservado. */
+function hasReservedName(name){
+  return !!String(name || '').trim() && isInvalidPatientName(name);
+}
+
+/* Rótulos dos tipos de ausência/bloqueio (ex.: "🏖️ Férias"). O emoji inicial é ignorado. */
+var BLOCK_LABELS = ['ferias', 'folga / recesso', 'congresso / curso', 'atestado / saude', 'atestado medico', 'feriado', 'bloqueio de horario'];
+function isBlockLabelName(name){
+  var n = normName(name).replace(/^[^a-z0-9_]+/, '').trim();
+  return !!n && BLOCK_LABELS.indexOf(n) !== -1;
+}
+
+/* Registro de paciente inválido (exercício, bloqueio/férias). Nome Fantasia vazio é permitido. */
+function isNonPatientRecord(p){
+  if(!p) return true;
+  var main = p.nome || p.nomeFantasia;
+  if(isInvalidPatientName(main) || isBlockLabelName(main)) return true;
+  return hasReservedName(p.nomeFantasia) || isBlockLabelName(p.nomeFantasia);
+}
+
+/* Agendamento que é bloqueio de agenda (férias / ausência), não um atendimento de paciente. */
+function isBlockSchedule(sc){
+  return !!sc && (sc.pacienteId === '__BLOQUEIO__' || sc.status === 'Ausência' || sc.status === 'Férias' || sc.tipo === 'Bloqueio');
+}
+
 function entryMatchesPatient(e, p){
   if(!e || !p) return false;
   var en = normName(e.nome);
@@ -1511,12 +1536,15 @@ function updateEyeButtonUI(){
 }
 
 /* ---------- Controle de Modais & Botão Voltar do Celular ---------- */
+/* _pendingBack conta os history.back() disparados por closeModal() ainda não confirmados pelo popstate.
+   Evita que o popstate atrasado feche um modal aberto logo em seguida (ex.: closeModal();openPatientForm()). */
+var _pendingBack = 0;
 function openModal(html){
   var root = document.getElementById('modalRoot');
   root.innerHTML = html;
   document.body.style.overflow = 'hidden';
   document.addEventListener('keydown', escClose);
-  if(!_modalStatePushed){
+  if(!_modalStatePushed && _pendingBack === 0){
     try {
       history.pushState({ modalOpen: true }, '');
       _modalStatePushed = true;
@@ -1531,11 +1559,14 @@ function closeModal(fromPopstate){
   if(root) root.innerHTML = '';
   document.body.style.overflow = '';
   document.removeEventListener('keydown', escClose);
-  if(_modalStatePushed && !fromPopstate){
+  if(fromPopstate){
     _modalStatePushed = false;
-    try { history.back(); } catch(e){}
-  } else if(fromPopstate){
+    return;
+  }
+  if(_modalStatePushed){
     _modalStatePushed = false;
+    _pendingBack++;
+    try { history.back(); } catch(e){ _pendingBack--; }
   }
 }
 function closeModalBg(ev){
@@ -1543,6 +1574,17 @@ function closeModalBg(ev){
 }
 window.addEventListener('popstate', function(){
   var root = document.getElementById('modalRoot');
+  if(_pendingBack > 0){
+    _pendingBack--;
+    // Um novo modal foi aberto antes do back terminar: reempilha o estado dele
+    if(_pendingBack === 0 && root && root.innerHTML.trim() !== '' && !_modalStatePushed){
+      try {
+        history.pushState({ modalOpen: true }, '');
+        _modalStatePushed = true;
+      } catch(e){}
+    }
+    return;
+  }
   if(root && root.innerHTML.trim() !== ''){
     closeModal(true);
     return;
@@ -1628,7 +1670,7 @@ async function loadData(){
     saveLocalEntries();
 
     var sheetPatients = (data.pacientes || []).filter(function(r){
-      return !isInvalidPatientName(r.Nome) && !isInvalidPatientName(r.NomeFantasia);
+      return !isNonPatientRecord({ nome: r.Nome, nomeFantasia: r.NomeFantasia });
     }).map(function(r){
       var pid = String(r.ID);
       var meta = getLocalPatientMeta(pid);
@@ -1674,7 +1716,7 @@ async function loadData(){
       }
     });
     patients = Object.keys(patMap).map(function(k){ return patMap[k]; }).filter(function(p){
-      return !isInvalidPatientName(p.nome) && !isInvalidPatientName(p.nomeFantasia);
+      return !isNonPatientRecord(p);
     });
 
     // Auto-descoberta: garante que pacientes com histórico em atendimentos ou agendamentos nunca desapareçam do app
@@ -1687,10 +1729,13 @@ async function loadData(){
 
     var scanNames = [];
     entries.forEach(function(e){ if(e.nome && !isInvalidPatientName(e.nome) && scanNames.indexOf(e.nome) === -1) scanNames.push(e.nome); });
-    (data.agendamentos || []).forEach(function(sc){ if(sc.PacienteNome && !isInvalidPatientName(sc.PacienteNome) && scanNames.indexOf(sc.PacienteNome) === -1) scanNames.push(sc.PacienteNome); });
+    (data.agendamentos || []).forEach(function(sc){
+      if(String(sc.PacienteID || '') === '__BLOQUEIO__' || sc.Status === 'Ausência' || sc.Status === 'Férias') return;
+      if(sc.PacienteNome && !isInvalidPatientName(sc.PacienteNome) && !isBlockLabelName(sc.PacienteNome) && scanNames.indexOf(sc.PacienteNome) === -1) scanNames.push(sc.PacienteNome);
+    });
 
     scanNames.forEach(function(rawName){
-      if(isInvalidPatientName(rawName)) return;
+      if(isInvalidPatientName(rawName) || isBlockLabelName(rawName)) return;
       var n = normName(rawName);
       if(n && !existingNamesMap[n]){
         existingNamesMap[n] = true;
@@ -1745,7 +1790,10 @@ async function loadData(){
     localEvos.forEach(function(ev){ evoMap[ev.id] = ev; });
     evolutions = Object.keys(evoMap).map(function(k){ return evoMap[k]; });
 
-    var sheetScheds = (data.agendamentos || []).map(function(r){
+    // Ignora linhas fantasma (sem ID ou sem data) geradas por gravações antigas inválidas
+    var sheetScheds = (data.agendamentos || []).filter(function(r){
+      return r && String(r.ID || '').trim() && String(r.Data || '').trim();
+    }).map(function(r){
       return {
         id: String(r.ID),
         pacienteId: String(r.PacienteID || ''),
@@ -1835,9 +1883,9 @@ function loadLocalDataSnapshot(){
     if(schedules.length === 0) schedules = getLocalSchedules();
     if(evolutions.length === 0) evolutions = getLocalEvolutions();
 
-    patients = patients.filter(function(p){ return !isInvalidPatientName(p.nome) && !isInvalidPatientName(p.nomeFantasia); });
+    patients = patients.filter(function(p){ return !isNonPatientRecord(p); });
     entries = entries.filter(function(e){ return !isInvalidPatientName(e.nome); });
-    schedules = schedules.filter(function(s){ return !isInvalidPatientName(s.pacienteNome); });
+    schedules = schedules.filter(function(s){ return isBlockSchedule(s) || !isInvalidPatientName(s.pacienteNome); });
 
     if(entries.length > 0 || patients.length > 0 || schedules.length > 0){
       reconcileSchedulesWithEntries();
@@ -1962,13 +2010,13 @@ function getLocalPatients(){
   try{
     var raw = localStorage.getItem('ft_local_patients');
     var list = raw ? JSON.parse(raw) : [];
-    return list.filter(function(p){ return !isInvalidPatientName(p.nome) && !isInvalidPatientName(p.nomeFantasia); });
+    return list.filter(function(p){ return !isNonPatientRecord(p); });
   }catch(e){ return []; }
 }
 
 function saveLocalPatients(){
   try{
-    var cleanPatients = (patients || []).filter(function(p){ return !isInvalidPatientName(p.nome) && !isInvalidPatientName(p.nomeFantasia); });
+    var cleanPatients = (patients || []).filter(function(p){ return !isNonPatientRecord(p); });
     localStorage.setItem('ft_local_patients', JSON.stringify(cleanPatients));
   }catch(e){}
 }
@@ -4965,7 +5013,7 @@ function renderReportBody(){
   // Garante que todos os pacientes ativos cadastrados também apareçam na lista
   patients.forEach(function(p){
     if(p.arquivado === 'Sim') return;
-    if(isInvalidPatientName(p.nome) || isInvalidPatientName(p.nomeFantasia)) return;
+    if(isNonPatientRecord(p)) return;
     var dispName = getPatientDisplayName(p);
     if(!porPaciente[dispName]){
       porPaciente[dispName] = {
@@ -6581,6 +6629,7 @@ function renderAgendaTab(){
   // Agrupa agendamentos por data para calcular transições de rota entre pacientes do mesmo dia
   var allByDay = {};
   monthSchedules.forEach(function(sc){
+    if(isBlockSchedule(sc)) return; // férias/ausências não entram no cálculo de rotas entre pacientes
     if(!allByDay[sc.data]) allByDay[sc.data] = [];
     allByDay[sc.data].push(sc);
   });
@@ -7015,7 +7064,7 @@ function updateScheduleModalRouteAnalysis(skipFetch){
   }
 
   var pairsToFetch = [{ id: 'home_pat', origin: homeAddr, destination: patAddr }];
-  var rHome = getRouteSyncOrApprox(homeAddr, patAddr);
+  var rHome = getRouteSyncOrApprox(homeAddr, patAddr) || { ok: true, distanceKm: 4.5, durationMin: 12, approx: true };
   var fuelHome = calcFuelCost(rHome.distanceKm);
 
   var baseHora = (document.getElementById('schedHoraInput') ? document.getElementById('schedHoraInput').value : '') || '14:00';
@@ -7042,7 +7091,7 @@ function updateScheduleModalRouteAnalysis(skipFetch){
     var targetEndMin = targetStartMin + durMin;
 
     var othersOnDay = schedules.filter(function(sc){
-      return sc.status !== 'Cancelado' && sc.data === dIso && sc.pacienteId !== p.id;
+      return sc.status !== 'Cancelado' && !isBlockSchedule(sc) && sc.data === dIso && sc.pacienteId !== p.id;
     }).sort(function(a,b){ return String(a.hora || '').localeCompare(String(b.hora || '')); });
 
     if(othersOnDay.length === 0) continue;
@@ -7692,6 +7741,11 @@ async function submitSchedule(){
   var calId = getUserCalendarId();
   var legalName = p.nome || getPatientDisplayName(p);
 
+  // Horário vazio viraria evento de dia inteiro (08:00–20:00) no Google Agenda
+  if(!/^\d{1,2}:\d{2}$/.test(String(hora || ''))){
+    alert('Informe o horário da sessão.');
+    return;
+  }
   var targetDates = [];
   if(schedModalMode === 'single'){
     var dt = document.getElementById('schedDateInput') ? document.getElementById('schedDateInput').value : '';
@@ -8087,17 +8141,39 @@ function toggleVacHours(){
   }
 }
 
+/* Limite de dias por registro de ausência: evita laços/arrays gigantes (ex.: ao digitar o ano no campo de data)
+   e lotes enormes de eventos no Google Agenda. */
+var VAC_MAX_DAYS = 120;
+
+function isValidIsoDay(s){
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(s || '')) && !isNaN(new Date(s + 'T12:00:00').getTime());
+}
+
+/* Quantidade de dias do período (inclusive). Retorna -1 se as datas forem inválidas ou invertidas. */
+function vacationSpanDays(startIso, endIso){
+  if(!isValidIsoDay(startIso) || !isValidIsoDay(endIso) || endIso < startIso) return -1;
+  var ms = new Date(endIso + 'T12:00:00').getTime() - new Date(startIso + 'T12:00:00').getTime();
+  return Math.round(ms / 86400000) + 1;
+}
+
 function getVacationDatesRange(startIso, endIso){
   var dates = [];
-  var dStart = new Date(startIso + 'T00:00:00');
-  var dEnd = new Date(endIso + 'T00:00:00');
-  if(isNaN(dStart.getTime()) || isNaN(dEnd.getTime()) || dStart > dEnd) return dates;
-  var cur = new Date(dStart.getTime());
-  while(cur <= dEnd){
+  var span = vacationSpanDays(startIso, endIso);
+  if(span < 1 || span > VAC_MAX_DAYS) return dates;
+  var cur = new Date(startIso + 'T12:00:00');
+  for(var i = 0; i < span; i++){
     dates.push(isoDate(cur));
     cur.setDate(cur.getDate() + 1);
   }
   return dates;
+}
+
+/* Agendamentos de pacientes (não cancelados) que caem dentro do período de ausência */
+function getVacationConflicts(startIso, endIso){
+  return schedules.filter(function(sc){
+    if(sc.status === 'Cancelado' || isBlockSchedule(sc)) return false;
+    return sc.data >= startIso && sc.data <= endIso;
+  });
 }
 
 function updateVacationConflictAlert(){
@@ -8106,19 +8182,19 @@ function updateVacationConflictAlert(){
   var box = document.getElementById('vacConflictBox');
   if(!box) return;
 
-  if(!dtStart || !dtEnd || dtEnd < dtStart){
+  var span = vacationSpanDays(dtStart, dtEnd);
+  if(span < 1){
     box.classList.add('hidden');
     box.innerHTML = '';
     return;
   }
+  if(span > VAC_MAX_DAYS){
+    box.innerHTML = '⚠️ Período muito longo (' + span + ' dias). Registre no máximo ' + VAC_MAX_DAYS + ' dias por vez.';
+    box.classList.remove('hidden');
+    return;
+  }
 
-  var rangeDates = getVacationDatesRange(dtStart, dtEnd);
-  var conflictingSchedules = schedules.filter(function(sc){
-    if(sc.status === 'Cancelado') return false;
-    if(sc.pacienteId === '__BLOQUEIO__' || sc.status === 'Ausência' || sc.status === 'Férias' || sc.tipo === 'Bloqueio') return false;
-    return rangeDates.indexOf(sc.data) !== -1;
-  });
-
+  var conflictingSchedules = getVacationConflicts(dtStart, dtEnd);
   if(conflictingSchedules.length === 0){
     box.classList.add('hidden');
     box.innerHTML = '';
@@ -8152,128 +8228,121 @@ async function submitVacationBlock(){
     alert('A data final não pode ser anterior à data inicial.');
     return;
   }
-
-  var rangeDates = getVacationDatesRange(dtStart, dtEnd);
-  if(rangeDates.length === 0){
-    alert('Período de datas inválido.');
+  var span = vacationSpanDays(dtStart, dtEnd);
+  if(span < 1){
+    alert('Período de datas inválido. Confira o ano digitado.');
     return;
   }
+  if(span > VAC_MAX_DAYS){
+    alert('Período muito longo (' + span + ' dias). Registre no máximo ' + VAC_MAX_DAYS + ' dias por vez.');
+    return;
+  }
+  var rangeDates = getVacationDatesRange(dtStart, dtEnd);
 
   var vacType = document.getElementById('vacType') ? document.getElementById('vacType').value : '🏖️ Férias';
   var vacReason = (document.getElementById('vacReason') ? document.getElementById('vacReason').value : '').trim();
   var isAllDay = document.getElementById('vacAllDayChk') ? document.getElementById('vacAllDayChk').checked : true;
-  var startHour = isAllDay ? '08:00' : (document.getElementById('vacStartHour') ? document.getElementById('vacStartHour').value : '08:00');
-  var endHour = isAllDay ? '20:00' : (document.getElementById('vacEndHour') ? document.getElementById('vacEndHour').value : '18:00');
+  var startHour = isAllDay ? '08:00' : (document.getElementById('vacStartHour') ? document.getElementById('vacStartHour').value : '');
+  var endHour = isAllDay ? '20:00' : (document.getElementById('vacEndHour') ? document.getElementById('vacEndHour').value : '');
 
   var dur = 720;
-  if(!isAllDay && startHour && endHour){
-    var sp = startHour.split(':');
-    var ep = endHour.split(':');
-    var sMin = (parseInt(sp[0], 10) || 8) * 60 + (parseInt(sp[1], 10) || 0);
-    var eMin = (parseInt(ep[0], 10) || 18) * 60 + (parseInt(ep[1], 10) || 0);
+  if(!isAllDay){
+    var sMin = parseTimeMinutes(startHour);
+    var eMin = parseTimeMinutes(endHour);
+    if(sMin === null || eMin === null || eMin <= sMin){
+      alert('Informe um horário de início e um de término válidos (o término deve ser após o início).');
+      return;
+    }
     dur = Math.max(30, eMin - sMin);
   }
 
   var cancelConflictsChk = document.getElementById('vacCancelConflictsChk');
-  var cancelConflicts = cancelConflictsChk ? cancelConflictsChk.checked : false;
+  var cancelledItems = (cancelConflictsChk && cancelConflictsChk.checked) ? getVacationConflicts(dtStart, dtEnd) : [];
+  var calId = getUserCalendarId();
+  var batchStamp = Date.now();
 
-  var btn = document.getElementById('btnSaveVacation');
-  if(btn){ btn.disabled = true; btn.textContent = 'Salvando...'; }
+  var itemsToCreate = rangeDates.map(function(dIso, idx){
+    return {
+      id: 'vac_' + batchStamp + '_' + Math.random().toString(36).substr(2, 6) + '_' + idx,
+      pacienteId: '__BLOQUEIO__',
+      pacienteNome: vacType,
+      pacienteDisplay: vacType,
+      data: dIso,
+      hora: startHour,
+      duracaoMin: dur,
+      status: 'Ausência',
+      valor: 0,
+      observacao: vacReason,
+      calendarId: calId,
+      tipo: 'Bloqueio',
+      criadoEm: new Date().toISOString()
+    };
+  });
 
+  // Atualiza o estado local imediatamente (Local-first): nada abaixo espera pela rede
+  var cancelSync = cancelledItems.map(function(cSc){
+    var prevEventId = cSc.calendarEventId || '';
+    cSc.status = 'Cancelado';
+    cSc.calendarEventId = '';
+    cSc.observacao = (cSc.observacao ? cSc.observacao + ' | ' : '') + 'Cancelado devido a ' + vacType;
+    return { sc: cSc, prevEventId: prevEventId };
+  });
+  itemsToCreate.forEach(function(it){ schedules.push(it); });
+  saveLocalSchedules();
+
+  closeModal();
+  if(currentTab === 'agenda') renderAgendaTab();
+  if(currentTab === 'relatorios') renderReportBody();
+
+  showToast('🏖️ ' + (rangeDates.length === 1 ? '1 dia de ausência registrado' : rangeDates.length + ' dias de ausência registrados') + ' com sucesso!', 'ok');
+
+  // Sincronização remota em segundo plano (Apps Script + Google Agenda), em lotes pequenos
+  // para não segurar o lock da planilha nem estourar o tempo do Apps Script.
   try{
-    // Cancela agendamentos conflitantes se solicitado
-    if(cancelConflicts){
-      var conflictingSchedules = schedules.filter(function(sc){
-        if(sc.status === 'Cancelado') return false;
-        if(sc.pacienteId === '__BLOQUEIO__' || sc.status === 'Ausência' || sc.status === 'Férias' || sc.tipo === 'Bloqueio') return false;
-        return rangeDates.indexOf(sc.data) !== -1;
-      });
-      conflictingSchedules.forEach(function(cSc){
-        cSc.status = 'Cancelado';
-        cSc.observacao = (cSc.observacao ? cSc.observacao + ' | ' : '') + 'Cancelado devido a ' + vacType;
-      });
+    for(var i = 0; i < cancelSync.length; i++){
+      var cs = cancelSync[i];
+      try{
+        await postAction({
+          action: 'update_schedule',
+          id: cs.sc.id,
+          status: 'Cancelado',
+          observacao: cs.sc.observacao,
+          calendarEventId: cs.prevEventId,
+          calendarId: cs.sc.calendarId || calId
+        });
+      } catch(eCancel){
+        console.warn('Falha ao sincronizar cancelamento por ausência:', eCancel);
+      }
     }
 
-    var calId = getUserCalendarId();
-    var itemsToCreate = rangeDates.map(function(dIso, idx){
-      return {
-        id: 'vac_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6) + '_' + idx,
-        pacienteId: '__BLOQUEIO__',
-        pacienteNome: vacType,
-        pacienteDisplay: vacType,
-        data: dIso,
-        hora: startHour,
-        duracaoMin: dur,
-        status: 'Ausência',
-        valor: 0,
-        observacao: vacReason,
-        calendarId: calId,
-        tipo: 'Bloqueio',
-        criadoEm: new Date().toISOString()
-      };
-    });
-
-    // Atualiza estado local imediatamente (Local-first / Optimistic UI)
-    itemsToCreate.forEach(function(it){
-      schedules.push(it);
-    });
-    saveLocalSchedules();
-
-    closeModal();
-    if(currentTab === 'agenda') renderAgendaTab();
-    if(currentTab === 'relatorios') renderReportBody();
-
-    showToast('🏖️ ' + (rangeDates.length === 1 ? '1 dia de ausência registrado' : rangeDates.length + ' dias de ausência registrados') + ' com sucesso!', 'ok');
-
-    // Sincronização remota em segundo plano
-    (async function(){
+    var CHUNK = 10;
+    var failedChunks = 0;
+    for(var start = 0; start < itemsToCreate.length; start += CHUNK){
+      var chunk = itemsToCreate.slice(start, start + CHUNK);
       try{
-        if(cancelConflicts){
-          var conflictingSchedules = schedules.filter(function(sc){
-            return sc.status === 'Cancelado' && rangeDates.indexOf(sc.data) !== -1 && sc.observacao && sc.observacao.indexOf(vacType) !== -1;
-          });
-          for(var i = 0; i < conflictingSchedules.length; i++){
-            var cSc = conflictingSchedules[i];
-            try{
-              await postAction({
-                action: 'update_schedule',
-                item: { id: cSc.id, status: 'Cancelado', observacao: cSc.observacao }
-              });
-            } catch(eCancel){}
-          }
-        }
-
-        var resp = null;
-        if(itemsToCreate.length === 1){
-          resp = await postAction({
-            action: 'create_schedule',
-            item: itemsToCreate[0]
-          });
-          if(resp && resp.eventId){
-            itemsToCreate[0].calendarEventId = resp.eventId;
-            saveLocalSchedules();
-          }
+        if(chunk.length === 1){
+          var respOne = await postAction(Object.assign({ action: 'create_schedule' }, chunk[0]));
+          var evOne = respOne && (respOne.calendarEventId || respOne.eventId);
+          if(evOne) chunk[0].calendarEventId = evOne;
         } else {
-          resp = await postAction({
-            action: 'create_schedules_batch',
-            items: itemsToCreate
+          var respBatch = await postAction({ action: 'create_schedules_batch', calendarId: calId, items: chunk });
+          var evMap = (respBatch && (respBatch.eventMap || respBatch.eventIds)) || {};
+          chunk.forEach(function(it){
+            if(evMap[it.id]) it.calendarEventId = evMap[it.id];
           });
-          if(resp && resp.eventIds){
-            itemsToCreate.forEach(function(it){
-              if(resp.eventIds[it.id]) it.calendarEventId = resp.eventIds[it.id];
-            });
-            saveLocalSchedules();
-          }
         }
-      } catch(errRemote){
-        console.warn('Sincronização remota de ausência em segundo plano:', errRemote);
+        saveLocalSchedules();
+      } catch(errChunk){
+        failedChunks++;
+        console.warn('Sincronização remota de ausência (lote ' + (start / CHUNK + 1) + '):', errChunk);
       }
-    })();
-  } catch(err){
-    console.error('Erro ao salvar ausência:', err);
-    alert('Erro ao registrar ausência: ' + (err.message || err));
-  } finally {
-    if(btn){ btn.disabled = false; btn.textContent = 'Salvar Ausência'; }
+    }
+    if(currentTab === 'agenda') renderAgendaTab();
+    if(failedChunks > 0){
+      showToast('Ausência salva no app, mas parte dela não sincronizou com o Google Agenda.', 'info');
+    }
+  } catch(errRemote){
+    console.warn('Sincronização remota de ausência em segundo plano:', errRemote);
   }
 }
 
@@ -8792,7 +8861,7 @@ async function init(){
     var rawP = localStorage.getItem('ft_local_patients');
     if(rawP){
       var listP = JSON.parse(rawP);
-      var filtP = listP.filter(function(p){ return !isInvalidPatientName(p.nome) && !isInvalidPatientName(p.nomeFantasia); });
+      var filtP = listP.filter(function(p){ return !isNonPatientRecord(p); });
       if(filtP.length !== listP.length) localStorage.setItem('ft_local_patients', JSON.stringify(filtP));
     }
     var rawE = localStorage.getItem('ft_local_entries');

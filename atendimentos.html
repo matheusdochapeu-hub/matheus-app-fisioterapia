@@ -1781,7 +1781,10 @@ async function loadData(){
         DEFAULT_CAR_KM_PER_LITER = parseFloat(cfgMap.ConsumoCarroKmL) || DEFAULT_CAR_KM_PER_LITER;
       }
       if(cfgMap.PrecoGasolina && !localStorage.getItem('ft_gas_price')){
-        DEFAULT_GAS_PRICE = parseFloat(cfgMap.PrecoGasolina) || DEFAULT_GAS_PRICE;
+        var parsedGas = parseValor(cfgMap.PrecoGasolina);
+        if(parsedGas > 0 && parsedGas < 50){
+          DEFAULT_GAS_PRICE = parsedGas;
+        }
       }
     }
 
@@ -5677,11 +5680,11 @@ function getCarKmPerLiter(){
 
 function getGasPrice(){
   var val = 0;
-  if(config && config.gasPrice) val = parseFloat(config.gasPrice);
-  if(!val || isNaN(val)){
-    try{ val = parseFloat(localStorage.getItem('ft_gas_price') || ''); }catch(e){}
+  if(config && config.gasPrice) val = parseValor(config.gasPrice);
+  if(!val || isNaN(val) || val <= 0 || val > 50){
+    try{ val = parseValor(localStorage.getItem('ft_gas_price') || ''); }catch(e){}
   }
-  return (val && isFinite(val) && val > 0) ? val : DEFAULT_GAS_PRICE;
+  return (val && isFinite(val) && val > 0 && val < 50) ? val : DEFAULT_GAS_PRICE;
 }
 
 function getPatientFullAddress(p){
@@ -6564,7 +6567,7 @@ function renderAgendaTab(){
       var syncBadge = sc.calendarEventId
         ? '<span class="gcal-sync-tag" title="Sincronizado com Google Agenda">📅 Google Agenda</span>'
         : '';
-      var horaTxt = (!sc.hora || sc.hora === 'Dia Inteiro') ? 'Dia Inteiro' : sc.hora;
+      var horaTxt = (!sc.hora || sc.hora === 'Dia Inteiro' || sc.duracaoMin >= 720) ? 'Dia Inteiro' : sc.hora;
       return '<div class="sched-card" style="border-left:4px solid #f59e0b;background:#fffbeb;margin-bottom:10px;">' +
         '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;">' +
           '<div>' +
@@ -8118,8 +8121,8 @@ async function submitVacationBlock(){
   var vacType = document.getElementById('vacType') ? document.getElementById('vacType').value : '🏖️ Férias';
   var vacReason = (document.getElementById('vacReason') ? document.getElementById('vacReason').value : '').trim();
   var isAllDay = document.getElementById('vacAllDayChk') ? document.getElementById('vacAllDayChk').checked : true;
-  var startHour = isAllDay ? 'Dia Inteiro' : (document.getElementById('vacStartHour') ? document.getElementById('vacStartHour').value : '08:00');
-  var endHour = isAllDay ? 'Dia Inteiro' : (document.getElementById('vacEndHour') ? document.getElementById('vacEndHour').value : '18:00');
+  var startHour = isAllDay ? '08:00' : (document.getElementById('vacStartHour') ? document.getElementById('vacStartHour').value : '08:00');
+  var endHour = isAllDay ? '20:00' : (document.getElementById('vacEndHour') ? document.getElementById('vacEndHour').value : '18:00');
 
   var dur = 720;
   if(!isAllDay && startHour && endHour){

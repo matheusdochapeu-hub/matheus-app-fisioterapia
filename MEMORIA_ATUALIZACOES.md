@@ -1,7 +1,7 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `01/11/2026`  
-Versão do Service Worker: `atend-v36` (`sw.js`)
+Versão do Service Worker: `atend-v37` (`sw.js`)
 
 ---
 
@@ -178,6 +178,17 @@ Versão do Service Worker: `atend-v36` (`sw.js`)
   - **Sucesso no `doPost` (`test_calendar`):** Respondeu com `success: true`, `sendInvites: false` e mensagem confirmando que nenhum e-mail de convite é disparado.
   - **Diagnóstico da Conta Google Executora:** Identificado no `calendarName` que a planilha/Apps Script está sendo executada pela conta Google `matheusrodrigues1917@usp.br`. Portanto, para que o compartilhamento da agenda da Scarlet Santos seja reconhecido com gravação direta, o compartilhamento deve incluir a conta `matheusrodrigues1917@usp.br` com permissão "Fazer alterações nos eventos".
   - **Ajuste de Tipagem em `PrecoGasolina` (`Code.gs`):** Ajustado o valor padrão de combustível na aba `Configuracoes` para o tipo numérico `6.10` com proteção em `formatCellValue_`, evitando que planilhas em português convertam a string `'6.10'` para a data `06/10`.
+- **`atend-v37`:** Revisão Completa da Conexão com Google Agenda e Refinamento de UX da Aba Agenda:
+  - **Revisão e Blindagem da Conexão com Google Agenda (`resolveUserCalendar_` em `Code.gs`):**
+    - Adicionada varredura inteligente em `CalendarApp.getAllCalendars()`: se a busca direta por ID falhar, o script agora percorre todas as agendas compartilhadas com a conta executora, localizando qualquer agenda cujo ID ou nome contenha `'scarlet'`.
+    - Garantia estrita de que `sendInvites` é sempre `false` e `guests` é nulo em todas as rotas (criação avulsa, em lote e remarcação).
+    - Mensagem de teste clara indicando exatamente qual e-mail precisa de permissão de compartilhamento caso a agenda ainda não esteja vinculada.
+  - **Refinamento de UX na Aba 📅 Agenda (`atendimentos.html`):**
+    - **Botão "Hoje" e Clique no Mês:** Adicionado botão rápido **"Hoje"** na barra de navegação do mês (`resetAgendaToToday()`) e clique no nome do mês para retornar instantaneamente à data atual com 1 toque.
+    - **Destaque Visual de "Hoje" no Calendário:** O dia atual agora recebe badge e contorno em destaque com a palavra **"HOJE"** em negrito dentro da grade, facilitando a visualização rápida da escala do dia.
+    - **Filtro Rápido com 1 Toque nos Cards de Estatísticas:** Os chips de KPI (*Agendados no mês*, *A realizar*, *Realizados*) agora são clicáveis e filtram a lista abaixo imediatamente pelo status selecionado (`setAgendaStatusFilter`).
+    - **Aprimoramento do Estado Vazio:** Quando um dia sem agendamentos é selecionado no calendário, o card exibe tanto o botão **"+ Agendar Atendimento"** (com a data já pré-selecionada) quanto o botão **"Ver mês inteiro"**.
+
 
 
 

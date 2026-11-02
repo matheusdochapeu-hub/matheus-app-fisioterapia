@@ -1,7 +1,23 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `02/11/2026`  
-Versão do Service Worker: `atend-v47` (`sw.js`)
+Versão do Service Worker: `atend-v48` (`sw.js`)
+
+---
+
+## 16. Correção Definitiva da Abertura de Modais no Primeiro Toque (`v48`)
+- **Diagnóstico do Problema ("clicar três vezes para abrir"):**
+  - *Causa 1 (Ghost click / colisão com animação de entrada):* Ao chamar `openModal(html)`, o `.modal-bg` era injetado com `position: fixed; inset: 0` enquanto o `.modal` filho iniciava sua animação `@keyframes slideUp` em `translateY(100%)` (fora da tela visível). Em toques de tela mobile e cliques rápidos, eventos sintéticos de clique disparavam no `.modal-bg`. Como `closeModalBg(ev)` checava apenas `ev.target === ev.currentTarget`, o evento era interpretado como toque fora do modal e executava `closeModal()` imediatamente em menos de 50ms, fazendo o modal fechar antes de ser percebido pelo usuário.
+  - *Causa 2 (Descompasso de histórico e `popstate`):* O contador `_pendingBack` acumulava atrasos assíncronos de `history.back()`. Quando o modal era reaberto, o evento `popstate` retardado disparava e encontrava `root.innerHTML.trim() !== ''`, chamando `closeModal(true)` instantaneamente. Somente na terceira tentativa a pilha de histórico estabilizava e o modal permanecia aberto.
+- **Solução Implementada:**
+  - **Janela de Proteção Temporal por Timestamp (`_modalOpenTs`):** Ao abrir qualquer modal, registra-se `_modalOpenTs = Date.now()`.
+  - **Blindagem em `closeModalBg`:** Qualquer evento de clique no backdrop ocorrido há menos de 350ms da abertura do modal é sumariamente ignorado (`if(Date.now() - _modalOpenTs < 350) return;`). Toques intencionais de fechamento após a animação de entrada continuam funcionando com total perfeição.
+  - **Blindagem em `popstate`:** Eventos residuais de `popstate` disparados dentro de 350ms da abertura são descartados, eliminando a corrida assíncrona entre o fechamento de um modal anterior e a abertura do novo.
+  - **Eliminação do Contador `_pendingBack`:** Substituído por sincronização de estado limpa e direta com `history.state` e controle temporal atômico.
+  - **Atributo `type="button"`:** Adicionado explicitamente a todos os botões de ação principais para prevenir qualquer comportamento padrão espúrio em navegadores mobile.
+- **Service Worker & Testes Automatizados:**
+  - Service worker atualizado para `atend-v48` em `sw.js`.
+  - 37 testes unitários passando com 100% de sucesso, incluindo novos testes dedicados à proteção contra fechamento prematuro e clique no backdrop.
 
 ---
 

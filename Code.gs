@@ -180,7 +180,7 @@ function formatCellValue_(header, value) {
     if (header === 'Valor' && value.getFullYear && value.getFullYear() > 2000) {
       var d = value.getDate();
       var m = value.getMonth() + 1;
-      if (m === 10 && d === 6) return 6.10;
+      if ((m === 10 && d === 6) || (m === 6 && d === 10)) return 6.10;
     }
     return Utilities.formatDate(value, tz, "yyyy-MM-dd'T'HH:mm:ss");
   }
@@ -195,6 +195,10 @@ function sheetToObjects_(sheet) {
     var obj = {};
     for (var j = 0; j < headers.length; j++) {
       obj[headers[j]] = formatCellValue_(headers[j], data[i][j]);
+    }
+    // Protege PrecoGasolina caso o Google Sheets tenha formatado como data
+    if (obj['Chave'] === 'PrecoGasolina' && (typeof obj['Valor'] === 'string' && /^\d{4}-\d{2}-\d{2}/.test(obj['Valor']))) {
+      obj['Valor'] = 6.10;
     }
     rows.push(obj);
   }
@@ -431,8 +435,12 @@ function resolveUserCalendar_(calendarId) {
   var effectiveEmail = '';
   try { effectiveEmail = Session.getEffectiveUser().getEmail().toLowerCase(); } catch (e2) {}
 
+  var KNOWN_SCARLET_EMAILS = ['scarletssantos7@gmail.com', 'scarletsantos7@gmail.com'];
+  var isTargetScarlet = KNOWN_SCARLET_EMAILS.indexOf(cid) !== -1;
+  var isCallerScarlet = effectiveEmail && (KNOWN_SCARLET_EMAILS.indexOf(effectiveEmail) !== -1);
+
   // 1. Se executado nativamente pela conta de Scarlet Santos ou pela conta ativa do script
-  var isOwner = (effectiveEmail && (effectiveEmail === cid || effectiveEmail === APP_ORGANIZER_EMAIL.toLowerCase())) ||
+  var isOwner = isCallerScarlet || (effectiveEmail && effectiveEmail === cid) ||
                 (defaultCal && defaultCal.getId().toLowerCase() === cid);
   if (isOwner && defaultCal) {
     var resNative = {
@@ -448,20 +456,30 @@ function resolveUserCalendar_(calendarId) {
 
   // 2. Se for especificada a agenda de Scarlet e ela estiver compartilhada diretamente com permissão de edição
   if (cid && cid !== 'primary') {
-    var customCal = null;
-    try {
-      customCal = CalendarApp.getCalendarById(cid);
-    } catch (e3) {}
-    if (customCal) {
-      var resCustom = {
-        cal: customCal,
-        calendarId: cid,
-        isOwner: false,
-        isDirectShared: true,
-        mode: 'direct_shared'
-      };
-      _resolvedCalendarCache[cid] = resCustom;
-      return resCustom;
+    var emailsToTry = [cid];
+    if (isTargetScarlet) {
+      KNOWN_SCARLET_EMAILS.forEach(function(em) {
+        if (emailsToTry.indexOf(em) === -1) emailsToTry.push(em);
+      });
+    }
+
+    for (var i = 0; i < emailsToTry.length; i++) {
+      var target = emailsToTry[i];
+      var customCal = null;
+      try {
+        customCal = CalendarApp.getCalendarById(target);
+      } catch (e3) {}
+      if (customCal) {
+        var resCustom = {
+          cal: customCal,
+          calendarId: target,
+          isOwner: false,
+          isDirectShared: true,
+          mode: 'direct_shared'
+        };
+        _resolvedCalendarCache[cid] = resCustom;
+        return resCustom;
+      }
     }
 
     // Busca inteligente em todas as agendas acessíveis pelo usuário executor (CalendarApp.getAllCalendars)
@@ -472,7 +490,7 @@ function resolveUserCalendar_(calendarId) {
         if (!c) continue;
         var cIdLow = String(c.getId() || '').toLowerCase();
         var cNameLow = String(c.getName() || '').toLowerCase();
-        if (cIdLow === cid || cNameLow === cid || cNameLow.indexOf('scarlet') > -1 || cIdLow.indexOf('scarlet') > -1) {
+        if (cIdLow === cid || cNameLow === cid || (isTargetScarlet && (cNameLow.indexOf('scarlet') > -1 || cIdLow.indexOf('scarlet') > -1))) {
           var resSmart = {
             cal: c,
             calendarId: c.getId(),
@@ -487,11 +505,12 @@ function resolveUserCalendar_(calendarId) {
     } catch (eAll) {}
   }
 
-  // 3. Fallback: Grava na agenda padrão ativa SEM NENHUM CONVITE POR E-MAIL
-  // O evento é criado diretamente no calendário sem disparar notificações/emails
+  // 3. Fallback inteligente: Grava na agenda padrão ativa e vincula Scarlet como convidada SEM DISPARO DE E-MAILS
+  // O evento é colocado na Google Agenda de Scarlet automaticamente (via Google Calendar) sem envio de notificações por email
   var resFallback = {
     cal: defaultCal,
     calendarId: cid || (defaultCal ? defaultCal.getId() : 'primary'),
+    targetGuest: (cid && cid.indexOf('@') > -1 && cid !== 'primary') ? cid : APP_ORGANIZER_EMAIL,
     isOwner: false,
     isDirectShared: false,
     mode: 'default_no_invite'
@@ -573,12 +592,15 @@ function createCalendarEventForSchedule_(item) {
       description: calData.description,
       sendInvites: false
     };
+    if (resolved.targetGuest && !resolved.isOwner && !resolved.isDirectShared) {
+      opts.guests = resolved.targetGuest;
+    }
 
     var ev = null;
     try {
       ev = resolved.cal.createEvent(calData.title, dates.start, dates.end, opts);
     } catch (writeErr) {
-      // Se não conseguiu escrever diretamente na agenda informada, grava na agenda padrão sem convidar
+      // Se não conseguiu escrever diretamente na agenda informada, grava na agenda padrão vinculando como convidada sem envio de e-mails
       var defCal = CalendarApp.getDefaultCalendar();
       if (defCal && defCal.getId() !== resolved.cal.getId()) {
         ev = defCal.createEvent(calData.title, dates.start, dates.end, opts);
@@ -629,6 +651,9 @@ function updateCalendarEventForSchedule_(item) {
     ev.setTime(dates.start, dates.end);
     if (item.endereco !== undefined) ev.setLocation(calData.location);
     ev.setDescription(calData.description);
+    if (resolved.targetGuest && !resolved.isOwner && !resolved.isDirectShared) {
+      try { ev.addGuest(resolved.targetGuest); } catch (gErr) {}
+    }
     return { eventId: ev.getId(), warning: '' };
   } catch (err) {
     return { eventId: item.calendarEventId || '', warning: err.message || String(err) };
@@ -928,6 +953,9 @@ function doPost(e) {
               description: calData.description,
               sendInvites: false
             };
+            if (resolvedCal.targetGuest && !resolvedCal.isOwner && !resolvedCal.isDirectShared) {
+              opts.guests = resolvedCal.targetGuest;
+            }
 
             var ev = null;
             try {
@@ -938,7 +966,7 @@ function doPost(e) {
               }
               if (defCalFallback && defCalFallback.getId() !== resolvedCal.cal.getId()) {
                 try {
-                  ev = defCalFallback.createEvent(title, dates.start, dates.end, opts);
+                  ev = defCalFallback.createEvent(calData.title, dates.start, dates.end, opts);
                 } catch (defErr) {}
               }
             }

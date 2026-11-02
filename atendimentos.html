@@ -1221,7 +1221,11 @@ function getPatientLegalName(p, fallback){
 }
 
 function normName(s){
-  return String(s || '').trim().toLowerCase();
+  return String(s || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 }
 
 function entryMatchesPatient(e, p){
@@ -1585,6 +1589,7 @@ async function loadData(){
         lng: r.Longitude || ''
       };
     });
+    saveLocalEntries();
 
     var sheetPatients = (data.pacientes || []).map(function(r){
       var pid = String(r.ID);
@@ -1631,6 +1636,52 @@ async function loadData(){
       }
     });
     patients = Object.keys(patMap).map(function(k){ return patMap[k]; });
+
+    // Auto-descoberta: garante que pacientes com histórico em atendimentos ou agendamentos nunca desapareçam do app
+    var existingNamesMap = {};
+    patients.forEach(function(p){
+      if(p.nome) existingNamesMap[normName(p.nome)] = true;
+      if(p.nomeFantasia) existingNamesMap[normName(p.nomeFantasia)] = true;
+      if(p.oldNome) existingNamesMap[normName(p.oldNome)] = true;
+    });
+
+    var scanNames = [];
+    entries.forEach(function(e){ if(e.nome && scanNames.indexOf(e.nome) === -1) scanNames.push(e.nome); });
+    (data.agendamentos || []).forEach(function(sc){ if(sc.PacienteNome && scanNames.indexOf(sc.PacienteNome) === -1) scanNames.push(sc.PacienteNome); });
+
+    scanNames.forEach(function(rawName){
+      var n = normName(rawName);
+      if(n && !existingNamesMap[n]){
+        existingNamesMap[n] = true;
+        var autoId = 'pac_auto_' + Math.abs(rawName.split('').reduce(function(a,b){ a=((a<<5)-a)+b.charCodeAt(0); return a&a; }, 0));
+        patients.push({
+          id: autoId,
+          nome: rawName,
+          nomeFantasia: rawName,
+          oldNome: '',
+          telefone: '',
+          valorPadrao: '',
+          formaPagamento: '',
+          endereco: '',
+          bairro: '',
+          cidade: DEFAULT_CITY_FALLBACK,
+          dataNascimento: '',
+          contato02: '',
+          documento: '',
+          tcle: 'Não',
+          contrato: 'Não',
+          frequenciaSemanal: '',
+          diagClinico: '',
+          diagFuncional: '',
+          objetivos: '',
+          arquivado: 'Não',
+          foto: '',
+          criadoEm: new Date().toISOString(),
+          isAutoDiscovered: true
+        });
+      }
+    });
+
     saveLocalPatients();
 
     var sheetEvos = (data.evolucoes || []).map(function(r){
@@ -1716,6 +1767,39 @@ async function loadData(){
     showError('Não foi possível carregar os dados da planilha. Exibindo dados locais do dispositivo.');
   }
   document.getElementById('loadingState').classList.add('hidden');
+}
+
+function getLocalEntries(){
+  try{
+    var raw = localStorage.getItem('ft_local_entries');
+    return raw ? JSON.parse(raw) : [];
+  }catch(e){ return []; }
+}
+
+function saveLocalEntries(){
+  try{
+    localStorage.setItem('ft_local_entries', JSON.stringify(entries));
+  }catch(e){}
+}
+
+function loadLocalDataSnapshot(){
+  try{
+    if(entries.length === 0) entries = getLocalEntries();
+    if(patients.length === 0) patients = getLocalPatients();
+    if(schedules.length === 0) schedules = getLocalSchedules();
+    if(evolutions.length === 0) evolutions = getLocalEvolutions();
+
+    if(entries.length > 0 || patients.length > 0 || schedules.length > 0){
+      reconcileSchedulesWithEntries();
+      populatePatientFilter();
+      populateEvolutionsFilters();
+      populateAgendaFilters();
+      renderAgendaTab();
+      renderList();
+      renderPatientsTab();
+      renderEvolutionsTab();
+    }
+  }catch(e){}
 }
 
 function getLocalSchedules(){
@@ -6528,6 +6612,10 @@ function openScheduleModal(preSelectPatientId, preSelectDate){
   if(isNaN(dStart.getTime())) dStart = new Date();
   var dEndMonth = new Date(dStart.getFullYear(), dStart.getMonth() + 1, 0);
 
+  // Pre-ativa o dia da semana da data selecionada para que ao alternar para Escala a lista não fique vazia
+  var defDow = dStart.getDay();
+  schedDowTimes[String(defDow)] = '14:00';
+
   var patOptions = '';
   if(activePatients.length > 0 && archivedPatients.length > 0){
     patOptions += '<optgroup label="Pacientes Ativos">' +
@@ -6596,13 +6684,13 @@ function openScheduleModal(preSelectPatientId, preSelectDate){
 
         '<label>Dias da Semana do Paciente *</label>' +
         '<div class="dow-grid">' +
-          '<button type="button" class="dow-chip" data-dow="1" onclick="toggleDowChip(this)">Seg</button>' +
-          '<button type="button" class="dow-chip" data-dow="2" onclick="toggleDowChip(this)">Ter</button>' +
-          '<button type="button" class="dow-chip" data-dow="3" onclick="toggleDowChip(this)">Qua</button>' +
-          '<button type="button" class="dow-chip" data-dow="4" onclick="toggleDowChip(this)">Qui</button>' +
-          '<button type="button" class="dow-chip" data-dow="5" onclick="toggleDowChip(this)">Sex</button>' +
-          '<button type="button" class="dow-chip" data-dow="6" onclick="toggleDowChip(this)">Sáb</button>' +
-          '<button type="button" class="dow-chip" data-dow="0" onclick="toggleDowChip(this)">Dom</button>' +
+          '<button type="button" class="dow-chip' + (defDow === 1 ? ' active' : '') + '" data-dow="1" onclick="toggleDowChip(this)">Seg</button>' +
+          '<button type="button" class="dow-chip' + (defDow === 2 ? ' active' : '') + '" data-dow="2" onclick="toggleDowChip(this)">Ter</button>' +
+          '<button type="button" class="dow-chip' + (defDow === 3 ? ' active' : '') + '" data-dow="3" onclick="toggleDowChip(this)">Qua</button>' +
+          '<button type="button" class="dow-chip' + (defDow === 4 ? ' active' : '') + '" data-dow="4" onclick="toggleDowChip(this)">Qui</button>' +
+          '<button type="button" class="dow-chip' + (defDow === 5 ? ' active' : '') + '" data-dow="5" onclick="toggleDowChip(this)">Sex</button>' +
+          '<button type="button" class="dow-chip' + (defDow === 6 ? ' active' : '') + '" data-dow="6" onclick="toggleDowChip(this)">Sáb</button>' +
+          '<button type="button" class="dow-chip' + (defDow === 0 ? ' active' : '') + '" data-dow="0" onclick="toggleDowChip(this)">Dom</button>' +
         '</div>' +
 
         '<div id="schedDowTimesBox" class="hidden" style="margin-top:10px;padding:10px 12px;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius-xs);"></div>' +
@@ -8185,6 +8273,7 @@ async function init(){
     document.getElementById('providerNameDisplay').textContent = config.providerName || 'Atendimentos';
     updateMonthLabel();
     switchMainTab(savedTab);
+    loadLocalDataSnapshot();
     await loadData();
   }
 }

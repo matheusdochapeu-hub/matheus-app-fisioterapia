@@ -896,14 +896,15 @@
 
       <div class="month-nav">
         <button onclick="shiftAgendaMonth(-1)" aria-label="Mês anterior">&lsaquo;</button>
-        <div class="label" id="agendaMonthLabel">-</div>
+        <div class="label" id="agendaMonthLabel" onclick="resetAgendaToToday()" style="cursor:pointer;" title="Toque para voltar a hoje">-</div>
         <button onclick="shiftAgendaMonth(1)" aria-label="Próximo mês">&rsaquo;</button>
+        <button type="button" class="btn small ghost" style="width:auto;padding:3px 10px;font-size:11.5px;font-weight:700;margin-left:4px;border-color:var(--line-strong);" onclick="resetAgendaToToday()" title="Ir para a data de hoje">Hoje</button>
       </div>
 
       <div class="month-stats" style="margin-bottom:12px;">
-        <div class="chip"><span class="n" id="agendaKpiTotal">0</span><span class="t">agendados<br>no mês</span></div>
-        <div class="chip"><span class="n" id="agendaKpiPending" style="color:var(--accent-ink);">0</span><span class="t">a realizar<br>(previstos)</span></div>
-        <div class="chip"><span class="n" id="agendaKpiDone" style="color:var(--success);">0</span><span class="t">realizados<br>(check-in)</span></div>
+        <div class="chip" onclick="setAgendaStatusFilter('')" style="cursor:pointer;" title="Ver todos os agendamentos do mês"><span class="n" id="agendaKpiTotal">0</span><span class="t">agendados<br>no mês</span></div>
+        <div class="chip" onclick="setAgendaStatusFilter('Agendado')" style="cursor:pointer;" title="Filtrar sessões a realizar"><span class="n" id="agendaKpiPending" style="color:var(--accent-ink);">0</span><span class="t">a realizar<br>(previstos)</span></div>
+        <div class="chip" onclick="setAgendaStatusFilter('Realizado')" style="cursor:pointer;" title="Filtrar sessões realizadas"><span class="n" id="agendaKpiDone" style="color:var(--success);">0</span><span class="t">realizados<br>(check-in)</span></div>
       </div>
 
       <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
@@ -6150,6 +6151,21 @@ function clearAgendaDayFilter(){
   renderAgendaTab();
 }
 
+function resetAgendaToToday(){
+  var now = new Date();
+  agendaMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  agendaSelectedDay = isoDate(now);
+  renderAgendaTab();
+}
+
+function setAgendaStatusFilter(status){
+  var sel = document.getElementById('agendaFilterStatus');
+  if(sel){
+    sel.value = status;
+    renderAgendaTab();
+  }
+}
+
 function getSchedulePatientDisplayName(sc){
   if(sc.pacienteId){
     var p = patients.find(function(x){ return x.id === sc.pacienteId; });
@@ -6246,7 +6262,10 @@ function renderAgendaTab(){
       '<div class="icon">📅</div>' +
       '<h3>Nenhum agendamento ' + (agendaSelectedDay ? 'para ' + formatDateBR(agendaSelectedDay) : 'neste período') + '</h3>' +
       '<p>Agende um atendimento único ou gere a escala de toda a semana/mês com sincronização automática no Google Agenda e cálculo de rotas.</p>' +
-      '<button class="btn primary small" style="width:auto;margin:12px auto 0;" onclick="openScheduleModal(\'\', \''+(agendaSelectedDay || '')+'\')">+ Agendar Atendimento</button>' +
+      '<div style="display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap;">' +
+        '<button class="btn primary small" style="width:auto;" onclick="openScheduleModal(\'\', \''+(agendaSelectedDay || '')+'\')">+ Agendar Atendimento</button>' +
+        (agendaSelectedDay ? '<button class="btn ghost small" style="width:auto;" onclick="clearAgendaDayFilter()">Ver mês inteiro</button>' : '') +
+      '</div>' +
     '</div>';
     return;
   }
@@ -6399,11 +6418,12 @@ function renderAgendaCalendar(year, month, monthSchedules){
     } else if(cnt > 0){
       bgStyle = 'background:#FDF6EC;color:var(--primary-dark);border-color:var(--primary);font-weight:700;';
     } else if(isToday){
-      bgStyle = 'border-color:var(--primary);font-weight:700;';
+      bgStyle = 'border:2px solid var(--primary);background:var(--surface);font-weight:800;';
     }
 
     html += '<div class="cal-day" onclick="selectAgendaDay(\''+dIso+'\')" style="cursor:pointer;position:relative;flex-direction:column;gap:1px;'+bgStyle+'" title="'+formatDateBR(dIso)+(cnt ? ' ('+cnt+' agendado(s))' : '')+'">' +
       '<span>' + day + '</span>' +
+      (isToday ? '<span style="font-size:7.5px;line-height:1;font-weight:800;color:var(--primary);text-transform:uppercase;">Hoje</span>' : '') +
       (cnt > 0 ? '<span style="font-size:9px;line-height:1;padding:1px 4px;border-radius:99px;background:'+(doneCnt===cnt?'var(--ok)':'var(--primary)')+';color:#fff;">' + cnt + '</span>' : '') +
     '</div>';
   }

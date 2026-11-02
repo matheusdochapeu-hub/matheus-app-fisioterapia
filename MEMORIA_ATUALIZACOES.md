@@ -1,7 +1,31 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
-Data da consolidação: `01/11/2026`  
-Versão do Service Worker: `atend-v41` (`sw.js`)
+Data da consolidação: `02/11/2026`  
+Versão do Service Worker: `atend-v42` (`sw.js`)
+
+---
+
+## 9. Módulo de Férias e Ausências com Integração na Agenda, Google Calendar e Relatório Financeiro (`v42`)
+- **Registro Rápido de Férias e Ausências (`atendimentos.html`):**
+  - Adicionado o botão `[🏖️ Férias / Ausência]` na barra de ações rápidas da Agenda.
+  - Modal interativo (`openVacationModal`) com seleção de período (Data Inicial e Data Final), tipo de ausência (`🏖️ Férias`, `🌴 Folga / Recesso`, `🎓 Congresso / Curso`, `🏥 Atestado Médico`, `🏛️ Feriado`, `🚫 Bloqueio de Horário`), modo Dia Inteiro (08:00–20:00) ou Horário Específico, e observações.
+  - **Detecção de Conflitos em Tempo Real:** ao selecionar as datas, o sistema verifica automaticamente se há agendamentos de pacientes marcados para o período e exibe alerta visual em vermelho com o total de conflitos e a opção de cancelá-los automaticamente com 1 clique ao confirmar o bloqueio.
+  - **Alerta Preventivo no Agendamento:** a função `submitSchedule()` alerta caso o usuário tente agendar um paciente em uma data já bloqueada por férias/ausência.
+- **Sincronização com o Google Calendar (`Code.gs`):**
+  - Implementada a função auxiliar `buildCalendarTitleAndDesc_(item)` que distingue atendimentos clínicos de bloqueios de agenda (`pacienteId === '__BLOQUEIO__'` ou `status === 'Ausência'`).
+  - Eventos de férias/bloqueio são registrados diretamente no Google Agenda da profissional (`scarletssantos7@gmail.com`) com título amigável (ex.: `🏖️ Férias: Viagem com a família`) e `sendInvites: false`, sem enviar convites por e-mail ou adicionar participantes.
+  - `parseScheduleDates_` aprimorada para converter strings "Dia Inteiro" em janelas de evento de 12 horas (08:00–20:00).
+- **Visualização Visual na Grade e Lista da Agenda:**
+  - Grade mensal com marcação de badge `🏖️` e borda âmbar tracejada nos dias com ausências cadastradas.
+  - Lista de atendimentos do dia com card estilizado em tom âmbar/terracota suave com tag `🏖️ Ausência` e botão de exclusão imediata `[✕ Excluir Ausência]`.
+  - 4º chip de estatísticas do mês no cabeçalho da Agenda: `[ X ] dias de ausência`, com filtro direto via clique (`setAgendaStatusFilter('Ausência')`).
+- **Integração Completa no Relatório Financeiro:**
+  - **Chip de KPI Anual:** exibição destacada no topo do relatório: `🏖️ FÉRIAS / FOLGA: X dias no ano`.
+  - **Banner Explicativo de Produtividade:** se o mês selecionado possuir ausências, exibe banner informativo contextualizando que variações no faturamento decorrem do recesso/férias programados.
+  - **Gráfico Comparativo Mês a Mês:** indicador visual `🏖️` nos meses que registraram ausências.
+  - **Impacto Neutro na Projeção Financeira:** ausências são gravadas com `Valor: 0` e status `Ausência`, garantindo que não inflem a previsão de faturamento nem apareçam como receitas pendentes.
+- **Cache do Service Worker:**
+  - Atualizado para `atend-v42` em `sw.js`.
 
 ---
 

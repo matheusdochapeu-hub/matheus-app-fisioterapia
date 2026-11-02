@@ -461,13 +461,6 @@ function createCalendarEventForSchedule_(item) {
   }
 }
 
-    try { ev.addPopupReminder(30); } catch (remErr) {}
-    return { eventId: ev.getId(), warning: '' };
-  } catch (err) {
-    return { eventId: '', warning: err.message || String(err) };
-  }
-}
-
 function updateCalendarEventForSchedule_(item) {
   try {
     enrichScheduleItemWithPatient_(item);

@@ -92,7 +92,7 @@ async function main() {
     }
 
     const body = {
-      message: `feat: adicionar Nome Fantasia (interno) e Nome Completo (documentos externos) em ${relPath}`,
+      message: `${process.env.SYNC_MESSAGE || 'chore: sincronizar'} (${relPath})`,
       content: contentBase64,
       branch: BRANCH
     };

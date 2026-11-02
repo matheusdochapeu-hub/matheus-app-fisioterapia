@@ -1,7 +1,28 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `02/11/2026`  
-Versão do Service Worker: `atend-v45` (`sw.js`)
+Versão do Service Worker: `atend-v46` (`sw.js`)
+
+---
+
+## 14. Correção do Modal de Férias, do Agendador e do Sumiço de Pacientes (`v46`)
+- **Modal de Férias / Ausência travando (`atendimentos.html`):**
+  - *Causa 1 (travamento de tela):* `getVacationDatesRange` e a checagem de conflitos geravam um array de dias a cada alteração de data. Ao digitar o ano no campo de data (ex.: `0002` ou `20267`), o período virava milhares de anos e o navegador congelava. Agora há `vacationSpanDays` (valida formato e ordem) e limite de `VAC_MAX_DAYS = 120` dias por registro; conflitos usam comparação direta de datas (`getVacationConflicts`), sem arrays.
+  - *Causa 2 (gravação inválida):* `create_schedule` e `update_schedule` eram enviados como `{ action, item: {...} }`, mas o `Code.gs` lê os campos na raiz. Resultado: linha vazia na aba `Agendamentos` e nenhum evento no Google Agenda para ausência de 1 dia. O front agora envia payload plano e o `Code.gs` também aceita `item` (sobe os campos para a raiz).
+  - *Causa 3:* a resposta do servidor usa `calendarEventId`, mas o front lia só `eventId` e nunca guardava o ID do evento; excluir a ausência não removia do Google Agenda. Corrigido (aceita ambas as chaves).
+  - Sincronização em lotes de 10 dias (antes: 1 requisição com todos os dias segurando o lock da planilha); sem lembrete popup em bloqueios; cancelamento de conflitos usa a lista capturada na hora (antes procurava por texto na observação).
+  - Validação de horário (término após o início) e feedback quando parte da sincronização falha.
+- **Pacientes sumindo / sem endereço (`atendimentos.html` e `Code.gs`):**
+  - O filtro `!isInvalidPatientName(nomeFantasia)` tratava **Nome Fantasia vazio como inválido**: pacientes sem apelido eram descartados da lista, apagados do cache local no `init()` e recriados em branco (sem endereço/telefone) pela auto-descoberta. O `doGet` e o `create_patient` do `Code.gs` tinham o mesmo problema. Criada `isNonPatientRecord` / `isInvalidOptionalName_` (Nome Fantasia é opcional).
+  - Linhas de férias/ausência (`🏖️ Férias`, etc.) eram promovidas a "pacientes" pela auto-descoberta. Agora são ignoradas (`isBlockLabelName`) e purgadas do cache.
+  - Linhas fantasma (sem ID/data) na aba `Agendamentos` são ignoradas ao carregar; `create_schedule` rejeita payload sem `id`/`data`.
+- **Agendador:**
+  - Férias/ausências não entram mais no cálculo de rotas entre pacientes (agenda do dia e análise do modal de agendamento) — antes geravam cartões "cadastre o endereço de 🏖️ Férias".
+  - Horário vazio deixou de gerar evento de dia inteiro (08:00–20:00) no Google Agenda (validação em `submitSchedule`).
+  - Corrida entre `closeModal()` e `openModal()` (ex.: `closeModal();openPatientForm()`): o `popstate` atrasado do `history.back()` fechava o modal recém-aberto. Corrigido com o contador `_pendingBack`.
+  - Proteção contra `getRouteSyncOrApprox` nulo na análise de rota do modal.
+- **Service Worker & Testes:** `atend-v46`; 35 testes unitários passando (4 novos: pacientes sem Nome Fantasia, rótulos de ausência, `isBlockSchedule`, limite do período de férias).
+- **Ação manual necessária:** republicar o `Code.gs` no Apps Script (nova implantação) para ativar `item` na raiz, validação de `create_schedule` e o filtro de Nome Fantasia no `doGet`. Linhas vazias antigas na aba `Agendamentos` podem ser apagadas manualmente.
 
 ---
 

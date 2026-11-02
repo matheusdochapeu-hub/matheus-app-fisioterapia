@@ -903,7 +903,7 @@
 
       <div id="patientsContainer" class="patients-list"></div>
 
-      <button class="btn primary add-patient-bar-btn" onclick="openPatientForm()">
+      <button type="button" class="btn primary add-patient-bar-btn" onclick="openPatientForm()">
         <svg style="width:18px;height:18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Adicionar novo paciente
       </button>
@@ -941,10 +941,10 @@
       </div>
 
       <div class="agenda-action-grid">
-        <button class="btn primary" onclick="openScheduleModal()">&#128197; + Agendar Sessão</button>
-        <button class="btn ghost btn-vacation" onclick="openVacationModal()" title="Registrar período de férias, folga ou ausência do trabalho">🏖️ Férias / Ausência</button>
-        <button class="btn ghost btn-routes" onclick="openRouteSimulatorModal()" title="Simulador de rotas e cálculo de tempo/km entre atendimentos">&#128663; Rotas &amp; Distâncias</button>
-        <button class="btn ghost" id="agendaGCalBtn" onclick="openCalendarSettingsModal()" title="Configurações e status de sincronização com o Google Agenda">⚙️ Google Agenda</button>
+        <button type="button" class="btn primary" onclick="openScheduleModal()">&#128197; + Agendar Sessão</button>
+        <button type="button" class="btn ghost btn-vacation" onclick="openVacationModal()" title="Registrar período de férias, folga ou ausência do trabalho">🏖️ Férias / Ausência</button>
+        <button type="button" class="btn ghost btn-routes" onclick="openRouteSimulatorModal()" title="Simulador de rotas e cálculo de tempo/km entre atendimentos">&#128663; Rotas &amp; Distâncias</button>
+        <button type="button" class="btn ghost" id="agendaGCalBtn" onclick="openCalendarSettingsModal()" title="Configurações e status de sincronização com o Google Agenda">⚙️ Google Agenda</button>
       </div>
 
       <div class="card" style="padding:12px;">
@@ -1029,7 +1029,7 @@
       </div>
 
       <!-- ÚNICO BOTÃO GRANDE DE NOVA EVOLUÇÃO ABAIXO DO FILTRO -->
-      <button class="btn primary add-patient-bar-btn" style="margin:0 0 16px;" onclick="openNewEvolution()">
+      <button type="button" class="btn primary add-patient-bar-btn" style="margin:0 0 16px;" onclick="openNewEvolution()">
         <svg style="width:18px;height:18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         + Nova Evolução
       </button>
@@ -1609,15 +1609,16 @@ function updateEyeButtonUI(){
 }
 
 /* ---------- Controle de Modais & Botão Voltar do Celular ---------- */
-/* _pendingBack conta os history.back() disparados por closeModal() ainda não confirmados pelo popstate.
-   Evita que o popstate atrasado feche um modal aberto logo em seguida (ex.: closeModal();openPatientForm()). */
-var _pendingBack = 0;
+var _modalOpenTs = 0;
+
 function openModal(html){
   var root = document.getElementById('modalRoot');
+  if(!root) return;
   root.innerHTML = html;
   document.body.style.overflow = 'hidden';
   document.addEventListener('keydown', escClose);
-  if(!_modalStatePushed && _pendingBack === 0){
+  _modalOpenTs = Date.now();
+  if(!_modalStatePushed){
     try {
       history.pushState({ modalOpen: true }, '');
       _modalStatePushed = true;
@@ -1632,32 +1633,23 @@ function closeModal(fromPopstate){
   if(root) root.innerHTML = '';
   document.body.style.overflow = '';
   document.removeEventListener('keydown', escClose);
-  if(fromPopstate){
+  if(_modalStatePushed && !fromPopstate){
     _modalStatePushed = false;
-    return;
-  }
-  if(_modalStatePushed){
+    try { history.back(); } catch(e){}
+  } else {
     _modalStatePushed = false;
-    _pendingBack++;
-    try { history.back(); } catch(e){ _pendingBack--; }
   }
 }
 function closeModalBg(ev){
-  if(ev.target === ev.currentTarget) closeModal();
+  // Protege contra toques fantasmas (ghost clicks) no backdrop e fechamento prematuro
+  // durante a animação de entrada (slideUp/fade): qualquer clique com menos de 350ms é ignorado.
+  if(Date.now() - _modalOpenTs < 350) return;
+  if(ev && ev.target === ev.currentTarget) closeModal();
 }
 window.addEventListener('popstate', function(){
+  // Se o modal acabou de abrir (menos de 350ms), ignora popstate residual de navegação anterior
+  if(Date.now() - _modalOpenTs < 350) return;
   var root = document.getElementById('modalRoot');
-  if(_pendingBack > 0){
-    _pendingBack--;
-    // Um novo modal foi aberto antes do back terminar: reempilha o estado dele
-    if(_pendingBack === 0 && root && root.innerHTML.trim() !== '' && !_modalStatePushed){
-      try {
-        history.pushState({ modalOpen: true }, '');
-        _modalStatePushed = true;
-      } catch(e){}
-    }
-    return;
-  }
   if(root && root.innerHTML.trim() !== ''){
     closeModal(true);
     return;

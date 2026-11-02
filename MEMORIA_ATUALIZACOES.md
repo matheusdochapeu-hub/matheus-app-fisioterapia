@@ -1,7 +1,7 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `01/11/2026`  
-Versão do Service Worker: `atend-v31` (`sw.js`)
+Versão do Service Worker: `atend-v35` (`sw.js`)
 
 ---
 
@@ -140,6 +140,39 @@ Versão do Service Worker: `atend-v31` (`sw.js`)
     - Função `autorizarGoogleAgenda` pronta no Apps Script.
     - Teste de conexão funcional pelo modal de configurações com resposta instantânea.
   - **Suíte de Testes Automatizados:** 26 testes unitários automatizados passando com 100% de sucesso.
+- **`atend-v35`:** Scarlet Santos como Organizadora Principal, Gravação Direta no Google Agenda Sem Passar por E-mail e Aba de Configurações no Google Sheets:
+  - **Eliminação Definitiva dos E-mails de Convite ("Sem passar pelo email"):**
+    - Diagnóstico: quando o Web App era executado por outra conta Google, o código anterior utilizava `opts.guests` e `opts.sendInvites = true`, disparando um e-mail de convite do Google Calendar para `scarletsantos7@gmail.com`.
+    - Correção estrutural: foram removidos 100% dos blocos `opts.guests` e chamadas `opts.sendInvites = true` tanto em `createCalendarEventForSchedule_` quanto em `create_schedules_batch`.
+    - O parâmetro `sendInvites: false` foi fixado em todas as criações de evento no Google Agenda, garantindo que o evento seja inserido de forma silenciosa e direta no calendário sem enviar notificações ou e-mails a ninguém.
+  - **Scarlet Santos Oficializada no Back-End e Front-End:**
+    - Constante `APP_ORGANIZER_EMAIL = 'scarletsantos7@gmail.com'` e `DEFAULT_CALENDAR_ID = 'scarletsantos7@gmail.com'` integradas em `Code.gs` e `atendimentos.html`.
+    - Os eventos criados no Google Agenda agora trazem na descrição a linha: `Organizadora: scarletsantos7@gmail.com` e `Sincronizado diretamente pelo App Fisioterapia (sem envio de e-mails)`.
+  - **Nova Aba `Configuracoes` Criada Automaticamente na Planilha:**
+    - `getConfigSheet_()` garante a existência da aba `Configuracoes` com cabeçalhos congelados e em negrito: `['Chave', 'Valor', 'Descricao', 'AtualizadoEm']`.
+    - Registra oficialmente:
+      - `OrganizadorPrincipal`: `scarletsantos7@gmail.com` (E-mail da fisioterapeuta proprietária e organizadora do aplicativo)
+      - `GoogleAgendaID`: `scarletsantos7@gmail.com` (ID da agenda onde os atendimentos são gravados diretamente)
+      - `EnderecoBase`: `Rua Maracaju, 88 - Vila Tibério, Ribeirão Preto - SP`
+      - `ConsumoCarroKmL`: `14`
+      - `PrecoGasolina`: `6.10`
+      - `NotificacoesPorEmail`: `Desativado (gravação direta)`
+    - Incluído `config: sheetToObjects_(getConfigSheet_())` no retorno de `doGet(e)`, permitindo que o app leia e sincronize os parâmetros oficiais direto da planilha.
+  - **Menu Personalizado no Google Sheets (`onOpen`):**
+    - Adicionado menu nativo no Sheets: **📅 Fisioterapia (Scarlet)** com as ações:
+      - `👤 Verificar Organizador & Agenda`: exibe popup no Sheets diagnosticando a conta executora, e-mail da Scarlet e modo de gravação.
+      - `🔑 Autorizar Google Agenda`: botão de 1 clique para autorizar o `CalendarApp` sem precisar entrar no editor de código.
+      - `⚙️ Atualizar Aba de Configurações`: regerar ou validar a aba de configurações.
+  - **Refatoração de `resolveUserCalendar_` e `test_calendar`:**
+    - Modo nativo direto (`direct_native`): se Scarlet executa o script, grava na agenda principal dela.
+    - Modo compartilhado direto (`direct_shared`): se Scarlet compartilhou a agenda dela com permissão de alteração, grava na agenda dela diretamente sem convite por e-mail.
+    - Modo silencioso (`default_no_invite`): se gravado pela conta ativa, grava sem enviar nenhum e-mail/convite.
+    - Resposta de teste de agenda no app informa detalhadamente o modo ativo e confirma que não há envio de e-mails.
+  - **Front-end (`atendimentos.html`):**
+    - Badge visual `👤 Organizadora Principal: scarletsantos7@gmail.com` adicionado no modal de configurações.
+    - Texto explicativo de que a sincronização ocorre diretamente no calendário sem e-mails.
+    - Sincronização inteligente dos parâmetros de `data.config` no carregamento da planilha.
+
 
 
 

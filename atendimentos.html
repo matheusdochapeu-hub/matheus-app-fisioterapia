@@ -3914,7 +3914,7 @@ function renderList(){
     var linkedSc = schedules.find(function(s){ return s.atendimentoId === e.id; });
 
     var paidNote = pago && e.paymentDate ? '<div class="paid-note">&#10003; Pago em '+formatDateBR(e.paymentDate)+'</div>' : '';
-    var payBtn = !pago ? '<button class="pay" onclick="openPaymentModal(\''+e.id+'\')">&#128176; Pagar</button>' : '';
+    var payBtn = !pago ? '<button class="pay" onclick="openPaymentModal(\''+e.id+'\')">&#128176; Registrar Pagamento</button>' : '';
     var archBadge = isArchived ? '<span style="font-size:10px;font-weight:600;color:var(--ink-soft);background:var(--bg-tint);padding:1px 5px;border-radius:4px;margin-left:4px;">Finalizado</span>' : '';
     var schedBadge = linkedSc ? '<span style="font-size:10px;font-weight:600;color:var(--primary-deep);background:var(--primary-soft);padding:1px 6px;border-radius:99px;margin-left:4px;" title="Vinculado ao agendamento da Agenda">&#128197; Agenda</span>' : '';
 

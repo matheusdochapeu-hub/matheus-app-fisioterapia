@@ -696,14 +696,33 @@
   .sched-patient{font-size:14.5px;font-weight:700;color:var(--ink);}
   .sched-meta{font-size:12px;color:var(--ink-soft);line-height:1.4;}
   .sched-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-start;border-top:1px dashed var(--line);padding-top:8px;margin-top:2px;}
-  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-size:11.5px;}
-  .cal-dow{font-weight:700;color:var(--ink-soft);padding:4px 0;font-size:11px;}
-  .cal-day{
-    min-height:38px;display:flex;align-items:center;justify-content:center;
-    border:1px solid var(--line);border-radius:var(--radius-xs);background:var(--bg);
-    font-size:11.5px;color:var(--ink);transition:all .12s ease;user-select:none;
+  .agenda-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px;}
+  .agenda-stats .chip{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm);
+    padding:8px 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;box-shadow:var(--shadow-soft);min-height:54px;box-sizing:border-box;
+    transition:transform .12s ease,border-color .12s ease;
   }
-  .cal-day.empty{background:transparent;border-color:transparent;pointer-events:none;}
+  .agenda-stats .chip:active{transform:scale(0.97);}
+  .agenda-stats .chip .n{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:16px;line-height:1.1;color:var(--primary-deep);}
+  .agenda-stats .chip .t{font-size:9.5px;color:var(--ink-soft);line-height:1.15;margin-top:3px;text-align:center;white-space:nowrap;}
+  .agenda-action-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+  .agenda-action-grid .btn{
+    height:42px;min-height:42px;padding:0 10px;font-size:13px;font-weight:700;
+    display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;
+    box-sizing:border-box;border-radius:var(--radius-sm);width:100%;
+  }
+  .agenda-action-grid .btn-vacation{border-color:#f59e0b;color:#b45309;background:#fffbeb;}
+  .agenda-action-grid .btn-routes{grid-column:span 2;border-color:var(--line-strong);color:var(--primary-deep);background:var(--surface);}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-size:11.5px;}
+  .cal-dow{font-weight:700;color:var(--ink-soft);padding:4px 0 6px;font-size:11px;}
+  .cal-day{
+    height:44px;min-height:44px;max-height:44px;box-sizing:border-box;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    border:1px solid var(--line);border-radius:var(--radius-xs);background:var(--bg);
+    font-size:12px;color:var(--ink);transition:all .12s ease;user-select:none;padding:2px 1px;
+  }
+  .cal-day.empty{background:transparent;border-color:transparent;pointer-events:none;height:44px;min-height:44px;max-height:44px;}
   .dow-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:6px;}
   .dow-chip{
     display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -913,18 +932,17 @@
         <button type="button" class="btn small ghost" style="width:auto;padding:3px 10px;font-size:11.5px;font-weight:700;margin-left:4px;border-color:var(--line-strong);" onclick="resetAgendaToToday()" title="Ir para a data de hoje">Hoje</button>
       </div>
 
-      <div class="month-stats" style="margin-bottom:12px;">
+      <div class="agenda-stats">
         <div class="chip" onclick="setAgendaStatusFilter('')" style="cursor:pointer;" title="Ver todos os agendamentos do mês"><span class="n" id="agendaKpiTotal">0</span><span class="t">agendados<br>no mês</span></div>
         <div class="chip" onclick="setAgendaStatusFilter('Agendado')" style="cursor:pointer;" title="Filtrar sessões a realizar"><span class="n" id="agendaKpiPending" style="color:var(--accent-ink);">0</span><span class="t">a realizar<br>(previstos)</span></div>
         <div class="chip" onclick="setAgendaStatusFilter('Realizado')" style="cursor:pointer;" title="Filtrar sessões realizadas"><span class="n" id="agendaKpiDone" style="color:var(--success);">0</span><span class="t">realizados<br>(check-in)</span></div>
         <div class="chip" onclick="setAgendaStatusFilter('Ausência')" style="cursor:pointer;" title="Filtrar dias de férias e ausências"><span class="n" id="agendaKpiVacation" style="color:#b45309;">0</span><span class="t">dias de<br>ausência</span></div>
       </div>
 
-      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
-        <button class="btn primary" style="flex:2;min-width:180px;" onclick="openScheduleModal()">&#128197; + Agendar Sessão / Escala</button>
-        <button class="btn ghost" style="flex:1;min-width:140px;border-color:#f59e0b;color:#b45309;background:#fffbeb;font-weight:700;" onclick="openVacationModal()" title="Registrar período de férias, folga ou ausência do trabalho">🏖️ Férias / Ausência</button>
-        <button class="btn ghost" style="flex:1;min-width:140px;border-color:var(--line-strong);font-weight:700;color:var(--primary-deep);" onclick="openRouteSimulatorModal()">&#128663; Rotas &amp; Distâncias</button>
-        <button id="agendaRestoreBannerBtn" class="btn small ghost" style="width:auto;padding:7px 10px;font-size:11.5px;display:none;color:var(--primary-deep);" onclick="restoreGCalBanner()" title="Exibir status do Google Agenda">📅 Status Agenda</button>
+      <div class="agenda-action-grid">
+        <button class="btn primary" onclick="openScheduleModal()">&#128197; + Agendar Sessão</button>
+        <button class="btn ghost btn-vacation" onclick="openVacationModal()" title="Registrar período de férias, folga ou ausência do trabalho">🏖️ Férias / Ausência</button>
+        <button class="btn ghost btn-routes" onclick="openRouteSimulatorModal()">&#128663; Rotas &amp; Distâncias</button>
       </div>
 
       <div class="card" style="padding:12px;">
@@ -5580,39 +5598,33 @@ function updateGCalBannerUI(){
   var restoreBtn = document.getElementById('agendaRestoreBannerBtn');
   if(!box || !title || !desc || !btn) return;
 
+  // Quando vinculado, esconde completamente o banner da tela principal da Agenda conforme solicitado
+  if(calId){
+    box.classList.add('hidden');
+    if(restoreBtn) restoreBtn.style.display = 'none';
+    return;
+  }
+
   var isDismissed = false;
   try{ isDismissed = localStorage.getItem('ft_gcal_banner_dismissed') === 'true'; }catch(e){}
   if(isDismissed){
     box.classList.add('hidden');
-    if(restoreBtn) restoreBtn.style.display = 'inline-flex';
+    if(restoreBtn) restoreBtn.style.display = 'none';
     return;
   } else {
     box.classList.remove('hidden');
     if(restoreBtn) restoreBtn.style.display = 'none';
   }
 
-  // Por padrão, inicia retraído se já vinculado para economizar espaço de tela
-  var isCollapsed = true;
-  try{
-    var savedCol = localStorage.getItem('ft_gcal_banner_collapsed');
-    if(savedCol !== null) isCollapsed = savedCol === 'true';
-  }catch(e){}
-  box.classList.toggle('collapsed', isCollapsed);
-  var chev = document.getElementById('gcalBannerChevron');
-  if(chev) chev.innerHTML = isCollapsed ? '&#9660;' : '&#9650;';
-
-  if(calId){
-    box.classList.remove('disconnected');
-    title.innerHTML = '✅ Google Agenda Vinculada: <span style="text-decoration:underline;">' + escapeHtml(calId) + '</span>';
-    desc.textContent = 'Organizadora: ' + APP_ORGANIZER_EMAIL + '. Agendamentos são gravados diretamente no Google Agenda sem passar por convites ou e-mails.';
-    btn.innerHTML = '⚙️ Configurar';
-  } else {
-    box.classList.add('disconnected');
-    title.textContent = 'Sincronização com Google Agenda';
-    desc.textContent = 'Vincule a agenda de ' + APP_ORGANIZER_EMAIL + ' para gravar e atualizar seus atendimentos diretamente no calendário.';
-    btn.innerHTML = '🔗 Vincular Minha Agenda';
-  }
+  // Se não vinculado, exibe card convidando a vincular
+  box.classList.add('disconnected');
+  title.textContent = 'Sincronização com Google Agenda';
+  desc.textContent = 'Vincule a agenda de ' + APP_ORGANIZER_EMAIL + ' para gravar e atualizar seus atendimentos diretamente no calendário.';
+  btn.innerHTML = '🔗 Vincular Minha Agenda';
   if(icsBtn){
+    icsBtn.style.display = schedules.length > 0 ? 'inline-flex' : 'none';
+  }
+}
     icsBtn.style.display = schedules.length > 0 ? 'inline-flex' : 'none';
   }
 }
@@ -7945,12 +7957,13 @@ function openVacationModal(preSelectDate){
   var today = isoDate(new Date());
   var initDate = preSelectDate || agendaSelectedDay || today;
 
-  var html = '<div class="modal" onclick="if(event.target===this)closeModal()">' +
-    '<div class="box" style="max-width:480px;">' +
+  var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
+    '<div class="modal">' +
+      '<div class="grabber"></div>' +
       '<h2>🏖️ Registrar Férias / Ausência</h2>' +
-      '<div class="sub" style="margin-bottom:14px;color:var(--ink-soft);font-size:12.5px;">' +
+      '<p style="font-size:12.5px;color:var(--ink-soft);margin-bottom:14px;line-height:1.4;">' +
         'Bloqueia o período de trabalho na agenda, sincroniza o bloqueio no Google Agenda e registra o recesso no relatório financeiro.' +
-      '</div>' +
+      '</p>' +
 
       '<label>Tipo de Ausência *</label>' +
       '<select id="vacType" style="margin-bottom:12px;" onchange="updateVacationConflictAlert()">' +

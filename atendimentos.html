@@ -1709,14 +1709,19 @@ async function postAction(payload){
   return data;
 }
 
-async function loadData(){
-  document.getElementById('loadingState').classList.remove('hidden');
+async function loadData(opts){
+  var silent = Boolean(opts && opts.silent);
+  if(!silent) document.getElementById('loadingState').classList.remove('hidden');
   clearError();
   try{
-    var res = await fetch(scriptUrl(), { method: 'GET' });
+    var fetchUrl = scriptUrl();
+    var sep = fetchUrl.indexOf('?') > -1 ? '&' : '?';
+    fetchUrl += sep + '_t=' + Date.now();
+    var res = await fetch(fetchUrl, { method: 'GET', cache: 'no-store' });
     if(!res.ok) throw new Error('HTTP ' + res.status);
     var data = await res.json();
 
+    // A PLANILHA É A FONTE DA VERDADE OFICIAL PARA ATENDIMENTOS FINANCEIROS
     entries = (data.atendimentos || []).filter(function(r){
       return !isInvalidPatientName(r.Paciente);
     }).map(function(r){
@@ -1734,24 +1739,22 @@ async function loadData(){
     });
     saveLocalEntries();
 
+    // A PLANILHA É A FONTE DA VERDADE OFICIAL PARA PACIENTES (SOBREPÕE METADADOS LOCAIS ANTIGOS)
     var sheetPatients = (data.pacientes || []).filter(function(r){
       return !isNonPatientRecord({ nome: r.Nome, nomeFantasia: r.NomeFantasia });
     }).map(function(r){
       var pid = String(r.ID);
       var meta = getLocalPatientMeta(pid);
-      var valPadrao = (meta.valorPadrao !== undefined && meta.valorPadrao !== '') ? meta.valorPadrao : (r.ValorPadrao || '');
-      if(typeof valPadrao === 'string' && /^\d{4}-\d{2}-\d{2}/.test(valPadrao.trim())) {
-        valPadrao = '';
-      }
-      var savedArch = localStorage.getItem('ft_archived_' + pid) || meta.arquivado || r.Arquivado || 'Não';
-      return {
+      var valPadrao = (r.ValorPadrao !== undefined && r.ValorPadrao !== '') ? parseValor(r.ValorPadrao) : parseValor(meta.valorPadrao);
+      var savedArch = r.Arquivado || meta.arquivado || 'Não';
+      var patientObj = {
         id: pid,
-        nome: meta.nome || r.Nome || '',
-        nomeFantasia: r.NomeFantasia || meta.nomeFantasia || localStorage.getItem('ft_nome_fantasia_' + pid) || '',
-        oldNome: localStorage.getItem('ft_old_nome_' + pid) || r.OldNome || meta.oldNome || '',
-        telefone: meta.telefone !== undefined ? meta.telefone : (r.Telefone || ''),
-        valorPadrao: valPadrao,
-        formaPagamento: meta.formaPagamento !== undefined ? meta.formaPagamento : (r.FormaPagamento || ''),
+        nome: r.Nome || meta.nome || '',
+        nomeFantasia: r.NomeFantasia || meta.nomeFantasia || '',
+        oldNome: r.OldNome || meta.oldNome || '',
+        telefone: r.Telefone || meta.telefone || '',
+        valorPadrao: valPadrao > 0 ? valPadrao.toFixed(2) : '',
+        formaPagamento: r.FormaPagamento || meta.formaPagamento || '',
         endereco: r.Endereco || meta.endereco || '',
         bairro: r.Bairro || meta.bairro || '',
         cidade: r.Cidade || meta.cidade || '',
@@ -1768,12 +1771,19 @@ async function loadData(){
         foto: r.Foto || meta.foto || localStorage.getItem('ft_avatar_' + pid) || '',
         criadoEm: r.CriadoEm || ''
       };
+      // Atualiza a memória local com a verdade fresca da planilha
+      saveLocalPatientMeta(patientObj);
+      return patientObj;
     });
 
     var localPatients = getLocalPatients();
-    // Mescla registros da planilha (oficiais) com registros locais deduplicando por ID e Nome
-    var combinedPatients = (sheetPatients || []).concat(localPatients || []);
-    patients = deduplicatePatientsList(combinedPatients);
+    // Apenas mantém do cache local pacientes provisórios criados offline (pac_auto_ ou isAutoDiscovered)
+    var pendingOfflinePatients = (localPatients || []).filter(function(lp){
+      return lp && lp.id && (String(lp.id).indexOf('pac_auto_') === 0 || lp.isAutoDiscovered) && !sheetPatients.some(function(sp){
+        return sp.id === lp.id || normName(sp.nome) === normName(lp.nome);
+      });
+    });
+    patients = deduplicatePatientsList(sheetPatients.concat(pendingOfflinePatients));
 
     // Auto-descoberta: garante que pacientes com histórico em atendimentos ou agendamentos nunca desapareçam do app
     var existingNamesMap = {};
@@ -1827,6 +1837,7 @@ async function loadData(){
     patients = deduplicatePatientsList(patients);
     saveLocalPatients();
 
+    // A PLANILHA É A FONTE DA VERDADE OFICIAL PARA EVOLUÇÕES
     var sheetEvos = (data.evolucoes || []).map(function(r){
       return {
         id: String(r.ID),
@@ -1843,11 +1854,16 @@ async function loadData(){
     });
     var localEvos = getLocalEvolutions();
     var evoMap = {};
-    sheetEvos.forEach(function(ev){ evoMap[ev.id] = ev; });
-    localEvos.forEach(function(ev){ evoMap[ev.id] = ev; });
+    // Mantém itens offline locais provisórios
+    localEvos.forEach(function(ev){
+      if(ev && ev.id && String(ev.id).indexOf('_local_') > -1) evoMap[ev.id] = ev;
+    });
+    // Planilha oficial por cima (sobrescreve e elimina resquícios)
+    sheetEvos.forEach(function(ev){ if(ev && ev.id) evoMap[ev.id] = ev; });
     evolutions = Object.keys(evoMap).map(function(k){ return evoMap[k]; });
+    saveLocalEvolutions();
 
-    // Ignora linhas fantasma (sem ID ou sem data) geradas por gravações antigas inválidas
+    // A PLANILHA É A FONTE DA VERDADE OFICIAL PARA AGENDAMENTOS (A PLANILHA SOBRESCREVE DADOS LOCAIS)
     var sheetScheds = (data.agendamentos || []).filter(function(r){
       return r && String(r.ID || '').trim() && String(r.Data || '').trim();
     }).map(function(r){
@@ -1869,9 +1885,14 @@ async function loadData(){
     });
     var localScheds = getLocalSchedules();
     var schedMap = {};
-    sheetScheds.forEach(function(sc){ schedMap[sc.id] = sc; });
-    localScheds.forEach(function(sc){ schedMap[sc.id] = sc; });
+    // Mantém itens offline locais provisórios
+    localScheds.forEach(function(sc){
+      if(sc && sc.id && String(sc.id).indexOf('_local_') > -1) schedMap[sc.id] = sc;
+    });
+    // Planilha oficial por cima: a planilha sempre vence
+    sheetScheds.forEach(function(sc){ if(sc && sc.id) schedMap[sc.id] = sc; });
     schedules = Object.keys(schedMap).map(function(k){ return schedMap[k]; });
+    saveLocalSchedules();
     reconcileSchedulesWithEntries();
 
     exercises = data.exercicios || [];
@@ -1913,10 +1934,52 @@ async function loadData(){
     renderAgendaTab();
     renderEvolutionsTab();
     renderList();
-    showError('Não foi possível carregar os dados da planilha. Exibindo dados locais do dispositivo.');
+    if(!silent) showError('Não foi possível carregar os dados da planilha. Exibindo dados locais do dispositivo.');
   }
-  document.getElementById('loadingState').classList.add('hidden');
+  if(!silent) document.getElementById('loadingState').classList.add('hidden');
 }
+
+/* ---------- Sincronização Automática Multi-Dispositivo (Celular <-> Computador) ---------- */
+var _lastAutoSyncTs = 0;
+var _isSyncing = false;
+
+async function checkAutoSync(force){
+  if(_isSyncing) return;
+  if(!force && (Date.now() - _lastAutoSyncTs < 10000)) return; // Debounce de 10 segundos
+  if(!config || !config.providerName) return;
+  // Não interrompe o usuário caso esteja com modal aberto preenchendo formulário
+  var root = document.getElementById('modalRoot');
+  if(root && root.innerHTML.trim() !== '') return;
+
+  _isSyncing = true;
+  _lastAutoSyncTs = Date.now();
+  try {
+    await loadData({ silent: true });
+  } catch(e) {
+    console.warn('Auto-sync silencioso:', e);
+  } finally {
+    _isSyncing = false;
+  }
+}
+
+// 1. Ao alternar ou retornar para a aba do navegador no computador/celular
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'visible'){
+    checkAutoSync();
+  }
+});
+
+// 2. Ao focar a janela do navegador
+window.addEventListener('focus', function(){
+  checkAutoSync();
+});
+
+// 3. Polling em segundo plano a cada 45 segundos para manter telas sempre sincronizadas
+setInterval(function(){
+  if(document.visibilityState === 'visible'){
+    checkAutoSync();
+  }
+}, 45000);
 
 function getLocalEntries(){
   try{

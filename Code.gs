@@ -542,8 +542,13 @@ function enrichScheduleItemWithPatient_(item) {
   return item;
 }
 
+/** Bloqueio de agenda (férias / ausência), não um atendimento de paciente. */
+function isBlockItem_(item) {
+  return !!item && (item.pacienteId === '__BLOQUEIO__' || item.status === 'Ausência' || item.status === 'Férias' || item.tipo === 'Bloqueio');
+}
+
 function buildCalendarTitleAndDesc_(item) {
-  var isBlock = item.pacienteId === '__BLOQUEIO__' || item.status === 'Ausência' || item.status === 'Férias' || item.tipo === 'Bloqueio';
+  var isBlock = isBlockItem_(item);
   if (isBlock) {
     var bTitle = (item.pacienteNome || '🏖️ Férias');
     if (item.observacao) bTitle += ': ' + item.observacao;
@@ -610,7 +615,7 @@ function createCalendarEventForSchedule_(item) {
     }
 
     if (ev) {
-      try { ev.addPopupReminder(30); } catch (remErr) {}
+      if (!isBlockItem_(item)) { try { ev.addPopupReminder(30); } catch (remErr) {} }
       return { eventId: ev.getId(), warning: '' };
     }
     return { eventId: '', warning: 'Não foi possível gerar evento no Google Agenda.' };
@@ -689,10 +694,15 @@ function isInvalidPatientName_(name) {
   return false;
 }
 
+/** Nome Fantasia é opcional: vazio é aceito; só é rejeitado se preenchido com termo reservado. */
+function isInvalidOptionalName_(name) {
+  return !!String(name || '').trim() && isInvalidPatientName_(name);
+}
+
 function doGet(e) {
   var rawPac = sheetToObjects_(getPacSheet_());
   var cleanPac = rawPac.filter(function(p){
-    return !isInvalidPatientName_(p.Nome) && !isInvalidPatientName_(p.NomeFantasia);
+    return !isInvalidPatientName_(p.Nome) && !isInvalidOptionalName_(p.NomeFantasia);
   });
   var result = {
     atendimentos: sheetToObjects_(getAtendSheet_()),
@@ -722,6 +732,12 @@ function doPost(e) {
 
   result.action = body.action || 'create';
 
+  // Aceita também payloads no formato { action, item: {...} } (campos do item sobem para o nível raiz)
+  if (body.item && typeof body.item === 'object' && !Array.isArray(body.item)) {
+    Object.keys(body.item).forEach(function(k) {
+      if (k !== 'action' && body[k] === undefined) body[k] = body.item[k];
+    });
+  }
   /* ---------- Ações de leitura / cálculo externo (executam sem lock de escrita na planilha) ---------- */
   if (body.action === 'calc_routes_batch') {
     var pairs = Array.isArray(body.pairs) ? body.pairs : [];
@@ -823,7 +839,7 @@ function doPost(e) {
 
     /* ---------- Pacientes ---------- */
     } else if (body.action === 'create_patient') {
-      if (isInvalidPatientName_(body.nome) || isInvalidPatientName_(body.nomeFantasia)) {
+      if (isInvalidPatientName_(body.nome) || isInvalidOptionalName_(body.nomeFantasia)) {
         result.success = false;
         result.error = 'Nome de paciente inválido: não é permitido cadastrar nomes de exercícios ou bloqueios como pacientes.';
         return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
@@ -920,6 +936,11 @@ function doPost(e) {
 
     /* ---------- Agendamentos & Google Agenda (CalendarApp) ---------- */
     } else if (body.action === 'create_schedule') {
+      if (!body.id || !body.data) {
+        result.success = false;
+        result.error = 'Agendamento inválido: ID e data são obrigatórios.';
+        return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+      }
       var calRes = createCalendarEventForSchedule_(body);
       var evId = calRes.eventId || '';
       getAgendSheet_().appendRow([
@@ -999,7 +1020,7 @@ function doPost(e) {
               }
             }
             if (ev) {
-              try { ev.addPopupReminder(30); } catch (rErr) {}
+              if (!isBlockItem_(it)) { try { ev.addPopupReminder(30); } catch (rErr) {} }
               cId = ev.getId();
               syncedCount++;
             }

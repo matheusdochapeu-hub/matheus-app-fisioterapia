@@ -368,3 +368,53 @@ describe('Route Engine, Haversine Estimation and Coordinates Matching', () => {
 
 
 
+
+describe('Pacientes, bloqueios de agenda e período de férias (v46)', () => {
+  const normName = extractFn('normName');
+  const NON_PATIENT_NAMES = ['agachamento', 'flexao', 'prancha', 'exercicio', 'rotina', 'alongamento', '__bloqueio__', 'bloqueio', 'ausencia', 'ferias'];
+  const BLOCK_LABELS = ['ferias', 'folga / recesso', 'congresso / curso', 'atestado / saude', 'atestado medico', 'feriado', 'bloqueio de horario'];
+  const isInvalidPatientName = extractFnWithScope('isInvalidPatientName', { normName, NON_PATIENT_NAMES });
+  const hasReservedName = extractFnWithScope('hasReservedName', { isInvalidPatientName });
+  const isBlockLabelName = extractFnWithScope('isBlockLabelName', { normName, BLOCK_LABELS });
+  const isNonPatientRecord = extractFnWithScope('isNonPatientRecord', { isInvalidPatientName, isBlockLabelName, hasReservedName });
+  const isBlockSchedule = extractFn('isBlockSchedule');
+  const isValidIsoDay = extractFn('isValidIsoDay');
+  const pad = (n) => (n < 10 ? '0' + n : '' + n);
+  const isoDate = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  const VAC_MAX_DAYS = 120;
+  const vacationSpanDays = extractFnWithScope('vacationSpanDays', { isValidIsoDay });
+  const getVacationDatesRange = extractFnWithScope('getVacationDatesRange', { vacationSpanDays, VAC_MAX_DAYS, isoDate });
+
+  test('paciente sem Nome Fantasia continua válido (não some da lista)', () => {
+    assert.equal(isNonPatientRecord({ nome: 'Irani Souza', nomeFantasia: '' }), false);
+    assert.equal(isNonPatientRecord({ nome: 'Irani Souza' }), false);
+    assert.equal(isNonPatientRecord({ nome: '', nomeFantasia: 'Dona Diva' }), false);
+  });
+
+  test('exercícios e rótulos de férias/ausência não são pacientes', () => {
+    assert.equal(isNonPatientRecord({ nome: 'Flexão', nomeFantasia: '' }), true);
+    assert.equal(isNonPatientRecord({ nome: '🏖️ Férias', nomeFantasia: '' }), true);
+    assert.equal(isNonPatientRecord({ nome: '🏥 Atestado / Saúde', nomeFantasia: '' }), true);
+    assert.equal(isNonPatientRecord({ nome: 'Maria', nomeFantasia: 'Prancha' }), true);
+    assert.equal(isNonPatientRecord({ nome: '', nomeFantasia: '' }), true);
+  });
+
+  test('isBlockSchedule identifica bloqueios e ignora atendimentos', () => {
+    assert.equal(isBlockSchedule({ pacienteId: '__BLOQUEIO__' }), true);
+    assert.equal(isBlockSchedule({ status: 'Ausência' }), true);
+    assert.equal(isBlockSchedule({ pacienteId: 'p1', status: 'Agendado' }), false);
+    assert.equal(isBlockSchedule(null), false);
+  });
+
+  test('período de férias tem limite e rejeita datas inválidas (sem travar com ano digitado)', () => {
+    assert.equal(vacationSpanDays('2026-11-02', '2026-11-02'), 1);
+    assert.equal(vacationSpanDays('2026-11-02', '2026-11-10'), 9);
+    assert.equal(vacationSpanDays('2026-11-10', '2026-11-02'), -1);
+    assert.equal(vacationSpanDays('20267-11-02', '2026-11-02'), -1);
+    assert.deepEqual(getVacationDatesRange('2026-11-02', '2026-11-04'), ['2026-11-02', '2026-11-03', '2026-11-04']);
+    // ano parcialmente digitado (0002) -> período gigante: não gera array
+    assert.deepEqual(getVacationDatesRange('0002-11-02', '2026-11-02'), []);
+    assert.equal(getVacationDatesRange('2026-01-01', '2026-12-31').length, 0);
+    assert.equal(getVacationDatesRange('2026-01-01', '2026-04-30').length, 120);
+  });
+});

@@ -72,6 +72,11 @@ function getAgendSheet_() { return getSheet_(SHEET_AGEND, AGEND_HEADERS); }
 
 function getConfigSheet_() {
   var sheet = getSheet_(SHEET_CONFIG, CONFIG_HEADERS);
+  // Otimização: se a aba de configurações já possui o cabeçalho e as chaves padrão, retorna imediatamente sem escritas ou locks
+  if (sheet.getLastRow() >= 7) {
+    return sheet;
+  }
+
   var data = sheet.getDataRange().getValues();
   var existingKeys = {};
   for (var i = 1; i < data.length; i++) {
@@ -214,12 +219,57 @@ function getRowObjectById_(sheet, id) {
 
 function deleteRowById_(sheet, id) {
   var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return null;
+  var headers = data[0];
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][0]) === String(id)) {
+      var rowObj = {};
+      for (var h = 0; h < headers.length; h++) {
+        rowObj[headers[h]] = data[i][h];
+      }
       sheet.deleteRow(i + 1);
-      break;
+      return rowObj;
     }
   }
+  return null;
+}
+
+/**
+ * Atualiza múltiplos campos de uma linha identificada por id em uma única operação de leitura e gravação no Sheets.
+ * Reduz N leituras e N gravações a apenas 1 leitura e 1 gravação por linha.
+ */
+function updateRowObjectById_(sheet, id, fieldsObj) {
+  if (!fieldsObj || typeof fieldsObj !== 'object') return null;
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return null;
+  var headers = data[0];
+  var colMap = {};
+  for (var c = 0; c < headers.length; c++) {
+    colMap[headers[c]] = c;
+  }
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(id)) {
+      var changed = false;
+      for (var key in fieldsObj) {
+        if (fieldsObj.hasOwnProperty(key)) {
+          var colIdx = colMap[key];
+          if (colIdx !== undefined && colIdx >= 0) {
+            data[i][colIdx] = fieldsObj[key];
+            changed = true;
+          }
+        }
+      }
+      if (changed) {
+        sheet.getRange(i + 1, 1, 1, headers.length).setValues([data[i]]);
+      }
+      var rowObj = {};
+      for (var h = 0; h < headers.length; h++) {
+        rowObj[headers[h]] = data[i][h];
+      }
+      return rowObj;
+    }
+  }
+  return null;
 }
 
 /** Remove TODAS as linhas cujo valor na coluna colIndex (0-based) seja igual a value. */
@@ -349,8 +399,14 @@ function parseScheduleDates_(dataStr, horaStr, duracaoMin) {
   return { start: start, end: end };
 }
 
+var _resolvedCalendarCache = {};
+
 function resolveUserCalendar_(calendarId) {
   var cid = String(calendarId || DEFAULT_CALENDAR_ID || '').trim().toLowerCase();
+  if (_resolvedCalendarCache[cid]) {
+    return _resolvedCalendarCache[cid];
+  }
+
   var defaultCal = null;
   try { defaultCal = CalendarApp.getDefaultCalendar(); } catch (e) {}
   var effectiveEmail = '';
@@ -360,13 +416,15 @@ function resolveUserCalendar_(calendarId) {
   var isOwner = (effectiveEmail && (effectiveEmail === cid || effectiveEmail === APP_ORGANIZER_EMAIL.toLowerCase())) ||
                 (defaultCal && defaultCal.getId().toLowerCase() === cid);
   if (isOwner && defaultCal) {
-    return {
+    var resNative = {
       cal: defaultCal,
       calendarId: cid,
       isOwner: true,
       isDirectShared: false,
       mode: 'direct_native'
     };
+    _resolvedCalendarCache[cid] = resNative;
+    return resNative;
   }
 
   // 2. Se for especificada a agenda de Scarlet e ela estiver compartilhada diretamente com permissão de edição
@@ -376,13 +434,15 @@ function resolveUserCalendar_(calendarId) {
       customCal = CalendarApp.getCalendarById(cid);
     } catch (e3) {}
     if (customCal) {
-      return {
+      var resCustom = {
         cal: customCal,
         calendarId: cid,
         isOwner: false,
         isDirectShared: true,
         mode: 'direct_shared'
       };
+      _resolvedCalendarCache[cid] = resCustom;
+      return resCustom;
     }
 
     // Busca inteligente em todas as agendas acessíveis pelo usuário executor (CalendarApp.getAllCalendars)
@@ -394,13 +454,15 @@ function resolveUserCalendar_(calendarId) {
         var cIdLow = String(c.getId() || '').toLowerCase();
         var cNameLow = String(c.getName() || '').toLowerCase();
         if (cIdLow === cid || cNameLow === cid || cNameLow.indexOf('scarlet') > -1 || cIdLow.indexOf('scarlet') > -1) {
-          return {
+          var resSmart = {
             cal: c,
             calendarId: c.getId(),
             isOwner: false,
             isDirectShared: true,
             mode: 'direct_shared'
           };
+          _resolvedCalendarCache[cid] = resSmart;
+          return resSmart;
         }
       }
     } catch (eAll) {}
@@ -408,13 +470,15 @@ function resolveUserCalendar_(calendarId) {
 
   // 3. Fallback: Grava na agenda padrão ativa SEM NENHUM CONVITE POR E-MAIL
   // O evento é criado diretamente no calendário sem disparar notificações/emails
-  return {
+  var resFallback = {
     cal: defaultCal,
     calendarId: cid || (defaultCal ? defaultCal.getId() : 'primary'),
     isOwner: false,
     isDirectShared: false,
     mode: 'default_no_invite'
   };
+  _resolvedCalendarCache[cid] = resFallback;
+  return resFallback;
 }
 
 /** Preenche automaticamente endereço, telefone e NomeFantasia do paciente caso não venham no payload. */
@@ -661,16 +725,20 @@ function doPost(e) {
       deleteRowById_(getAtendSheet_(), body.id);
 
     } else if (body.action === 'update_status') {
-      updateAtendField_(body.id, 'Status', body.status);
-      updateAtendField_(body.id, 'DataPagamento', body.paymentDate || '');
+      updateRowObjectById_(getAtendSheet_(), body.id, {
+        Status: body.status,
+        DataPagamento: body.paymentDate || ''
+      });
 
     } else if (body.action === 'update') {
-      if (body.nome !== undefined) updateAtendField_(body.id, 'Paciente', body.nome);
-      if (body.data !== undefined) updateAtendField_(body.id, 'Data', body.data);
-      if (body.hora !== undefined) updateAtendField_(body.id, 'Hora', body.hora);
-      if (body.valor !== undefined) updateAtendField_(body.id, 'Valor', body.valor);
-      if (body.status !== undefined) updateAtendField_(body.id, 'Status', body.status);
-      if (body.paymentDate !== undefined) updateAtendField_(body.id, 'DataPagamento', body.paymentDate);
+      var atendFields = {};
+      if (body.nome !== undefined) atendFields['Paciente'] = body.nome;
+      if (body.data !== undefined) atendFields['Data'] = body.data;
+      if (body.hora !== undefined) atendFields['Hora'] = body.hora;
+      if (body.valor !== undefined) atendFields['Valor'] = body.valor;
+      if (body.status !== undefined) atendFields['Status'] = body.status;
+      if (body.paymentDate !== undefined) atendFields['DataPagamento'] = body.paymentDate;
+      updateRowObjectById_(getAtendSheet_(), body.id, atendFields);
 
     /* ---------- Pacientes ---------- */
     } else if (body.action === 'create_patient') {
@@ -703,26 +771,36 @@ function doPost(e) {
       var pacSheet = getPacSheet_();
       var existingPac = getRowObjectById_(pacSheet, body.id) || {};
       var oldNomeRef = body.oldNome || existingPac.Nome || '';
-      if (body.nome !== undefined) updateFieldById_(pacSheet, body.id, 'Nome', body.nome);
-      if (body.nomeFantasia !== undefined) updateFieldById_(pacSheet, body.id, 'NomeFantasia', body.nomeFantasia);
-      if (body.oldNome !== undefined) updateFieldById_(pacSheet, body.id, 'OldNome', body.oldNome);
-      if (body.telefone !== undefined) updateFieldById_(pacSheet, body.id, 'Telefone', body.telefone);
-      if (body.valorPadrao !== undefined) updateFieldById_(pacSheet, body.id, 'ValorPadrao', body.valorPadrao);
-      if (body.formaPagamento !== undefined) updateFieldById_(pacSheet, body.id, 'FormaPagamento', body.formaPagamento);
-      if (body.endereco !== undefined) updateFieldById_(pacSheet, body.id, 'Endereco', body.endereco);
-      if (body.bairro !== undefined) updateFieldById_(pacSheet, body.id, 'Bairro', body.bairro);
-      if (body.cidade !== undefined) updateFieldById_(pacSheet, body.id, 'Cidade', body.cidade);
-      if (body.dataNascimento !== undefined) updateFieldById_(pacSheet, body.id, 'DataNascimento', body.dataNascimento);
-      if (body.contato02 !== undefined) updateFieldById_(pacSheet, body.id, 'Contato02', body.contato02);
-      if (body.documento !== undefined) updateFieldById_(pacSheet, body.id, 'Documento', body.documento);
-      if (body.tcle !== undefined) updateFieldById_(pacSheet, body.id, 'TCLE', body.tcle);
-      if (body.contrato !== undefined) updateFieldById_(pacSheet, body.id, 'Contrato', body.contrato);
-      if (body.frequenciaSemanal !== undefined) updateFieldById_(pacSheet, body.id, 'FrequenciaSemanal', body.frequenciaSemanal);
-      if (body.diagClinico !== undefined) updateFieldById_(pacSheet, body.id, 'DiagClinico', body.diagClinico);
-      if (body.diagFuncional !== undefined) updateFieldById_(pacSheet, body.id, 'DiagFuncional', body.diagFuncional);
-      if (body.objetivos !== undefined) updateFieldById_(pacSheet, body.id, 'Objetivos', body.objetivos);
-      if (body.arquivado !== undefined) updateFieldById_(pacSheet, body.id, 'Arquivado', body.arquivado);
-      if (body.foto !== undefined) updateFieldById_(pacSheet, body.id, 'Foto', body.foto);
+
+      var pacFields = {};
+      var pacMap = {
+        nome: 'Nome',
+        nomeFantasia: 'NomeFantasia',
+        oldNome: 'OldNome',
+        telefone: 'Telefone',
+        valorPadrao: 'ValorPadrao',
+        formaPagamento: 'FormaPagamento',
+        endereco: 'Endereco',
+        bairro: 'Bairro',
+        cidade: 'Cidade',
+        dataNascimento: 'DataNascimento',
+        contato02: 'Contato02',
+        documento: 'Documento',
+        tcle: 'TCLE',
+        contrato: 'Contrato',
+        frequenciaSemanal: 'FrequenciaSemanal',
+        diagClinico: 'DiagClinico',
+        diagFuncional: 'DiagFuncional',
+        objetivos: 'Objetivos',
+        arquivado: 'Arquivado',
+        foto: 'Foto'
+      };
+      for (var fKey in pacMap) {
+        if (body[fKey] !== undefined) {
+          pacFields[pacMap[fKey]] = body[fKey];
+        }
+      }
+      updateRowObjectById_(pacSheet, body.id, pacFields);
 
       // Se o nome completo foi alterado, propaga para Evolucoes, Agendamentos e Atendimentos
       if (body.nome && oldNomeRef && body.nome !== oldNomeRef) {
@@ -788,6 +866,7 @@ function doPost(e) {
 
       var defaultCalendarTarget = body.calendarId || (items.length > 0 ? items[0].calendarId : '') || DEFAULT_CALENDAR_ID;
       var resolvedCal = resolveUserCalendar_(defaultCalendarTarget);
+      var defCalFallback = null;
 
       var rowsToAdd = items.map(function(it) {
         if (!it.calendarId) it.calendarId = defaultCalendarTarget;
@@ -825,10 +904,12 @@ function doPost(e) {
             try {
               ev = resolvedCal.cal.createEvent(title, dates.start, dates.end, opts);
             } catch (wErr) {
-              var defCal = CalendarApp.getDefaultCalendar();
-              if (defCal && defCal.getId() !== resolvedCal.cal.getId()) {
+              if (!defCalFallback) {
+                try { defCalFallback = CalendarApp.getDefaultCalendar(); } catch (eDef) {}
+              }
+              if (defCalFallback && defCalFallback.getId() !== resolvedCal.cal.getId()) {
                 try {
-                  ev = defCal.createEvent(title, dates.start, dates.end, opts);
+                  ev = defCalFallback.createEvent(title, dates.start, dates.end, opts);
                 } catch (defErr) {}
               }
             }
@@ -872,45 +953,48 @@ function doPost(e) {
 
     } else if (body.action === 'update_schedule') {
       var sAgUpd = getAgendSheet_();
-      var existingRow = getRowObjectById_(sAgUpd, body.id) || {};
-      if (body.pacienteId !== undefined) updateFieldById_(sAgUpd, body.id, 'PacienteID', body.pacienteId);
-      if (body.pacienteNome !== undefined) updateFieldById_(sAgUpd, body.id, 'PacienteNome', body.pacienteNome);
-      if (body.data !== undefined) updateFieldById_(sAgUpd, body.id, 'Data', body.data);
-      if (body.hora !== undefined) updateFieldById_(sAgUpd, body.id, 'Hora', body.hora);
-      if (body.duracaoMin !== undefined) updateFieldById_(sAgUpd, body.id, 'DuracaoMin', body.duracaoMin);
-      if (body.valor !== undefined) updateFieldById_(sAgUpd, body.id, 'Valor', body.valor);
-      if (body.status !== undefined) updateFieldById_(sAgUpd, body.id, 'Status', body.status);
-      if (body.observacao !== undefined) updateFieldById_(sAgUpd, body.id, 'Observacao', body.observacao);
-      if (body.atendimentoId !== undefined) updateFieldById_(sAgUpd, body.id, 'AtendimentoId', body.atendimentoId);
-      if (body.calendarId !== undefined) updateFieldById_(sAgUpd, body.id, 'CalendarId', body.calendarId);
+      var fieldsToUpdate = {};
+      if (body.pacienteId !== undefined) fieldsToUpdate['PacienteID'] = body.pacienteId;
+      if (body.pacienteNome !== undefined) fieldsToUpdate['PacienteNome'] = body.pacienteNome;
+      if (body.data !== undefined) fieldsToUpdate['Data'] = body.data;
+      if (body.hora !== undefined) fieldsToUpdate['Hora'] = body.hora;
+      if (body.duracaoMin !== undefined) fieldsToUpdate['DuracaoMin'] = body.duracaoMin;
+      if (body.valor !== undefined) fieldsToUpdate['Valor'] = body.valor;
+      if (body.status !== undefined) fieldsToUpdate['Status'] = body.status;
+      if (body.observacao !== undefined) fieldsToUpdate['Observacao'] = body.observacao;
+      if (body.atendimentoId !== undefined) fieldsToUpdate['AtendimentoId'] = body.atendimentoId;
+      if (body.calendarId !== undefined) fieldsToUpdate['CalendarId'] = body.calendarId;
+
+      var updatedRow = updateRowObjectById_(sAgUpd, body.id, fieldsToUpdate);
 
       var mergedItem = {
         id: body.id,
-        pacienteId: body.pacienteId !== undefined ? body.pacienteId : existingRow.PacienteID,
-        pacienteNome: body.pacienteNome !== undefined ? body.pacienteNome : existingRow.PacienteNome,
-        pacienteDisplay: body.pacienteDisplay || body.pacienteNome || existingRow.PacienteNome,
-        data: body.data !== undefined ? body.data : existingRow.Data,
-        hora: body.hora !== undefined ? body.hora : existingRow.Hora,
-        duracaoMin: body.duracaoMin !== undefined ? body.duracaoMin : existingRow.DuracaoMin,
-        status: body.status !== undefined ? body.status : existingRow.Status,
-        observacao: body.observacao !== undefined ? body.observacao : existingRow.Observacao,
+        pacienteId: updatedRow ? updatedRow.PacienteID : body.pacienteId,
+        pacienteNome: updatedRow ? updatedRow.PacienteNome : body.pacienteNome,
+        pacienteDisplay: body.pacienteDisplay || (updatedRow ? updatedRow.PacienteNome : '') || body.pacienteNome,
+        data: updatedRow ? updatedRow.Data : body.data,
+        hora: updatedRow ? updatedRow.Hora : body.hora,
+        duracaoMin: updatedRow ? updatedRow.DuracaoMin : body.duracaoMin,
+        status: updatedRow ? updatedRow.Status : body.status,
+        observacao: updatedRow ? updatedRow.Observacao : body.observacao,
         endereco: body.endereco || '',
         telefone: body.telefone || '',
-        calendarEventId: body.calendarEventId || existingRow.CalendarEventId || '',
-        calendarId: body.calendarId || existingRow.CalendarId || DEFAULT_CALENDAR_ID || 'primary'
+        calendarEventId: body.calendarEventId || (updatedRow ? updatedRow.CalendarEventId : '') || '',
+        calendarId: body.calendarId || (updatedRow ? updatedRow.CalendarId : '') || DEFAULT_CALENDAR_ID || 'primary'
       };
+
       var updCal = updateCalendarEventForSchedule_(mergedItem);
-      if (updCal.eventId !== undefined && updCal.eventId !== existingRow.CalendarEventId) {
-        updateFieldById_(sAgUpd, body.id, 'CalendarEventId', updCal.eventId || '');
+      if (updCal.eventId !== undefined && (!updatedRow || updCal.eventId !== updatedRow.CalendarEventId)) {
+        updateRowObjectById_(sAgUpd, body.id, { CalendarEventId: updCal.eventId || '' });
       }
       result.calendarEventId = updCal.eventId || '';
       if (updCal.warning) result.calendarWarning = updCal.warning;
 
     } else if (body.action === 'delete_schedule') {
       var sAgDel = getAgendSheet_();
-      var rowDel = getRowObjectById_(sAgDel, body.id);
-      var evIdToDel = body.calendarEventId || (rowDel && rowDel.CalendarEventId) || '';
-      var calIdToDel = body.calendarId || (rowDel && rowDel.CalendarId) || DEFAULT_CALENDAR_ID || 'primary';
+      var deletedRow = deleteRowById_(sAgDel, body.id);
+      var evIdToDel = body.calendarEventId || (deletedRow && deletedRow.CalendarEventId) || '';
+      var calIdToDel = body.calendarId || (deletedRow && deletedRow.CalendarId) || DEFAULT_CALENDAR_ID || 'primary';
       if (evIdToDel) {
         deleteCalendarEventForSchedule_(evIdToDel, calIdToDel);
       }
@@ -933,12 +1017,14 @@ function doPost(e) {
 
     } else if (body.action === 'update_evolution') {
       var sEvo = getEvoSheet_();
-      if (body.data !== undefined) updateFieldById_(sEvo, body.id, 'Data', body.data);
-      if (body.hora !== undefined) updateFieldById_(sEvo, body.id, 'Hora', body.hora);
-      if (body.pa !== undefined) updateFieldById_(sEvo, body.id, 'PA', body.pa);
-      if (body.fc !== undefined) updateFieldById_(sEvo, body.id, 'FC', body.fc);
-      if (body.estadoClinico !== undefined) updateFieldById_(sEvo, body.id, 'EstadoClinico', body.estadoClinico);
-      if (body.condutas !== undefined) updateFieldById_(sEvo, body.id, 'Condutas', body.condutas);
+      var evoFields = {};
+      if (body.data !== undefined) evoFields['Data'] = body.data;
+      if (body.hora !== undefined) evoFields['Hora'] = body.hora;
+      if (body.pa !== undefined) evoFields['PA'] = body.pa;
+      if (body.fc !== undefined) evoFields['FC'] = body.fc;
+      if (body.estadoClinico !== undefined) evoFields['EstadoClinico'] = body.estadoClinico;
+      if (body.condutas !== undefined) evoFields['Condutas'] = body.condutas;
+      updateRowObjectById_(sEvo, body.id, evoFields);
 
     } else if (body.action === 'delete_evolution') {
       deleteRowById_(getEvoSheet_(), body.id);
@@ -952,12 +1038,14 @@ function doPost(e) {
 
     } else if (body.action === 'update_exercise') {
       var exe = getExeSheet_();
-      if (body.nome !== undefined) updateFieldById_(exe, body.id, 'Nome', body.nome);
-      if (body.tipo !== undefined) updateFieldById_(exe, body.id, 'Tipo', body.tipo);
-      if (body.seriesPadrao !== undefined) updateFieldById_(exe, body.id, 'SeriesPadrao', body.seriesPadrao);
-      if (body.repsPadrao !== undefined) updateFieldById_(exe, body.id, 'RepsPadrao', body.repsPadrao);
-      if (body.observacao !== undefined) updateFieldById_(exe, body.id, 'Observacao', body.observacao);
-      if (body.imagem !== undefined) updateFieldById_(exe, body.id, 'Imagem', body.imagem);
+      var exeFields = {};
+      if (body.nome !== undefined) exeFields['Nome'] = body.nome;
+      if (body.tipo !== undefined) exeFields['Tipo'] = body.tipo;
+      if (body.seriesPadrao !== undefined) exeFields['SeriesPadrao'] = body.seriesPadrao;
+      if (body.repsPadrao !== undefined) exeFields['RepsPadrao'] = body.repsPadrao;
+      if (body.observacao !== undefined) exeFields['Observacao'] = body.observacao;
+      if (body.imagem !== undefined) exeFields['Imagem'] = body.imagem;
+      updateRowObjectById_(exe, body.id, exeFields);
 
     } else if (body.action === 'delete_exercise') {
       deleteRowById_(getExeSheet_(), body.id);
@@ -973,10 +1061,12 @@ function doPost(e) {
 
     } else if (body.action === 'update_routine_item') {
       var rot = getRotSheet_();
-      if (body.ordem !== undefined) updateFieldById_(rot, body.id, 'Ordem', body.ordem);
-      if (body.series !== undefined) updateFieldById_(rot, body.id, 'Series', body.series);
-      if (body.reps !== undefined) updateFieldById_(rot, body.id, 'Reps', body.reps);
-      if (body.observacao !== undefined) updateFieldById_(rot, body.id, 'Observacao', body.observacao);
+      var rotFields = {};
+      if (body.ordem !== undefined) rotFields['Ordem'] = body.ordem;
+      if (body.series !== undefined) rotFields['Series'] = body.series;
+      if (body.reps !== undefined) rotFields['Reps'] = body.reps;
+      if (body.observacao !== undefined) rotFields['Observacao'] = body.observacao;
+      updateRowObjectById_(rot, body.id, rotFields);
 
     } else if (body.action === 'delete_routine_item') {
       deleteRowById_(getRotSheet_(), body.id);

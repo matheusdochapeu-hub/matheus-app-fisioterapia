@@ -384,6 +384,26 @@ function resolveUserCalendar_(calendarId) {
         mode: 'direct_shared'
       };
     }
+
+    // Busca inteligente em todas as agendas acessíveis pelo usuário executor (CalendarApp.getAllCalendars)
+    try {
+      var allCals = CalendarApp.getAllCalendars() || [];
+      for (var cIdx = 0; cIdx < allCals.length; cIdx++) {
+        var c = allCals[cIdx];
+        if (!c) continue;
+        var cIdLow = String(c.getId() || '').toLowerCase();
+        var cNameLow = String(c.getName() || '').toLowerCase();
+        if (cIdLow === cid || cNameLow === cid || cNameLow.indexOf('scarlet') > -1 || cIdLow.indexOf('scarlet') > -1) {
+          return {
+            cal: c,
+            calendarId: c.getId(),
+            isOwner: false,
+            isDirectShared: true,
+            mode: 'direct_shared'
+          };
+        }
+      }
+    } catch (eAll) {}
   }
 
   // 3. Fallback: Grava na agenda padrão ativa SEM NENHUM CONVITE POR E-MAIL
@@ -614,9 +634,9 @@ function doPost(e) {
       if (resolvedTest.mode === 'direct_native') {
         result.message = 'Conectado nativamente à conta organizadora (' + APP_ORGANIZER_EMAIL + '). Os agendamentos são gravados diretamente na agenda sem envio de e-mails.';
       } else if (resolvedTest.mode === 'direct_shared') {
-        result.message = 'Conectado diretamente à agenda de Scarlet Santos (' + APP_ORGANIZER_EMAIL + ') via compartilhamento direto, sem envio de convites por e-mail.';
+        result.message = 'Conectado diretamente à agenda compartilhada de Scarlet Santos (' + (resolvedTest.cal.getName() || APP_ORGANIZER_EMAIL) + ') sem envio de convites por e-mail.';
       } else {
-        result.message = 'Conectado à agenda ativa (' + (resolvedTest.cal.getName() || effectiveEmail) + '). Agendamentos são gravados diretamente sem envio de convites por e-mail. Organizadora principal: ' + APP_ORGANIZER_EMAIL + '.';
+        result.message = 'Conectado à agenda ativa (' + (resolvedTest.cal.getName() || effectiveEmail) + '). Agendamentos são gravados diretamente sem envio de convites por e-mail. Para que gravem nativamente na agenda de Scarlet Santos (' + APP_ORGANIZER_EMAIL + '), compartilhe-a com ' + (effectiveEmail || 'esta conta') + ' no Google Calendar.';
       }
     }
     return ContentService.createTextOutput(JSON.stringify(result))

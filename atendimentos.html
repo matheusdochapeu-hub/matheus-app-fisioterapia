@@ -652,13 +652,21 @@
 
   /* Agenda & Google Calendar */
   .gcal-banner{
-    display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+    display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;
     background:linear-gradient(145deg,var(--surface),var(--bg-tint));
-    border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:12px;
+    border:1px solid var(--line);border-radius:var(--radius-sm);padding:8px 12px;margin-bottom:10px;
     box-shadow:var(--shadow-soft);
+    transition:all .2s ease;
   }
   .gcal-banner.disconnected{border-left:4px solid var(--accent);}
   .gcal-banner:not(.disconnected){border-left:4px solid var(--success);}
+  .gcal-banner.collapsed{
+    padding:5px 10px;
+    margin-bottom:8px;
+  }
+  .gcal-banner.collapsed #gcalBannerDesc{
+    display:none !important;
+  }
   .gcal-status{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink);min-width:0;flex:1;}
   .gcal-dot{width:9px;height:9px;border-radius:50%;background:var(--accent);flex-shrink:0;}
   .gcal-dot.linked{background:var(--success);}
@@ -884,13 +892,17 @@
     <!-- ABA NOVA: AGENDA & GOOGLE AGENDA -->
     <div id="tabAgendaView" class="tab-view hidden">
       <div id="gcalBannerBox" class="gcal-banner disconnected">
-        <div class="gcal-status" style="flex-direction:column;align-items:flex-start;gap:2px;">
-          <div id="gcalBannerTitle" style="font-weight:700;color:var(--primary-deep);font-size:12.5px;">Sincronização com Google Agenda</div>
-          <div id="gcalBannerDesc" style="font-size:11.5px;color:var(--ink-soft);">Vincule seu e-mail do Google Agenda para criar e atualizar seus atendimentos automaticamente no celular.</div>
+        <div class="gcal-status" style="flex:1;min-width:0;cursor:pointer;user-select:none;" onclick="toggleGCalBannerCollapse()" title="Toque para recolher ou expandir">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            <div id="gcalBannerTitle" style="font-weight:700;color:var(--primary-deep);font-size:12.5px;">Sincronização com Google Agenda</div>
+            <span id="gcalBannerChevron" style="font-size:10px;color:var(--ink-soft);transition:transform .2s ease;">&#9660;</span>
+          </div>
+          <div id="gcalBannerDesc" style="font-size:11.5px;color:var(--ink-soft);margin-top:2px;line-height:1.4;">Vincule seu e-mail do Google Agenda para criar e atualizar seus atendimentos automaticamente no celular.</div>
         </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          <button id="gcalBannerBtn" class="btn small ghost" style="width:auto;" onclick="openCalendarSettingsModal()">&#128279; Vincular Minha Agenda</button>
-          <button id="agendaExportIcsBtn" class="btn small ghost" style="width:auto;display:none;" onclick="exportSchedulesICS()" title="Baixar arquivo de calendário (.ics)">&#128197; Exportar .ICS</button>
+        <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;">
+          <button id="gcalBannerBtn" class="btn small ghost" style="width:auto;padding:4px 8px;font-size:11px;" onclick="openCalendarSettingsModal()">⚙️ Configurar</button>
+          <button id="agendaExportIcsBtn" class="btn small ghost" style="width:auto;padding:4px 8px;font-size:11px;display:none;" onclick="exportSchedulesICS()" title="Baixar arquivo de calendário (.ics)">📅 .ICS</button>
+          <button type="button" class="btn small ghost" style="width:auto;padding:2px 6px;font-size:13px;border:none;color:var(--ink-faint);line-height:1;" onclick="dismissGCalBanner()" title="Ocultar este aviso permanentemente">✕</button>
         </div>
       </div>
 
@@ -907,9 +919,10 @@
         <div class="chip" onclick="setAgendaStatusFilter('Realizado')" style="cursor:pointer;" title="Filtrar sessões realizadas"><span class="n" id="agendaKpiDone" style="color:var(--success);">0</span><span class="t">realizados<br>(check-in)</span></div>
       </div>
 
-      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
-        <button class="btn primary" style="flex:2;min-width:200px;" onclick="openScheduleModal()">&#128197; + Agendar Sessão / Escala</button>
-        <button class="btn ghost" style="flex:1;min-width:150px;border-color:var(--line-strong);font-weight:700;color:var(--primary-deep);" onclick="openRouteSimulatorModal()">&#128663; Rotas &amp; Distâncias</button>
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
+        <button class="btn primary" style="flex:2;min-width:180px;" onclick="openScheduleModal()">&#128197; + Agendar Sessão / Escala</button>
+        <button class="btn ghost" style="flex:1;min-width:140px;border-color:var(--line-strong);font-weight:700;color:var(--primary-deep);" onclick="openRouteSimulatorModal()">&#128663; Rotas &amp; Distâncias</button>
+        <button id="agendaRestoreBannerBtn" class="btn small ghost" style="width:auto;padding:7px 10px;font-size:11.5px;display:none;color:var(--primary-deep);" onclick="restoreGCalBanner()" title="Exibir status do Google Agenda">📅 Status Agenda</button>
       </div>
 
       <div class="card" style="padding:12px;">
@@ -5387,13 +5400,35 @@ function updateGCalBannerUI(){
   var desc = document.getElementById('gcalBannerDesc');
   var btn = document.getElementById('gcalBannerBtn');
   var icsBtn = document.getElementById('agendaExportIcsBtn');
+  var restoreBtn = document.getElementById('agendaRestoreBannerBtn');
   if(!box || !title || !desc || !btn) return;
+
+  var isDismissed = false;
+  try{ isDismissed = localStorage.getItem('ft_gcal_banner_dismissed') === 'true'; }catch(e){}
+  if(isDismissed){
+    box.classList.add('hidden');
+    if(restoreBtn) restoreBtn.style.display = 'inline-flex';
+    return;
+  } else {
+    box.classList.remove('hidden');
+    if(restoreBtn) restoreBtn.style.display = 'none';
+  }
+
+  // Por padrão, inicia retraído se já vinculado para economizar espaço de tela
+  var isCollapsed = true;
+  try{
+    var savedCol = localStorage.getItem('ft_gcal_banner_collapsed');
+    if(savedCol !== null) isCollapsed = savedCol === 'true';
+  }catch(e){}
+  box.classList.toggle('collapsed', isCollapsed);
+  var chev = document.getElementById('gcalBannerChevron');
+  if(chev) chev.innerHTML = isCollapsed ? '&#9660;' : '&#9650;';
 
   if(calId){
     box.classList.remove('disconnected');
     title.innerHTML = '✅ Google Agenda Vinculada: <span style="text-decoration:underline;">' + escapeHtml(calId) + '</span>';
     desc.textContent = 'Organizadora: ' + APP_ORGANIZER_EMAIL + '. Agendamentos são gravados diretamente no Google Agenda sem passar por convites ou e-mails.';
-    btn.innerHTML = '⚙️ Configurar Agenda &amp; Rotas';
+    btn.innerHTML = '⚙️ Configurar';
   } else {
     box.classList.add('disconnected');
     title.textContent = 'Sincronização com Google Agenda';
@@ -5403,6 +5438,34 @@ function updateGCalBannerUI(){
   if(icsBtn){
     icsBtn.style.display = schedules.length > 0 ? 'inline-flex' : 'none';
   }
+}
+
+function toggleGCalBannerCollapse(){
+  var box = document.getElementById('gcalBannerBox');
+  if(!box) return;
+  var willCollapse = !box.classList.contains('collapsed');
+  box.classList.toggle('collapsed', willCollapse);
+  try{ localStorage.setItem('ft_gcal_banner_collapsed', willCollapse ? 'true' : 'false'); }catch(e){}
+  var chev = document.getElementById('gcalBannerChevron');
+  if(chev) chev.innerHTML = willCollapse ? '&#9660;' : '&#9650;';
+}
+
+function dismissGCalBanner(){
+  try{ localStorage.setItem('ft_gcal_banner_dismissed', 'true'); }catch(e){}
+  var box = document.getElementById('gcalBannerBox');
+  if(box) box.classList.add('hidden');
+  var restoreBtn = document.getElementById('agendaRestoreBannerBtn');
+  if(restoreBtn) restoreBtn.style.display = 'inline-flex';
+  showToast('Aviso da agenda ocultado.', 'info');
+}
+
+function restoreGCalBanner(){
+  try{ localStorage.removeItem('ft_gcal_banner_dismissed'); }catch(e){}
+  var box = document.getElementById('gcalBannerBox');
+  if(box) box.classList.remove('hidden');
+  var restoreBtn = document.getElementById('agendaRestoreBannerBtn');
+  if(restoreBtn) restoreBtn.style.display = 'none';
+  updateGCalBannerUI();
 }
 
 function getHomeAddress(){

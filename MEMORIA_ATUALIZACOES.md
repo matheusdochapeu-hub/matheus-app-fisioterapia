@@ -1,7 +1,13 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `01/11/2026`  
-Versão do Service Worker: `atend-v39` (`sw.js`)
+Versão do Service Worker: `atend-v40` (`sw.js`)
+
+---
+
+## 7. Refinamento de Texto da Ação Financeira (`v40`)
+- **Substituição do Botão "Pagar" por "Registrar Pagamento" (`atendimentos.html`):**
+  - No card de atendimento pendente da aba principal de atendimentos, o botão de ação rápida agora exibe `💰 Registrar Pagamento` em vez de `💰 Pagar`, alinhando a nomenclatura com o título do modal de confirmação (`Registrar pagamento`).
 
 ---
 

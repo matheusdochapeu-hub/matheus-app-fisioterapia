@@ -37,6 +37,7 @@ const FILES_TO_SYNC = [
   'plans/005-protect-script-url-and-credentials.md',
   'plans/README.md',
   'MEMORIA_ATUALIZACOES.md',
+  'MEMORY.md',
   'scripts/sync-github.js'
 ];
 

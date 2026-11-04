@@ -801,6 +801,32 @@
   @keyframes spin{to{transform:rotate(360deg);}}
   @keyframes fade{from{opacity:0;}to{opacity:1;}}
   @keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+
+  /* ---------- Efeito Swipe Views / Carrossel de Abas ---------- */
+  .tabs-carousel-viewport{
+    width:100%;overflow:hidden;position:relative;touch-action:pan-y pinch-zoom;
+  }
+  .tab-view{
+    width:100%;box-sizing:border-box;will-change:transform, opacity;
+  }
+  .tab-view.hidden{
+    display:none !important;
+  }
+  .tab-view.swipe-in-right{
+    animation:tabCarouselInRight 0.28s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  }
+  .tab-view.swipe-in-left{
+    animation:tabCarouselInLeft 0.28s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  }
+  @keyframes tabCarouselInRight{
+    from{transform:translate3d(36px, 0, 0);opacity:0.3;}
+    to{transform:translate3d(0, 0, 0);opacity:1;}
+  }
+  @keyframes tabCarouselInLeft{
+    from{transform:translate3d(-36px, 0, 0);opacity:0.3;}
+    to{transform:translate3d(0, 0, 0);opacity:1;}
+  }
+
 </style>
 </head>
 <body>
@@ -899,8 +925,10 @@
       </button>
     </nav>
 
-        <!-- ABA CHECK-IN: ATENDIMENTO DIÁRIO RÁPIDO -->
-    <div id="tabCheckinView" class="tab-view">
+        <!-- CARROSSEL / SWIPE VIEWS CONTAINER -->
+    <div id="tabsCarouselViewport" class="tabs-carousel-viewport">
+      <!-- ABA CHECK-IN: ATENDIMENTO DIÁRIO RÁPIDO -->
+      <div id="tabCheckinView" class="tab-view">
       <div style="background:var(--card-bg, #fff);border:1px solid var(--line);border-radius:var(--radius, 12px);padding:14px 16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,0.04);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
         <div>
           <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--primary);letter-spacing:0.5px;">Atendimento Diário</div>
@@ -994,13 +1022,6 @@
 
       <div id="agendaDayHeader" class="sched-day-header"></div>
       <div id="agendaDayList"></div>
-    </div>
-
-    
-        <button type="button" class="btn primary small" style="width:auto;padding:8px 14px;font-size:12.5px;font-weight:600;" onclick="openNewEntry()">+ Registrar atendimento</button>
-      </div>
-
-      <div id="checkinTodayList"></div>
     </div>
 
     <!-- ABA 2: EVOLUÇÕES CLÍNICAS (PRONTUÁRIOS) -->
@@ -1543,10 +1564,15 @@ async function dbGetFileById(id){
 }
 
 /* ---------- Controle de Abas ---------- */
-function switchMainTab(tab){
+function switchMainTab(tab, explicitDir){
+  var prevTab = currentTab;
   currentTab = tab;
   try { localStorage.setItem('active_tab', tab); } catch(e){}
   var tabs = ['checkin', 'pacientes', 'agenda', 'evolucoes', 'financeiro'];
+  var prevIdx = tabs.indexOf(prevTab);
+  var newIdx = tabs.indexOf(tab);
+  var dir = explicitDir || (newIdx > prevIdx ? 'next' : (newIdx < prevIdx ? 'prev' : 'none'));
+
   tabs.forEach(function(t){
     var btn = document.getElementById('tabBtn' + capitalize(t));
     var view = document.getElementById('tab' + capitalize(t) + 'View');
@@ -1555,6 +1581,30 @@ function switchMainTab(tab){
         btn.classList.add('active');
         btn.setAttribute('aria-selected', 'true');
         try { btn.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' }); } catch(e){}
+      } else {
+        btn.classList.remove('active');
+        btn.setAttribute('aria-selected', 'false');
+      }
+    }
+    if(view){
+      view.style.transform = '';
+      view.style.transition = '';
+      view.classList.remove('swipe-in-right', 'swipe-in-left');
+
+      if(t === tab){
+        view.classList.remove('hidden');
+        if(dir === 'next'){
+          view.classList.add('swipe-in-right');
+        } else if(dir === 'prev'){
+          view.classList.add('swipe-in-left');
+        }
+      } else {
+        view.classList.add('hidden');
+      }
+    }
+  });
+
+  } catch(e){}
       } else {
         btn.classList.remove('active');
         btn.setAttribute('aria-selected', 'false');
@@ -9326,60 +9376,116 @@ async function init(){
 }
 
 
-/* ---------- Navegação por Gestos (Swipe entre Abas) ---------- */
+/* ---------- Navegação por Gestos (Swipe Views / Carousel Interativo entre Abas) ---------- */
 (function initSwipeNavigation(){
   var startX = 0;
   var startY = 0;
+  var currentX = 0;
   var startTime = 0;
   var isTracking = false;
+  var isHorizontalDrag = false;
+  var activeViewEl = null;
 
   var TAB_ORDER = ['checkin', 'pacientes', 'agenda', 'evolucoes', 'financeiro'];
 
+  function getActiveView(){
+    return document.getElementById('tab' + capitalize(currentTab) + 'View');
+  }
+
   document.addEventListener('touchstart', function(e){
     if(!e.touches || e.touches.length !== 1) return;
-    
-    // Não acionar swipe se algum modal estiver aberto
+
+    // Não acionar carrossel se modal estiver aberto
     var modalRoot = document.getElementById('modalRoot');
     if(modalRoot && modalRoot.innerHTML.trim() !== '') return;
 
-    // Não acionar swipe se o toque começou dentro de inputs, textareas, selects, botões ou elementos com rolagem horizontal
+    // Não acionar se o toque começou dentro de elementos interativos ou com scroll horizontal interno
     var target = e.target;
-    if(target && target.closest && target.closest('input, textarea, select, button, .horizontal-scroll, #calDaysScroll, .evo-photo-preview')) return;
+    if(target && target.closest && target.closest('input, textarea, select, button, .horizontal-scroll, #calDaysScroll, .evo-photo-preview, .modal')) return;
 
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
+    currentX = startX;
     startTime = Date.now();
     isTracking = true;
+    isHorizontalDrag = false;
+    activeViewEl = getActiveView();
+  }, { passive: true });
+
+  document.addEventListener('touchmove', function(e){
+    if(!isTracking || !e.touches || e.touches.length !== 1 || !activeViewEl) return;
+    currentX = e.touches[0].clientX;
+    var currentY = e.touches[0].clientY;
+    var deltaX = currentX - startX;
+    var deltaY = currentY - startY;
+
+    // Determina se o gesto é predominantemente horizontal
+    if(!isHorizontalDrag){
+      if(Math.abs(deltaX) > 10 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2){
+        isHorizontalDrag = true;
+      } else if(Math.abs(deltaY) > 10){
+        // Scroll vertical: aborta rastreamento para permitir rolagem suave natural
+        isTracking = false;
+        return;
+      }
+    }
+
+    if(isHorizontalDrag){
+      // Limita arrasto elástico nas pontas (primeira e última abas)
+      var idx = TAB_ORDER.indexOf(currentTab);
+      var factor = 1;
+      if((idx === 0 && deltaX > 0) || (idx === TAB_ORDER.length - 1 && deltaX < 0)){
+        factor = 0.25; // Resistência elástica
+      }
+      activeViewEl.style.transition = 'none';
+      activeViewEl.style.transform = 'translate3d(' + (deltaX * factor) + 'px, 0, 0)';
+    }
   }, { passive: true });
 
   document.addEventListener('touchend', function(e){
     if(!isTracking) return;
     isTracking = false;
 
-    if(!e.changedTouches || e.changedTouches.length === 0) return;
-    var endX = e.changedTouches[0].clientX;
-    var endY = e.changedTouches[0].clientY;
+    var endX = e.changedTouches && e.changedTouches.length ? e.changedTouches[0].clientX : currentX;
     var deltaX = endX - startX;
-    var deltaY = endY - startY;
     var duration = Date.now() - startTime;
+    var targetView = activeViewEl;
+    activeViewEl = null;
 
-    // Condições para swipe horizontal fluido e deliberado:
-    // Distância >= 45px, duração <= 450ms, movimento horizontal predominantemente maior que vertical (1.4x)
-    if(Math.abs(deltaX) >= 45 && duration <= 450 && Math.abs(deltaX) > Math.abs(deltaY) * 1.4){
+    if(isHorizontalDrag && targetView){
+      // Condições para mudar de aba no carrossel:
+      // Distância >= 45px ou arraste rápido (flick) > 30px em até 250ms
+      var isSwipeAction = (Math.abs(deltaX) >= 45 && duration <= 500) || (Math.abs(deltaX) >= 30 && duration <= 250);
       var idx = TAB_ORDER.indexOf(currentTab);
       if(idx === -1) idx = 0;
 
-      if(deltaX < 0){
-        // Arrastou da direita para a esquerda -> próxima aba
-        if(idx < TAB_ORDER.length - 1){
-          switchMainTab(TAB_ORDER[idx + 1]);
-        }
-      } else {
-        // Arrastou da esquerda para a direita -> aba anterior
-        if(idx > 0){
-          switchMainTab(TAB_ORDER[idx - 1]);
-        }
+      if(isSwipeAction && deltaX < 0 && idx < TAB_ORDER.length - 1){
+        // Desliza para a esquerda -> Próxima aba
+        targetView.style.transition = 'transform 0.14s ease, opacity 0.14s ease';
+        targetView.style.transform = 'translate3d(-40px, 0, 0)';
+        targetView.style.opacity = '0';
+        setTimeout(function(){
+          switchMainTab(TAB_ORDER[idx + 1], 'next');
+        }, 110);
+        return;
+      } else if(isSwipeAction && deltaX > 0 && idx > 0){
+        // Desliza para a direita -> Aba anterior
+        targetView.style.transition = 'transform 0.14s ease, opacity 0.14s ease';
+        targetView.style.transform = 'translate3d(40px, 0, 0)';
+        targetView.style.opacity = '0';
+        setTimeout(function(){
+          switchMainTab(TAB_ORDER[idx - 1], 'prev');
+        }, 110);
+        return;
       }
+
+      // Retorno suave com efeito mola se não atingiu o limiar
+      targetView.style.transition = 'transform 0.22s cubic-bezier(0.25, 1, 0.5, 1)';
+      targetView.style.transform = 'translate3d(0, 0, 0)';
+      setTimeout(function(){
+        targetView.style.transform = '';
+        targetView.style.transition = '';
+      }, 230);
     }
   }, { passive: true });
 })();

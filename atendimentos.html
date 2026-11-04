@@ -869,7 +869,7 @@
 
     <div id="errorBanner" class="error-banner hidden"></div>
 
-    <!-- 4 ABAS PRINCIPAIS -->
+    <!-- 5 ABAS PRINCIPAIS -->
     <nav class="main-tabs" role="tablist" aria-label="Navegação principal">
       <button id="tabBtnPacientes" class="main-tab active" onclick="switchMainTab('pacientes')" role="tab" aria-selected="true">
         <svg class="tab-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -878,6 +878,10 @@
       <button id="tabBtnAgenda" class="main-tab" onclick="switchMainTab('agenda')" role="tab" aria-selected="false">
         <svg class="tab-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         <span>Agenda</span>
+      </button>
+      <button id="tabBtnCheckin" class="main-tab hidden" onclick="switchMainTab('checkin')" role="tab" aria-selected="false" title="Página rápida de atendimentos e check-in do dia">
+        <svg class="tab-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        <span>Check-in</span>
       </button>
       <button id="tabBtnEvolucoes" class="main-tab" onclick="switchMainTab('evolucoes')" role="tab" aria-selected="false">
         <svg class="tab-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
@@ -955,7 +959,7 @@
         <div id="agendaCalendarGrid"></div>
       </div>
 
-      <div class="filter-row" style="margin-bottom:10px;">
+      <div class="filter-row" style="margin-bottom:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <label class="filter-label" for="agendaFilterPatient">Paciente</label>
         <select id="agendaFilterPatient" onchange="renderAgendaTab()">
           <option value="">Todos os pacientes</option>
@@ -966,10 +970,24 @@
           <option value="Realizado">Realizados</option>
           <option value="Cancelado">Cancelados</option>
         </select>
+        <button type="button" id="agendaToggleScopeBtn" class="btn small" style="width:auto;white-space:nowrap;padding:6px 12px;font-size:12px;font-weight:700;margin-left:auto;" onclick="toggleAgendaMonthOrDayScope()"></button>
       </div>
 
       <div id="agendaDayHeader" class="sched-day-header"></div>
       <div id="agendaDayList"></div>
+    </div>
+
+    <!-- ABA CHECK-IN: ATENDIMENTO DIÁRIO RÁPIDO -->
+    <div id="tabCheckinView" class="tab-view hidden">
+      <div style="background:var(--card-bg, #fff);border:1px solid var(--line);border-radius:var(--radius, 12px);padding:14px 16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,0.04);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--primary);letter-spacing:0.5px;">Atendimento Diário</div>
+          <div id="checkinCurrentDayTime" style="font-size:15px;font-weight:700;color:var(--ink);margin-top:2px;">-</div>
+        </div>
+        <button type="button" class="btn primary small" style="width:auto;padding:8px 14px;font-size:12.5px;font-weight:600;" onclick="openNewEntry()">+ Registrar atendimento</button>
+      </div>
+
+      <div id="checkinTodayList"></div>
     </div>
 
     <!-- ABA 2: EVOLUÇÕES CLÍNICAS (PRONTUÁRIOS) -->
@@ -1143,11 +1161,9 @@ var entries = [];
 var patients = [];
 var evolutions = [];
 var schedules = [];
-var exercises = [];
-var routines = [];
 var currentMonth = new Date();
 var agendaMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-var agendaSelectedDay = null;
+var agendaSelectedDay = isoDate(new Date());
 var schedModalMode = 'single'; // 'single' ou 'batch'
 var currentTab = 'pacientes';
 var _modalStatePushed = false;
@@ -1517,7 +1533,7 @@ async function dbGetFileById(id){
 function switchMainTab(tab){
   currentTab = tab;
   try { localStorage.setItem('active_tab', tab); } catch(e){}
-  var tabs = ['pacientes', 'agenda', 'evolucoes', 'financeiro'];
+  var tabs = ['pacientes', 'agenda', 'checkin', 'evolucoes', 'financeiro'];
   tabs.forEach(function(t){
     var btn = document.getElementById('tabBtn' + capitalize(t));
     var view = document.getElementById('tab' + capitalize(t) + 'View');
@@ -1539,9 +1555,11 @@ function switchMainTab(tab){
     }
   });
 
+  updateCheckinTabVisibility();
   updateFab();
   if(tab === 'pacientes') renderPatientsTab();
   if(tab === 'agenda') renderAgendaTab();
+  if(tab === 'checkin') renderCheckinTab();
   if(tab === 'evolucoes') renderEvolutionsTab();
   if(tab === 'financeiro') renderList();
 }
@@ -1554,6 +1572,8 @@ function updateFab(){
     fab.textContent = '+ Novo paciente';
   } else if(currentTab === 'agenda'){
     fab.textContent = '+ Agendar';
+  } else if(currentTab === 'checkin'){
+    fab.textContent = '+ Atendimento';
   } else if(currentTab === 'evolucoes'){
     fab.textContent = '+ Nova evolução';
   } else {
@@ -1567,6 +1587,8 @@ function handleFabClick(){
     openPatientForm();
   } else if(currentTab === 'agenda'){
     openScheduleModal();
+  } else if(currentTab === 'checkin'){
+    openNewEntry();
   } else if(currentTab === 'evolucoes'){
     openNewEvolution();
   } else {
@@ -1847,8 +1869,10 @@ async function loadData(opts){
         hora: r.Hora || '',
         pa: r.PA || '',
         fc: r.FC || '',
+        spo2: r.SPO2 || '',
         estadoClinico: r.EstadoClinico || '',
         condutas: r.Condutas || '',
+        observacoes: r.Observacoes || '',
         criadoEm: r.CriadoEm || ''
       };
     });
@@ -1895,32 +1919,13 @@ async function loadData(opts){
     saveLocalSchedules();
     reconcileSchedulesWithEntries();
 
-    exercises = data.exercicios || [];
-    routines = data.rotinas || [];
-
-    // Sincroniza configurações da aba 'Configuracoes' da planilha se presentes
-    if(Array.isArray(data.config) && data.config.length > 0){
-      var cfgMap = {};
-      data.config.forEach(function(c){ if(c && c.Chave) cfgMap[c.Chave] = c.Valor; });
-      if(cfgMap.EnderecoBase && !localStorage.getItem('ft_home_address')){
-        DEFAULT_HOME_ADDRESS = cfgMap.EnderecoBase;
-      }
-      if(cfgMap.ConsumoCarroKmL && !localStorage.getItem('ft_car_kml')){
-        DEFAULT_CAR_KM_PER_LITER = parseFloat(cfgMap.ConsumoCarroKmL) || DEFAULT_CAR_KM_PER_LITER;
-      }
-      if(cfgMap.PrecoGasolina && !localStorage.getItem('ft_gas_price')){
-        var parsedGas = parseValor(cfgMap.PrecoGasolina);
-        if(parsedGas > 0 && parsedGas < 50){
-          DEFAULT_GAS_PRICE = parsedGas;
-        }
-      }
-    }
-
     populatePatientFilter();
     populateEvolutionsFilters();
     populateAgendaFilters();
+    updateCheckinTabVisibility();
     renderPatientsTab();
     renderAgendaTab();
+    if(currentTab === 'checkin') renderCheckinTab();
     renderEvolutionsTab();
     renderList();
   }catch(e){
@@ -3519,10 +3524,12 @@ function renderEvolutionsTab(){
         '<div class="vitals-row">' +
           (ev.pa ? '<span class="badge-vital pa">PA: '+escapeHtml(ev.pa)+'</span>' : '') +
           (ev.fc ? '<span class="badge-vital fc">FC: '+escapeHtml(ev.fc)+'</span>' : '') +
+          (ev.spo2 ? '<span class="badge-vital spo2" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;padding:2px 6px;border-radius:4px;font-weight:700;font-size:11px;">SPO2: '+escapeHtml(ev.spo2)+(String(ev.spo2).indexOf('%')>-1?'':'%')+'</span>' : '') +
         '</div>' +
       '</div>' +
       (ev.estadoClinico ? '<div class="evo-section-block"><div class="evo-section-title">Estado Clínico Geral</div><div class="evo-section-text">'+escapeHtml(ev.estadoClinico)+'</div></div>' : '') +
       (ev.condutas ? '<div class="evo-section-block"><div class="evo-section-title">Condutas Fisioterapêuticas</div><div class="evo-section-text">'+escapeHtml(ev.condutas)+'</div></div>' : '') +
+      (ev.observacoes ? '<div class="evo-section-block"><div class="evo-section-title">Observações</div><div class="evo-section-text">'+escapeHtml(ev.observacoes)+'</div></div>' : '') +
       '<div class="evo-card-actions">' +
         '<button onclick="generateSingleEvolutionPDF(\''+ev.id+'\')">&#128196; PDF</button>' +
         '<button onclick="openEditEvolution(\''+ev.id+'\')">&#9998; Editar</button>' +
@@ -3575,22 +3582,32 @@ function openNewEvolution(preSelectPatientId){
 
       '<div id="newEvoScheduleBox" style="margin-top:10px;"></div>' +
 
-      '<div class="form-grid-2" style="margin-top:8px;">' +
+      '<div class="form-grid-3" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px;">' +
         '<div>' +
           '<label title="Pressão Arterial">PA (Pressão Art.)</label>' +
-          '<input id="newEvoPA" placeholder="Ex: 12/8 ou 120/80">' +
+          '<input id="newEvoPA" placeholder="Ex: 12/8">' +
         '</div>' +
         '<div>' +
           '<label title="Frequência Cardíaca">FC (Freq. Card.)</label>' +
           '<input id="newEvoFC" placeholder="Ex: 76 bpm">' +
+        '</div>' +
+        '<div>' +
+          '<label title="Saturação de Oxigênio">SPO2 (Sat. O2)</label>' +
+          '<input id="newEvoSPO2" placeholder="Ex: 98%">' +
         '</div>' +
       '</div>' +
 
       '<label style="margin-top:8px;display:block;">Estado clínico geral</label>' +
       '<textarea id="newEvoEstado" placeholder="Queixas do paciente, nível de dor (EVA), disposição, sintomas relatados..."></textarea>' +
 
-      '<label style="margin-top:8px;display:block;">Condutas fisioterapêuticas realizadas</label>' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">' +
+        '<label style="margin:0;">Condutas fisioterapêuticas realizadas</label>' +
+        '<button type="button" class="btn ghost small" style="width:auto;padding:3px 8px;font-size:11px;" onclick="copyPreviousConductToNewEvo()">📋 Copiar conduta anterior</button>' +
+      '</div>' +
       '<textarea id="newEvoCondutas" placeholder="Cinesioterapia, exercícios executados, mobilizações articulares, treino de marcha, eletroterapia..."></textarea>' +
+
+      '<label style="margin-top:8px;display:block;">Observações</label>' +
+      '<textarea id="newEvoObservacoes" placeholder="Orientações dadas à família, recomendações, intercorrências..."></textarea>' +
 
       '<div class="btn-row">' +
         '<button class="btn ghost" onclick="closeModal()">Cancelar</button>' +
@@ -3641,6 +3658,34 @@ function updateNewEvoScheduleUI(){
   }
 }
 
+function copyPreviousConductToNewEvo(){
+  var pSel = document.getElementById('newEvoPatient');
+  var txtCond = document.getElementById('newEvoCondutas');
+  if(!pSel || !txtCond) return;
+  var pid = pSel.value;
+  if(!pid){
+    showToast('Selecione um paciente primeiro.', 'info');
+    return;
+  }
+  var pObj = patients.find(function(x){ return x.id === pid; });
+  var prevEv = (evolutions || []).slice().sort(function(a, b){
+    var dtA = (a.data || '') + ' ' + (a.hora || '');
+    var dtB = (b.data || '') + ' ' + (b.hora || '');
+    return dtB.localeCompare(dtA);
+  }).find(function(ev){
+    var matchPid = (ev.pacienteId === pid);
+    var matchPName = pObj && (normName(ev.pacienteNome) === normName(pObj.nome) || normName(ev.pacienteNome) === normName(pObj.nomeFantasia));
+    return (matchPid || matchPName) && !!String(ev.condutas || '').trim();
+  });
+
+  if(prevEv && prevEv.condutas){
+    txtCond.value = prevEv.condutas;
+    showToast('Conduta anterior copiada (' + formatDateBR(prevEv.data) + ')!', 'ok');
+  } else {
+    showToast('Nenhuma conduta anterior encontrada para este paciente.', 'info');
+  }
+}
+
 async function submitNewEvolution(){
   var pId = document.getElementById('newEvoPatient').value;
   var p = patients.find(function(x){ return x.id === pId; });
@@ -3648,8 +3693,10 @@ async function submitNewEvolution(){
   var hora = document.getElementById('newEvoHora').value;
   var pa = document.getElementById('newEvoPA').value.trim();
   var fc = document.getElementById('newEvoFC').value.trim();
+  var spo2 = document.getElementById('newEvoSPO2') ? document.getElementById('newEvoSPO2').value.trim() : '';
   var estado = document.getElementById('newEvoEstado').value.trim();
   var condutas = document.getElementById('newEvoCondutas').value.trim();
+  var observacoes = document.getElementById('newEvoObservacoes') ? document.getElementById('newEvoObservacoes').value.trim() : '';
   var autoChk = document.getElementById('newEvoAutoCheckinChk');
   var doAutoCheckin = autoChk && autoChk.checked;
   var linkedSchedId = autoChk ? autoChk.getAttribute('data-sched-id') : '';
@@ -3668,8 +3715,10 @@ async function submitNewEvolution(){
     hora: hora,
     pa: pa,
     fc: fc,
+    spo2: spo2,
     estadoClinico: estado,
     condutas: condutas,
+    observacoes: observacoes,
     criadoEm: new Date().toISOString()
   };
 
@@ -3717,8 +3766,10 @@ async function submitNewEvolution(){
       hora: hora,
       pa: pa,
       fc: fc,
+      spo2: spo2,
       estadoClinico: estado,
-      condutas: condutas
+      condutas: condutas,
+      observacoes: observacoes
     });
   }catch(err){
     console.warn('Evolução mantida localmente (aguardando atualização do Code.gs na planilha):', err);
@@ -3746,22 +3797,29 @@ function openEditEvolution(id){
         '</div>' +
       '</div>' +
 
-      '<div class="form-grid-2" style="margin-top:8px;">' +
+      '<div class="form-grid-3" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px;">' +
         '<div>' +
           '<label title="Pressão Arterial">PA (Pressão Art.)</label>' +
-          '<input id="editEvoPA" value="'+escapeHtml(ev.pa)+'" placeholder="Ex: 12/8 ou 120/80">' +
+          '<input id="editEvoPA" value="'+escapeHtml(ev.pa || '')+'" placeholder="Ex: 12/8">' +
         '</div>' +
         '<div>' +
           '<label title="Frequência Cardíaca">FC (Freq. Card.)</label>' +
-          '<input id="editEvoFC" value="'+escapeHtml(ev.fc)+'" placeholder="Ex: 76 bpm">' +
+          '<input id="editEvoFC" value="'+escapeHtml(ev.fc || '')+'" placeholder="Ex: 76 bpm">' +
+        '</div>' +
+        '<div>' +
+          '<label title="Saturação de Oxigênio">SPO2 (Sat. O2)</label>' +
+          '<input id="editEvoSPO2" value="'+escapeHtml(ev.spo2 || '')+'" placeholder="Ex: 98%">' +
         '</div>' +
       '</div>' +
 
       '<label style="margin-top:8px;display:block;">Estado clínico geral</label>' +
-      '<textarea id="editEvoEstado">'+escapeHtml(ev.estadoClinico)+'</textarea>' +
+      '<textarea id="editEvoEstado">'+escapeHtml(ev.estadoClinico || '')+'</textarea>' +
 
       '<label style="margin-top:8px;display:block;">Condutas fisioterapêuticas</label>' +
-      '<textarea id="editEvoCondutas">'+escapeHtml(ev.condutas)+'</textarea>' +
+      '<textarea id="editEvoCondutas">'+escapeHtml(ev.condutas || '')+'</textarea>' +
+
+      '<label style="margin-top:8px;display:block;">Observações</label>' +
+      '<textarea id="editEvoObservacoes">'+escapeHtml(ev.observacoes || '')+'</textarea>' +
 
       '<div class="btn-row">' +
         '<button class="btn danger small" onclick="deleteEvolution(\''+ev.id+'\')">Excluir</button>' +
@@ -3781,16 +3839,20 @@ async function submitEditEvolution(id){
   var hora = document.getElementById('editEvoHora').value;
   var pa = document.getElementById('editEvoPA').value.trim();
   var fc = document.getElementById('editEvoFC').value.trim();
+  var spo2 = document.getElementById('editEvoSPO2') ? document.getElementById('editEvoSPO2').value.trim() : '';
   var estado = document.getElementById('editEvoEstado').value.trim();
   var condutas = document.getElementById('editEvoCondutas').value.trim();
+  var observacoes = document.getElementById('editEvoObservacoes') ? document.getElementById('editEvoObservacoes').value.trim() : '';
 
   var old = Object.assign({}, ev);
   ev.data = data;
   ev.hora = hora;
   ev.pa = pa;
   ev.fc = fc;
+  ev.spo2 = spo2;
   ev.estadoClinico = estado;
   ev.condutas = condutas;
+  ev.observacoes = observacoes;
   saveLocalEvolutions();
 
   renderEvolutionsTab();
@@ -3805,8 +3867,10 @@ async function submitEditEvolution(id){
       hora: hora,
       pa: pa,
       fc: fc,
+      spo2: spo2,
       estadoClinico: estado,
-      condutas: condutas
+      condutas: condutas,
+      observacoes: observacoes
     });
   }catch(err){
     console.warn('Edição de evolução mantida localmente:', err);
@@ -3849,20 +3913,25 @@ function openPatientEvolutions(patientId){
     ? '<p class="empty-mini">Nenhuma evolução registrada para este paciente ainda.</p>'
     : pEvos.map(function(ev){
         return '<div class="evo-card" style="margin-bottom:8px;padding:10px;">' +
-          '<label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin:0;">' +
+          '<div style="display:flex;align-items:flex-start;gap:10px;">' +
             '<input type="checkbox" class="evo-select-chk" value="'+ev.id+'" checked onchange="updateSelectedEvoUI(\''+patientId+'\')" style="margin-top:2px;accent-color:var(--primary);width:16px;height:16px;cursor:pointer;flex-shrink:0;">' +
             '<div style="flex:1;min-width:0;">' +
-              '<div class="evo-card-head" style="margin-bottom:4px;">' +
+              '<div class="evo-card-head" style="margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;">' +
                 '<div style="font-size:12px;font-weight:700;color:var(--primary-deep);">&#128197; '+formatDateBR(ev.data)+(ev.hora?' às '+ev.hora:'')+'</div>' +
-                '<div class="vitals-row">' +
-                  (ev.pa ? '<span class="badge-vital pa">PA: '+escapeHtml(ev.pa)+'</span>' : '') +
-                  (ev.fc ? '<span class="badge-vital fc">FC: '+escapeHtml(ev.fc)+'</span>' : '') +
+                '<div style="display:flex;align-items:center;gap:6px;">' +
+                  '<div class="vitals-row">' +
+                    (ev.pa ? '<span class="badge-vital pa">PA: '+escapeHtml(ev.pa)+'</span>' : '') +
+                    (ev.fc ? '<span class="badge-vital fc">FC: '+escapeHtml(ev.fc)+'</span>' : '') +
+                    (ev.spo2 ? '<span class="badge-vital spo2" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;padding:2px 6px;border-radius:4px;font-weight:700;font-size:11px;">SPO2: '+escapeHtml(ev.spo2)+(String(ev.spo2).indexOf('%')>-1?'':'%')+'</span>' : '') +
+                  '</div>' +
+                  '<button type="button" class="btn ghost small" style="width:auto;padding:2px 8px;font-size:11px;" onclick="openEditEvolution(\''+ev.id+'\')">✏️ Editar</button>' +
                 '</div>' +
               '</div>' +
               (ev.estadoClinico ? '<div class="evo-section-block" style="margin-top:4px;"><div class="evo-section-title">Estado Clínico</div><div class="evo-section-text" style="font-size:12px;">'+escapeHtml(ev.estadoClinico)+'</div></div>' : '') +
               (ev.condutas ? '<div class="evo-section-block" style="margin-top:4px;"><div class="evo-section-title">Condutas</div><div class="evo-section-text" style="font-size:12px;">'+escapeHtml(ev.condutas)+'</div></div>' : '') +
+              (ev.observacoes ? '<div class="evo-section-block" style="margin-top:4px;"><div class="evo-section-title">Observações</div><div class="evo-section-text" style="font-size:12px;">'+escapeHtml(ev.observacoes)+'</div></div>' : '') +
             '</div>' +
-          '</label>' +
+          '</div>' +
         '</div>';
       }).join('');
 
@@ -6118,7 +6187,7 @@ function haversineRoadEstimate(c1, c2){
 function getRouteSyncOrApprox(origin, dest){
   if(!origin || !dest) return null;
   if(normAddrKey(origin) === normAddrKey(dest)){
-    return { ok: true, distanceKm: 0.4, durationMin: 2, approx: false };
+    return { ok: true, distanceKm: 0, durationMin: 0, approx: false, sameLocation: true };
   }
   var key = makeRoutePairKey(origin, dest);
   var cache = getRouteCacheMap();
@@ -6407,6 +6476,20 @@ function renderTransitionCardBetweenSchedules(prevSc, nextSc, canceledBetween, r
   var fuelDirect = calcFuelMetrics(legDirect.distanceKm);
   var directMapsUrl = buildGoogleMapsDirUrl(prevAddr, nextAddr);
 
+  // CASO ESPECIAL: MESMO ENDEREÇO / LOCAL (ex.: Irani e Sebastião na Rua André Rebouças 1044) -> Tempo 0 min, 0 km, sem alerta
+  if(legDirect.sameLocation || driveDirectMin === 0 || normAddrKey(prevAddr) === normAddrKey(nextAddr)){
+    return '<div class="route-connector ok" style="background:#f0fdf4;border-color:#bbf7d0;">' +
+      cancelBannerHtml +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">' +
+        '<div>' +
+          '🏠 <strong>Mesmo Endereço / Local (' + escapeHtml(prevDisp) + ' e ' + escapeHtml(nextDisp) + '):</strong> ' +
+          '<span style="font-weight:700;color:#166534;">0 min de deslocamento (0 km · Sem custo de combustível)</span>' +
+          '<div style="font-size:11px;color:#166534;margin-top:2px;">Atendimentos no mesmo local físico. Nenhum deslocamento de trânsito necessário.</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
   // CASO 1: ATENDIMENTOS SEGUIDOS / JANELA CURTA (<= 25 min, ex: 14:00 [termina 14:50] -> 15:00 = 10 min de janela)
   if(gapMin <= 25){
     // Para janela de 10 min (14h50 -> 15h00), o limite seguro dirigindo é de 8 a 9 minutos
@@ -6635,7 +6718,12 @@ function populateAgendaFilters(){
 
 function shiftAgendaMonth(delta){
   agendaMonth = new Date(agendaMonth.getFullYear(), agendaMonth.getMonth() + delta, 1);
-  agendaSelectedDay = null;
+  var now = new Date();
+  if(agendaMonth.getFullYear() === now.getFullYear() && agendaMonth.getMonth() === now.getMonth()){
+    agendaSelectedDay = isoDate(now);
+  } else {
+    agendaSelectedDay = null;
+  }
   renderAgendaTab();
 }
 
@@ -6650,6 +6738,17 @@ function selectAgendaDay(dayIso){
 
 function clearAgendaDayFilter(){
   agendaSelectedDay = null;
+  renderAgendaTab();
+}
+
+function toggleAgendaMonthOrDayScope(){
+  if(agendaSelectedDay){
+    agendaSelectedDay = null;
+  } else {
+    var now = new Date();
+    agendaSelectedDay = isoDate(now);
+    agendaMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  }
   renderAgendaTab();
 }
 
@@ -6692,7 +6791,21 @@ function getSchedulePatientObj(sc){
 
 function renderAgendaTab(){
   updateGCalBannerUI();
+  updateCheckinTabVisibility();
   populateAgendaFilters();
+
+  var scopeBtn = document.getElementById('agendaToggleScopeBtn');
+  if(scopeBtn){
+    if(agendaSelectedDay){
+      scopeBtn.innerHTML = '📅 Ver mês inteiro';
+      scopeBtn.className = 'btn small ghost';
+      scopeBtn.title = 'Mostrar todos os agendamentos do mês';
+    } else {
+      scopeBtn.innerHTML = '📅 Ver apenas hoje';
+      scopeBtn.className = 'btn small primary';
+      scopeBtn.title = 'Filtrar para ver apenas os atendimentos de hoje';
+    }
+  }
 
   var y = agendaMonth.getFullYear();
   var m = agendaMonth.getMonth();
@@ -6995,6 +7108,105 @@ function renderAgendaCalendar(year, month, monthSchedules){
   }
   html += '</div>';
   calEl.innerHTML = html;
+}
+
+/* ---------- Controle & Renderização da Aba Check-in Diário ---------- */
+function updateCheckinTabVisibility(){
+  var btn = document.getElementById('tabBtnCheckin');
+  var hasSched = Array.isArray(schedules) && schedules.length > 0;
+  if(btn){
+    if(hasSched){
+      btn.classList.remove('hidden');
+    } else {
+      btn.classList.add('hidden');
+      if(currentTab === 'checkin') switchMainTab('agenda');
+    }
+  }
+}
+
+function renderCheckinTab(){
+  updateCheckinTabVisibility();
+  var dtEl = document.getElementById('checkinCurrentDayTime');
+  var listEl = document.getElementById('checkinTodayList');
+  if(!listEl) return;
+
+  var now = new Date();
+  var todayIsoStr = isoDate(now);
+  var weekdayNames = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+  var weekdayStr = weekdayNames[now.getDay()];
+  if(dtEl){
+    dtEl.textContent = weekdayStr + ', ' + formatDateBR(todayIsoStr) + ' · ' + isoTime(now);
+  }
+
+  var todayScheds = (schedules || []).filter(function(sc){
+    if(sc.data !== todayIsoStr) return false;
+    if(isBlockSchedule(sc)) return false;
+    if(sc.status === 'Cancelado' || sc.status === 'Ausência') return false;
+    return true;
+  }).sort(function(a, b){
+    return String(a.hora || '').localeCompare(String(b.hora || ''));
+  });
+
+  if(todayScheds.length === 0){
+    listEl.innerHTML = '<div class="empty" style="padding:28px 16px;">' +
+      '<div class="icon">📅</div>' +
+      '<h3>Nenhum paciente agendado para hoje</h3>' +
+      '<p>Data: ' + formatDateBR(todayIsoStr) + ' (' + weekdayStr + '). Agende um paciente para começar o dia ou registre um atendimento avulso acima.</p>' +
+      '<div style="display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap;">' +
+        '<button class="btn primary small" style="width:auto;" onclick="openScheduleModal(\'\', \''+todayIsoStr+'\')">+ Agendar Paciente Hoje</button>' +
+      '</div>' +
+    '</div>';
+    return;
+  }
+
+  var html = todayScheds.map(function(sc){
+    var dispName = getSchedulePatientDisplayName(sc);
+    var p = getSchedulePatientObj(sc);
+    var isDone = sc.status === 'Realizado';
+    var addr = p ? [p.endereco, p.bairro].filter(Boolean).join(', ') : '';
+
+    return '<div class="card" style="margin-bottom:12px;padding:14px;border:1px solid '+(isDone ? '#bbf7d0' : 'var(--line)')+';background:'+(isDone ? '#f0fdf4' : 'var(--card-bg, #fff)')+';border-radius:12px;">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+        '<div style="display:flex;align-items:center;gap:8px;">' +
+          '<span style="font-size:15px;font-weight:800;color:var(--primary-deep);">' + escapeHtml(sc.hora || '--:--') + '</span>' +
+          '<span style="font-size:11.5px;color:var(--ink-soft);">(' + (parseInt(sc.duracaoMin, 10) || 50) + ' min)</span>' +
+        '</div>' +
+        (isDone ? '<span class="tag" style="background:#dcfce7;color:#15803d;font-weight:700;">✓ Realizado</span>' : '<span class="tag" style="background:#fef3c7;color:#b45309;font-weight:700;">Previsto</span>') +
+      '</div>' +
+
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">' +
+        '<div style="width:40px;height:40px;border-radius:10px;overflow:hidden;flex-shrink:0;">' + renderPatientAvatar(p) + '</div>' +
+        '<div style="min-width:0;flex:1;">' +
+          '<div style="font-size:15px;font-weight:700;color:var(--ink);">' + escapeHtml(dispName) + '</div>' +
+          (addr ? '<div style="font-size:11.5px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📍 ' + escapeHtml(addr) + '</div>' : '') +
+        '</div>' +
+      '</div>' +
+
+      '<div style="margin-top:10px;">' +
+        (isDone
+          ? '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#dcfce7;border-radius:8px;font-size:12.5px;color:#15803d;font-weight:700;">' +
+              '<span>✅ Check-in Concluído</span>' +
+              '<button type="button" class="btn ghost small" style="width:auto;padding:3px 8px;font-size:11px;" onclick="undoCheckinFromTab(\''+sc.id+'\')">Desfazer</button>' +
+            '</div>'
+          : '<button type="button" class="btn primary" style="width:100%;padding:12px;font-size:14px;font-weight:700;background:#16a34a;border-color:#16a34a;border-radius:10px;display:flex;align-items:center;justify-content:center;gap:6px;" onclick="doCheckinFromTab(\''+sc.id+'\')">' +
+              '<span>✓ Fazer Check-in</span>' +
+            '</button>'
+        ) +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  listEl.innerHTML = html;
+}
+
+async function doCheckinFromTab(schedId){
+  await completeScheduleCheckin(schedId);
+  renderCheckinTab();
+}
+
+async function undoCheckinFromTab(schedId){
+  await cancelScheduleCheckin(schedId);
+  renderCheckinTab();
 }
 
 var schedDowTimes = {};
@@ -8649,7 +8861,8 @@ async function completeScheduleCheckin(id, silentToast){
 function buildGCalTemplateUrl(sc){
   var dispName = getSchedulePatientDisplayName(sc);
   var pObj = getSchedulePatientObj(sc);
-  var title = (sc.status === 'Realizado' ? '✓ ' : '') + 'Fisioterapia - ' + dispName;
+  var isBlock = isBlockSchedule(sc);
+  var title = isBlock ? ('🏖️ ' + (sc.pacienteNome || 'Ausência')) : dispName;
 
   var dateClean = String(sc.data || isoDate(new Date())).replace(/-/g, '');
   var hParts = String(sc.hora || '14:00').split(':');

@@ -1,7 +1,30 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `04/11/2026`  
-Versão do Service Worker: `atend-v50` (`sw.js`)
+Versão do Service Worker: `atend-v51` (`sw.js`)
+
+---
+
+## 19. Check-in como Aba Inicial, Proporcionalidade das Abas, Desaparecimento pós Check-in e Navegação por Swipe (`v51`)
+- **1. Check-in como Aba Inicial (à Esquerda de Pacientes):**
+  - O Check-in agora é posicionado como a primeira aba no cabeçalho superior (`#tabBtnCheckin`), localizado à esquerda de "Pacientes", tornando-se a aba inicial padrão do aplicativo (`currentTab = 'checkin'`).
+- **2. Cabeçalho das Abas Proporcional e Anti-Quebra:**
+  - Corrigida a desproporção visual do cabeçalho de abas (`.main-tabs` e `.main-tab`):
+    - `line-height: 1`, `white-space: nowrap` e `flex: 1 1 0%` com distribuição uniforme entre as 5 abas.
+    - Eliminada completamente a quebra de linha de "Check-in" (que quebrava em "Check-\nin") e o corte lateral de "Financeiro".
+    - Suporte a rolagem horizontal com momentum (`overflow-x: auto; scrollbar-width: none`) e auto-scroll suave para centralizar a aba ativa em telas menores.
+- **3. Desaparecimento de Pacientes com Check-in Realizado:**
+  - Quando o check-in é confirmado (`doCheckinFromTab`), o card sofre uma leve animação de saída e o paciente **some da tela de Check-in**, desobstruindo a lista diária.
+  - O atendimento segue disponível e acessível em todas as outras abas ("Agenda", "Pacientes", "Evoluções" e "Financeiro").
+  - Ao concluir todos os check-ins do dia, o app exibe um card comemorativo amigável indicando a conclusão das sessões de hoje.
+- **4. Navegação por Gestos (Swipe) entre Abas:**
+  - Implementado motor de gestos por toque (`initSwipeNavigation`):
+    - Arrastar da direita para a esquerda: avança para a próxima aba (`Check-in -> Pacientes -> Agenda -> Evoluções -> Financeiro`).
+    - Arrastar da esquerda para a direita: retorna para a aba anterior.
+    - Proteção inteligente: toques dentro de formulários (inputs/textareas/selects), modais ou rolagens verticais não acionam a troca de aba.
+- **Service Worker & Testes Automatizados:**
+  - Service worker atualizado para `atend-v51` em `sw.js`.
+  - Suíte expandida para 47 testes unitários passando com 100% de sucesso.
 
 ---
 

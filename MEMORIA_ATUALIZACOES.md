@@ -1,7 +1,23 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `04/11/2026`  
-Versão do Service Worker: `atend-v51` (`sw.js`)
+Versão do Service Worker: `atend-v52` (`sw.js`)
+
+---
+
+## 20. Efeito Visual de Swipe Views / Carrossel Interativo entre Abas (`v52`)
+- **1. Carrossel Visual em Tela Cheia:**
+  - As 5 abas principais do aplicativo passam a operar como um carrossel visual (`Swipe Views / Carousel`), com viewport dedicado (`.tabs-carousel-viewport`).
+  - Ao alternar entre abas (seja por toque nas abas do topo ou deslizando a tela), o conteúdo desliza de forma fluida:
+    - Aba seguinte desliza suavemente da direita para a esquerda (`swipe-in-right`).
+    - Aba anterior desliza suavemente da esquerda para a direita (`swipe-in-left`).
+- **2. Acompanhamento Físico do Dedo em Tempo Real (Touch Drag Follow):**
+  - Ao arrastar horizontalmente, a tela acompanha a posição do dedo milimetricamente (`translate3d(Xpx, 0, 0)`).
+  - Inclui efeito elástico nas extremidades (Check-in e Financeiro) com resistência progressiva.
+  - Se o usuário arrasta e solta sem atingir o limiar, o carrossel retorna à posição original com amortecimento mola (`cubic-bezier(0.25, 1, 0.5, 1)`).
+- **Service Worker & Testes Automatizados:**
+  - Service worker atualizado para `atend-v52` em `sw.js`.
+  - 47 testes unitários passando com 100% de sucesso.
 
 ---
 

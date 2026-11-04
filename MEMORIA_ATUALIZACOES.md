@@ -1,7 +1,36 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
-Data da consolidação: `02/11/2026`  
-Versão do Service Worker: `atend-v49` (`sw.js`)
+Data da consolidação: `04/11/2026`  
+Versão do Service Worker: `atend-v50` (`sw.js`)
+
+---
+
+## 18. Visualização Padrão Hoje, Check-in Diário, SPO2, Google Agenda e Limpeza de Planilhas (`v50`)
+- **1. Visualização Padrão da Agenda para o Dia Vigente e Botão Evidente Mês/Hoje:**
+  - `agendaSelectedDay` inicializado como padrão na data atual (`isoDate(new Date())`), evitando poluição visual com dezenas de pacientes de outros dias logo ao abrir.
+  - Inserido botão de alternância rápida em evidência na barra de filtros: `[📅 Ver mês inteiro]` / `[📅 Ver apenas hoje]` (`#agendaToggleScopeBtn`), permitindo alternar instantaneamente entre a visão do dia vigente e o panorama mensal.
+- **2. Tempo de Deslocamento Zero para Pacientes com Mesmo Endereço:**
+  - Pacientes atendidos no mesmo local (ex.: Irani e Sebastião na Rua André Rebouças 1044) agora retornam `distanceKm: 0`, `durationMin: 0` e `sameLocation: true`.
+  - O conector entre atendimentos no mesmo endereço passa a exibir badge verde amigável `"📍 Mesmo endereço / Sem deslocamento (0 min • 0 km)"`, eliminando falsos alarmes de atraso e trânsito.
+- **3. Google Agenda — Blindagem da Conta USP, Título Limpo e Cores Automáticas:**
+  - **Blindagem contra gravação em contas `@usp.br` / `matheusrodrigues1917@usp.br`:** Bloqueio estrito no backend (`Code.gs`) e frontend. Eventos são criados única e exclusivamente na agenda da fisioterapeuta (`scarletsantos7@gmail.com`).
+  - **Formato Estrito do Título:** O título do evento na Google Agenda agora contém estritamente o `nome do paciente` e nada mais (removidos prefixos como "Fisioterapia:" ou marcadores "✓").
+  - **Atribuição Automática de Cor por Paciente:** Cada paciente recebe automaticamente e de forma determinística uma cor visual única (`colorId` de 1 a 11 do Google Calendar), mantendo identificação visual imediata na grade da agenda.
+- **4. Evoluções — Saturação de Oxigênio (SPO2), Copiar Conduta Anterior e Observações:**
+  - Adicionado campo **SPO2 (Saturação de Oxigênio)** em todas as evoluções clínicas, com exibição destacada no formato `SPO2: 98%` no card e persistência no Google Sheets (`EVO_HEADERS`).
+  - Adicionado botão **`[✏️ Editar]`** diretamente dentro do histórico de evoluções dos pacientes (`openPatientEvolutions`), permitindo ajustes clínicos rápidos sem precisar navegar para a aba geral.
+  - Adicionado botão **`[📋 Copiar conduta anterior]`** no formulário de nova evolução: preenche instantaneamente o campo com a última conduta registrada para aquele paciente.
+  - Adicionada área dedicada **"Observações"** logo abaixo de "Condutas Fisioterapêuticas" tanto na criação/edição quanto na visualização dos cards e sincronização com a planilha.
+- **5. Aba "Check-in" de Uso Diário e Rápido:**
+  - Criada nova aba principal **"Check-in"** (`#tabBtnCheckin` / `#tabCheckinView`).
+  - A aba surge automaticamente na barra de navegação superior assim que houver pelo menos um paciente agendado (`schedules.length > 0`).
+  - Apresenta cabeçalho com data, dia da semana e relógio digital ao vivo, o botão `+ Registrar atendimento` e a lista simplificada dos pacientes agendados para o dia de hoje.
+  - Embaixo de cada paciente agendado, há exclusivamente o botão verde `[✓ Fazer Check-in]` (ou status `[✅ Check-in Concluído]` com opção de desfazer), tornando a rotina de atendimento ultra-rápida.
+- **6. Limpeza das Tabelas do Google Sheets:**
+  - Abas desnecessárias `Exercicios` e `Rotinas` foram removidas da estrutura da planilha (`cleanupUnusedSheets_()`), tornando as chamadas do Google Apps Script mais rápidas e leves.
+- **Service Worker & Testes Automatizados:**
+  - Service worker atualizado para `atend-v50` em `sw.js`.
+  - 44 testes unitários automatizados passando com 100% de sucesso.
 
 ---
 

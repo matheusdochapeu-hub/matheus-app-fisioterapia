@@ -1,7 +1,29 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `04/11/2026`  
-Versão do Service Worker: `atend-v52` (`sw.js`)
+Versão do Service Worker: `atend-v53` (`sw.js`)
+
+---
+
+## 21. Navegação de Datas na Aba Check-in Diário (Hoje, D+1, D-1, etc.) (`v53`)
+- **1. Navegação Rápida entre Dias:**
+  - Inseridos botões direcionais **`[◀]`** e **`[▶]`** no cabeçalho do Check-in para alternar facilmente entre o dia atual, dias futuros (`D+1`, `D+2`, `D+3`...) e dias anteriores (`D-1`, `D-2`...).
+  - Adicionado seletor nativo de calendário com 1 toque no título da data, permitindo saltar instantaneamente para qualquer dia específico.
+- **2. Indicadores Relativos Inteligentes:**
+  - Badge dinâmico indicando o contexto do dia selecionado:
+    - `Hoje` (azul)
+    - `Amanhã (D+1)` (verde)
+    - `Ontem (D-1)` (âmbar)
+    - `D+N` (roxo) ou `D-N` (cinza)
+  - Botão de atalho rápido **`[📅 Voltar p/ Hoje]`** visível sempre que o usuário estiver consultando uma data diferente de hoje.
+  - Subtítulo com resumo estatístico em tempo real do dia selecionado (ex.: "3 a realizar • 1 realizado").
+- **3. Filtragem e Ações por Data:**
+  - O Check-in exibe os pacientes agendados especificamente para a data em visualização.
+  - Permite realizar check-in retroativo em atendimentos pendentes de dias anteriores ou antecipar confirmações.
+  - Empty state contextualizado para dias sem agendamento com o botão `+ Agendar Paciente neste dia` (preenchendo a data selecionada automaticamente).
+- **Service Worker & Testes Automatizados:**
+  - Service worker atualizado para `atend-v53` em `sw.js`.
+  - 49 testes unitários aprovados com 100% de sucesso.
 
 ---
 

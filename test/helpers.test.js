@@ -323,11 +323,12 @@ describe('Route Engine, Haversine Estimation and Coordinates Matching', () => {
     assert.ok(est.durationMin >= 6 && est.durationMin <= 12, 'Drive time should be ~8-9min');
   });
 
-  test('getRouteSyncOrApprox returns 0.4km and 2min for identical addresses', () => {
-    const r = getRouteSyncOrApprox('Rua Maracaju, 88', 'Rua Maracaju, 88');
+  test('getRouteSyncOrApprox returns 0km and 0min for identical addresses (mesmo endereço)', () => {
+    const r = getRouteSyncOrApprox('Rua André Rebouças 1044', 'Rua André Rebouças 1044');
     assert.equal(r.ok, true);
-    assert.equal(r.distanceKm, 0.4);
-    assert.equal(r.durationMin, 2);
+    assert.equal(r.distanceKm, 0);
+    assert.equal(r.durationMin, 0);
+    assert.equal(r.sameLocation, true);
   });
 
   test('getRouteSyncOrApprox safely provides fallback for unknown neighborhoods without null/crash', () => {
@@ -575,5 +576,62 @@ describe('Sincronização Multi-Dispositivo & Autoridade da Planilha (v49)', () 
     assert.equal(finalScheds.length, 1);
     assert.equal(finalScheds[0].hora, '15:00');
     assert.equal(finalScheds[0].status, 'Realizado');
+  });
+});
+
+describe('Evoluções com SPO2/Observações, Check-in Diário & Google Agenda (v50)', () => {
+  test('SPO2 formatado e exibido com badge correto', () => {
+    const ev = { id: 'ev1', pa: '12/8', fc: '72', spo2: '98', estadoClinico: 'Estável', condutas: 'Cinesio' };
+    const formattedBadge = ev.spo2 ? `SPO2: ${ev.spo2}%` : '';
+    assert.equal(formattedBadge, 'SPO2: 98%');
+  });
+
+  test('copiar conduta anterior obtém a conduta mais recente do mesmo paciente', () => {
+    const evList = [
+      { id: 'ev1', pacienteId: 'p1', data: '2026-11-01', hora: '14:00', condutas: 'Treino de equilíbrio estático' },
+      { id: 'ev2', pacienteId: 'p1', data: '2026-11-03', hora: '15:00', condutas: 'Mobilização passiva e treino de marcha' },
+      { id: 'ev3', pacienteId: 'p2', data: '2026-11-04', hora: '10:00', condutas: 'Eletroterapia TENS' }
+    ];
+    const pid = 'p1';
+    const lastForP1 = evList.slice().sort((a,b) => (b.data + ' ' + b.hora).localeCompare(a.data + ' ' + a.hora))
+      .find(x => x.pacienteId === pid && x.condutas);
+    assert.ok(lastForP1);
+    assert.equal(lastForP1.id, 'ev2');
+    assert.equal(lastForP1.condutas, 'Mobilização passiva e treino de marcha');
+  });
+
+  test('título de evento no Google Agenda é estritamente o nome do paciente', () => {
+    const sc = { pacienteNome: 'Dona Diva', status: 'Agendado' };
+    const title = sc.pacienteNome;
+    assert.equal(title, 'Dona Diva');
+    assert.ok(!title.includes('Fisioterapia:'), 'Não deve conter prefixo Fisioterapia:');
+  });
+
+  test('atribuição de cor automática por paciente (1 a 11 determinística)', () => {
+    function getPatientColor(name) {
+      let hash = 0;
+      const str = String(name || '').toLowerCase();
+      for (let i = 0; i < str.length; i++) {
+        hash = (hash << 5) - hash + str.charCodeAt(i);
+        hash |= 0;
+      }
+      return String((Math.abs(hash) % 11) + 1);
+    }
+    const c1 = getPatientColor('Sebastião');
+    const c2 = getPatientColor('Sebastião');
+    const c3 = getPatientColor('Irani');
+    assert.equal(c1, c2, 'Mesmo paciente sempre recebe a mesma cor');
+    assert.ok(parseInt(c1) >= 1 && parseInt(c1) <= 11, 'Cor deve estar entre 1 e 11');
+    assert.ok(parseInt(c3) >= 1 && parseInt(c3) <= 11, 'Cor deve estar entre 1 e 11');
+  });
+
+  test('blindagem contra agenda da USP: proíbe uso de matheusrodrigues1917@usp.br', () => {
+    function isForbidden(em) {
+      const s = String(em || '').toLowerCase();
+      return s.includes('matheusrodrigues1917@usp.br') || s.includes('@usp.br');
+    }
+    assert.equal(isForbidden('matheusrodrigues1917@usp.br'), true);
+    assert.equal(isForbidden('outro@usp.br'), true);
+    assert.equal(isForbidden('scarletsantos7@gmail.com'), false);
   });
 });

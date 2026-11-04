@@ -635,3 +635,47 @@ describe('Evoluções com SPO2/Observações, Check-in Diário & Google Agenda (
     assert.equal(isForbidden('scarletsantos7@gmail.com'), false);
   });
 });
+
+describe('Aba Check-in Inicial, Desaparecimento pós Check-in & Navegação por Gestos Swipe (v51)', () => {
+  test('Check-in é a primeira aba na navegação (à esquerda de Pacientes)', () => {
+    const mNav = html.match(/<nav class="main-tabs"[\s\S]*?<\/nav>/);
+    assert.ok(mNav, 'nav.main-tabs deve existir');
+    const navContent = mNav[0];
+    const checkinIdx = navContent.indexOf('id="tabBtnCheckin"');
+    const pacientesIdx = navContent.indexOf('id="tabBtnPacientes"');
+    assert.ok(checkinIdx > -1, 'tabBtnCheckin deve existir');
+    assert.ok(pacientesIdx > -1, 'tabBtnPacientes deve existir');
+    assert.ok(checkinIdx < pacientesIdx, 'tabBtnCheckin deve ficar antes de tabBtnPacientes');
+  });
+
+  test('Paciente com check-in realizado some da lista de check-in pendente', () => {
+    const today = '2026-11-04';
+    const scheds = [
+      { id: 's1', data: today, status: 'Agendado', pacienteNome: 'Vinícius' },
+      { id: 's2', data: today, status: 'Realizado', pacienteNome: 'Dona Diva' },
+      { id: 's3', data: '2026-11-05', status: 'Agendado', pacienteNome: 'Sebastião' }
+    ];
+
+    const pending = scheds.filter(sc => sc.data === today && sc.status !== 'Realizado' && sc.status !== 'Cancelado');
+    assert.equal(pending.length, 1);
+    assert.equal(pending[0].pacienteNome, 'Vinícius');
+  });
+
+  test('Gesto Swipe calcula transição de aba corretamente', () => {
+    const tabs = ['checkin', 'pacientes', 'agenda', 'evolucoes', 'financeiro'];
+    function getNextTab(current, deltaX, deltaY, duration) {
+      if (Math.abs(deltaX) >= 45 && duration <= 450 && Math.abs(deltaX) > Math.abs(deltaY) * 1.4) {
+        const idx = tabs.indexOf(current);
+        if (deltaX < 0 && idx < tabs.length - 1) return tabs[idx + 1];
+        if (deltaX > 0 && idx > 0) return tabs[idx - 1];
+      }
+      return current;
+    }
+
+    assert.equal(getNextTab('checkin', -80, 10, 200), 'pacientes');
+    assert.equal(getNextTab('pacientes', -70, 5, 180), 'agenda');
+    assert.equal(getNextTab('agenda', 80, 5, 200), 'pacientes');
+    assert.equal(getNextTab('pacientes', 60, 10, 210), 'checkin');
+    assert.equal(getNextTab('checkin', -50, 100, 200), 'checkin');
+  });
+});

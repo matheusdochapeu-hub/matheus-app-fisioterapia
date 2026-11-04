@@ -1182,6 +1182,8 @@
         <div id="loadingState" class="loading"><div class="spinner"></div>Carregando...</div>
       </div>
     </div>
+    <!-- Fecha tabsCarouselViewport -->
+    </div>
 
   </div>
 
@@ -1621,26 +1623,11 @@ function switchMainTab(tab, explicitDir){
     }
   });
 
-  } catch(e){}
-      } else {
-        btn.classList.remove('active');
-        btn.setAttribute('aria-selected', 'false');
-      }
-    }
-    if(view){
-      if(t === tab){
-        view.classList.remove('hidden');
-      } else {
-        view.classList.add('hidden');
-      }
-    }
-  });
-
   updateCheckinTabVisibility();
   updateFab();
+  if(tab === 'checkin') renderCheckinTab();
   if(tab === 'pacientes') renderPatientsTab();
   if(tab === 'agenda') renderAgendaTab();
-  if(tab === 'checkin') renderCheckinTab();
   if(tab === 'evolucoes') renderEvolutionsTab();
   if(tab === 'financeiro') renderList();
 }

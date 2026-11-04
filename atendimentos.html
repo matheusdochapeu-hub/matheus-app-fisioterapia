@@ -927,18 +927,35 @@
 
         <!-- CARROSSEL / SWIPE VIEWS CONTAINER -->
     <div id="tabsCarouselViewport" class="tabs-carousel-viewport">
-      <!-- ABA CHECK-IN: ATENDIMENTO DIÁRIO RÁPIDO -->
+      <!-- ABA CHECK-IN: ATENDIMENTO DIÁRIO RÁPIDO COM NAVEGAÇÃO DE DIAS -->
       <div id="tabCheckinView" class="tab-view">
-      <div style="background:var(--card-bg, #fff);border:1px solid var(--line);border-radius:var(--radius, 12px);padding:14px 16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,0.04);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-        <div>
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--primary);letter-spacing:0.5px;">Atendimento Diário</div>
-          <div id="checkinCurrentDayTime" style="font-size:15px;font-weight:700;color:var(--ink);margin-top:2px;">-</div>
-        </div>
-        <button type="button" class="btn primary small" style="width:auto;padding:8px 14px;font-size:12.5px;font-weight:600;" onclick="openNewEntry()">+ Registrar atendimento</button>
-      </div>
+        <div class="card" style="margin-bottom:14px;padding:12px 14px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;">
+            <button type="button" class="btn ghost small" style="width:auto;padding:6px 12px;font-size:15px;font-weight:700;line-height:1;" onclick="changeCheckinDay(-1)" title="Dia anterior (D-1)">◀</button>
+            
+            <div style="text-align:center;flex:1;min-width:0;cursor:pointer;position:relative;" onclick="triggerCheckinDatePicker()" title="Toque para escolher outra data no calendário">
+              <div style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;">
+                <span id="checkinDayRelativeBadge" class="tag" style="background:#eff6ff;color:#1d4ed8;font-weight:700;font-size:10.5px;padding:2px 6px;">Hoje</span>
+                <span id="checkinCurrentDayTime" style="font-size:14.5px;font-weight:800;color:var(--ink);">-</span>
+                <span style="font-size:12px;color:var(--ink-faint);">📅</span>
+              </div>
+              <input type="date" id="checkinDateHiddenInput" style="position:absolute;left:50%;top:50%;opacity:0;pointer-events:none;width:0;height:0;" onchange="setCheckinDate(this.value)">
+            </div>
 
-      <div id="checkinTodayList"></div>
-    </div>
+            <button type="button" class="btn ghost small" style="width:auto;padding:6px 12px;font-size:15px;font-weight:700;line-height:1;" onclick="changeCheckinDay(1)" title="Próximo dia (D+1)">▶</button>
+          </div>
+
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid var(--line);padding-top:10px;flex-wrap:wrap;">
+            <div id="checkinStatsSummary" style="font-size:12px;color:var(--ink-soft);font-weight:600;">Carregando atendimentos...</div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <button type="button" id="checkinBackToTodayBtn" class="btn ghost small hidden" style="width:auto;padding:4px 9px;font-size:11px;font-weight:700;color:var(--primary);border-color:var(--primary);" onclick="changeCheckinDay(0)">📅 Voltar p/ Hoje</button>
+              <button type="button" class="btn primary small" style="width:auto;padding:6px 12px;font-size:12px;font-weight:700;" onclick="openNewEntry()">+ Registrar</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="checkinTodayList"></div>
+      </div>
 
     <!-- ABA 1: PACIENTES E DADOS CADASTRAIS -->
     <div id="tabPacientesView" class="tab-view hidden">
@@ -7188,42 +7205,135 @@ function updateCheckinTabVisibility(){
   }
 }
 
+var checkinSelectedDate = isoDate(new Date());
+
+function changeCheckinDay(delta){
+  if(delta === 0){
+    checkinSelectedDate = isoDate(new Date());
+  } else {
+    var parts = (checkinSelectedDate || isoDate(new Date())).split('-');
+    var d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+    d.setDate(d.getDate() + delta);
+    checkinSelectedDate = isoDate(d);
+  }
+  renderCheckinTab();
+}
+
+function setCheckinDate(isoStr){
+  if(!isoStr) return;
+  checkinSelectedDate = isoStr;
+  renderCheckinTab();
+}
+
+function triggerCheckinDatePicker(){
+  var inp = document.getElementById('checkinDateHiddenInput');
+  if(!inp) return;
+  inp.value = checkinSelectedDate;
+  if(typeof inp.showPicker === 'function'){
+    inp.showPicker();
+  } else {
+    inp.click();
+  }
+}
+
 function renderCheckinTab(){
   var dtEl = document.getElementById('checkinCurrentDayTime');
+  var badgeEl = document.getElementById('checkinDayRelativeBadge');
+  var statsEl = document.getElementById('checkinStatsSummary');
+  var backTodayBtn = document.getElementById('checkinBackToTodayBtn');
   var listEl = document.getElementById('checkinTodayList');
   if(!listEl) return;
 
-  var now = new Date();
-  var todayIsoStr = isoDate(now);
-  var weekdayNames = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
-  var weekdayStr = weekdayNames[now.getDay()];
-  if(dtEl){
-    dtEl.textContent = weekdayStr + ', ' + formatDateBR(todayIsoStr) + ' · ' + isoTime(now);
+  if(!checkinSelectedDate){
+    checkinSelectedDate = isoDate(new Date());
   }
 
-  // Filtra apenas pacientes de hoje cujo check-in AINDA NÃO foi realizado
-  // (Quando o check-in for realizado, o paciente some da tela de check-in)
-  var pendingTodayScheds = (schedules || []).filter(function(sc){
-    if(sc.data !== todayIsoStr) return false;
+  var now = new Date();
+  var todayIso = isoDate(now);
+  var targetParts = checkinSelectedDate.split('-');
+  var targetDate = new Date(parseInt(targetParts[0], 10), parseInt(targetParts[1], 10) - 1, parseInt(targetParts[2], 10));
+  var weekdayNames = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+  var weekdayStr = weekdayNames[targetDate.getDay()];
+
+  // Diferença em dias relativa a hoje (d0, d+1, d-1, d+2, etc.)
+  var msPerDay = 86400000;
+  var dNow = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  var dTarget = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+  var diffDays = Math.round((dTarget - dNow) / msPerDay);
+
+  var relText = 'Hoje';
+  var relBg = '#eff6ff';
+  var relColor = '#1d4ed8';
+
+  if(diffDays === 0){
+    relText = 'Hoje';
+    relBg = '#eff6ff';
+    relColor = '#1d4ed8';
+    if(backTodayBtn) backTodayBtn.classList.add('hidden');
+  } else if(diffDays === 1){
+    relText = 'Amanhã (D+1)';
+    relBg = '#f0fdf4';
+    relColor = '#15803d';
+    if(backTodayBtn) backTodayBtn.classList.remove('hidden');
+  } else if(diffDays === -1){
+    relText = 'Ontem (D-1)';
+    relBg = '#fef3c7';
+    relColor = '#b45309';
+    if(backTodayBtn) backTodayBtn.classList.remove('hidden');
+  } else if(diffDays > 1){
+    relText = 'D+' + diffDays;
+    relBg = '#f5f3ff';
+    relColor = '#6d28d9';
+    if(backTodayBtn) backTodayBtn.classList.remove('hidden');
+  } else {
+    relText = 'D' + diffDays;
+    relBg = '#f3f4f6';
+    relColor = '#4b5563';
+    if(backTodayBtn) backTodayBtn.classList.remove('hidden');
+  }
+
+  if(badgeEl){
+    badgeEl.textContent = relText;
+    badgeEl.style.background = relBg;
+    badgeEl.style.color = relColor;
+  }
+
+  if(dtEl){
+    dtEl.textContent = weekdayStr + ', ' + formatDateBR(checkinSelectedDate) + (diffDays === 0 ? (' · ' + isoTime(now)) : '');
+  }
+
+  // Filtra agendamentos do dia selecionado
+  var dayScheds = (schedules || []).filter(function(sc){
+    if(sc.data !== checkinSelectedDate) return false;
     if(isBlockSchedule(sc)) return false;
     if(sc.status === 'Cancelado' || sc.status === 'Ausência') return false;
-    if(sc.status === 'Realizado') return false; // Some após check-in!
     return true;
   }).sort(function(a, b){
     return String(a.hora || '').localeCompare(String(b.hora || ''));
   });
 
-  var doneTodayCount = (schedules || []).filter(function(sc){
-    return sc.data === todayIsoStr && sc.status === 'Realizado' && !isBlockSchedule(sc);
+  var pendingScheds = dayScheds.filter(function(sc){
+    return sc.status !== 'Realizado';
+  });
+  var doneCount = dayScheds.filter(function(sc){
+    return sc.status === 'Realizado';
   }).length;
 
-  if(pendingTodayScheds.length === 0){
-    if(doneTodayCount > 0){
+  if(statsEl){
+    if(dayScheds.length === 0){
+      statsEl.textContent = 'Nenhum atendimento agendado';
+    } else {
+      statsEl.textContent = pendingScheds.length + ' a realizar • ' + doneCount + ' realizado' + (doneCount !== 1 ? 's' : '');
+    }
+  }
+
+  if(pendingScheds.length === 0){
+    if(doneCount > 0){
       listEl.innerHTML = '<div class="card" style="margin-bottom:12px;padding:26px 16px;text-align:center;background:linear-gradient(180deg,#f0fdf4 0%,#ffffff 100%);border:1px solid #bbf7d0;border-radius:14px;box-shadow:var(--shadow-soft);">' +
         '<div style="font-size:38px;margin-bottom:8px;">🎉</div>' +
-        '<div style="font-size:16px;font-weight:800;color:#15803d;margin-bottom:4px;">Check-ins de hoje concluídos!</div>' +
+        '<div style="font-size:16px;font-weight:800;color:#15803d;margin-bottom:4px;">Check-ins de ' + formatDateBR(checkinSelectedDate) + ' concluídos!</div>' +
         '<div style="font-size:13px;color:var(--ink-soft);max-width:320px;margin:0 auto 14px auto;line-height:1.4;">' +
-          'Todos os atendimentos agendados para hoje já foram confirmados (' + doneTodayCount + ' atendimento' + (doneTodayCount > 1 ? 's' : '') + '). Você pode conferir os detalhes na <strong>Agenda</strong> ou no <strong>Financeiro</strong>.' +
+          'Todos os atendimentos agendados para este dia foram realizados (' + doneCount + ' atendimento' + (doneCount > 1 ? 's' : '') + '). Você pode conferir os detalhes na <strong>Agenda</strong> ou no <strong>Financeiro</strong>.' +
         '</div>' +
         '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">' +
           '<button type="button" class="btn ghost small" style="width:auto;font-size:12px;border-color:#bbf7d0;color:#15803d;" onclick="switchMainTab(\'agenda\')">📅 Ver na Agenda</button>' +
@@ -7233,17 +7343,17 @@ function renderCheckinTab(){
     } else {
       listEl.innerHTML = '<div class="empty" style="padding:28px 16px;">' +
         '<div class="icon">📅</div>' +
-        '<h3>Nenhum paciente agendado para hoje</h3>' +
-        '<p>Data: ' + formatDateBR(todayIsoStr) + ' (' + weekdayStr + '). Agende um paciente para começar o dia ou registre um atendimento avulso acima.</p>' +
+        '<h3>Nenhum paciente agendado</h3>' +
+        '<p>Data: ' + formatDateBR(checkinSelectedDate) + ' (' + weekdayStr + '). Toque abaixo para agendar ou registrar um atendimento avulso.</p>' +
         '<div style="display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap;">' +
-          '<button type="button" class="btn primary small" style="width:auto;" onclick="openScheduleModal(\'\', \''+todayIsoStr+'\')">+ Agendar Paciente Hoje</button>' +
+          '<button type="button" class="btn primary small" style="width:auto;" onclick="openScheduleModal(\'\', \''+checkinSelectedDate+'\')">+ Agendar Paciente neste dia</button>' +
         '</div>' +
       '</div>';
     }
     return;
   }
 
-  var html = pendingTodayScheds.map(function(sc){
+  var html = pendingScheds.map(function(sc){
     var dispName = getSchedulePatientDisplayName(sc);
     var p = getSchedulePatientObj(sc);
     var addr = p ? [p.endereco, p.bairro].filter(Boolean).join(', ') : '';

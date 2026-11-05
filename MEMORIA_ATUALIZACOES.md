@@ -1,7 +1,25 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `04/11/2026`  
-Versão do Service Worker: `atend-v54` (`sw.js`)
+Versão do Service Worker: `atend-v55` (`sw.js`)
+
+---
+
+## 23. Remoção de Planos de Fundo e Marcas D'água na Exportação de PDFs (`v55`)
+- **1. Fundo Limpo e Profissional em Todos os PDFs:**
+  - Removido completamente o plano de fundo decorativo com flores, folhas e transparência (`marcaDaguaOutono`) que era desenhado no canvas de todos os PDFs exportados.
+  - Eliminadas as invocações de plano de fundo em todas as quebras de página e paginações de:
+    - *Extrato Financeiro do Paciente* (`exportPatientStatement`).
+    - *Prontuário de Evoluções Clínicas* (`renderEvolutionsToPDF`).
+    - *Comprovante Consolidado e Mensal de Sessões* (`exportMonthlyStatementsPDF`).
+    - *Recibo Individual de Sessão* (`generateReceipt`).
+    - *Relatório Financeiro Anual e Mensal* (`exportFinancialReportPDF`).
+- **2. Ajuste de Cabeçalho e Compatibilidade:**
+  - A função `marcaDaguaOutono(doc, pageW, pageH)` foi convertida em um no-op seguro que não executa chamadas gráficas ao jsPDF (`doc.ellipse`, `doc.circle`, `doc.setGState`), preservando a compatibilidade sem poluir o documento.
+  - `receiptHeader` ajustado para utilizar o nome oficial da Fisioterapeuta Responsável (`Scarlet Feitosa Santos`) e renderizar fundo branco puro com contraste profissional e economia de tinta/impressão.
+- **Service Worker & Testes Automatizados:**
+  - Service worker atualizado para `atend-v55` em `sw.js`.
+  - Suíte de testes automatizados expandida cobrindo a verificação de ausência de planos de fundo e no-op de marca d'água.
 
 ---
 

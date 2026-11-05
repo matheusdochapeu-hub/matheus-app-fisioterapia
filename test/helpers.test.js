@@ -809,3 +809,94 @@ describe('Aba Inicial Padrão Configurável (Check-in padrão com seleção em C
     assert.equal(fn(null, fakeStorage), 'checkin');
   });
 });
+
+describe('Exportação de Evoluções em PDF em Lote por Período e Múltiplos Pacientes (v52)', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'atendimentos.html'), 'utf8');
+
+  test('botão de exportação em PDF está presente na aba de evoluções chamando modal de lote', () => {
+    assert.equal(html.includes('id="btnExportEvolucoesPDF"'), true);
+    assert.equal(html.includes('openExportEvolutionsBatchModal()'), true);
+  });
+
+  test('evolutionMatchesPatient identifica paciente tanto por ID quanto por correspondência de nome', () => {
+    const fnMatch = html.match(/function evolutionMatchesPatient\(ev,\s*p\)[\s\S]*?\n\}/);
+    assert.ok(fnMatch, 'evolutionMatchesPatient must be defined');
+    const findPatientForEvolution = (ev) => ev.pacienteNome === 'João' ? { id: 'p_joao' } : null;
+    const fn = new Function('findPatientForEvolution', 'return (' + fnMatch[0] + ')')(findPatientForEvolution);
+
+    assert.equal(fn({ pacienteId: 'p1' }, { id: 'p1' }), true);
+    assert.equal(fn({ pacienteId: 'p1' }, { id: 'p2' }), false);
+    assert.equal(fn({ pacienteNome: 'João' }, { id: 'p_joao' }), true);
+    assert.equal(fn({ pacienteNome: 'Outro' }, { id: 'p_joao' }), false);
+    assert.equal(fn(null, { id: 'p1' }), false);
+  });
+
+  test('getWeekBounds calcula início (segunda-feira) e fim (domingo) corretamente', () => {
+    const fnMatch = html.match(/function getWeekBounds\(dateStr\)[\s\S]*?\n\}/);
+    assert.ok(fnMatch, 'getWeekBounds must be defined');
+    const isoDate = (d) => {
+      const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+      return y + '-' + m + '-' + day;
+    };
+    const fn = new Function('isoDate', 'return (' + fnMatch[0] + ')')(isoDate);
+
+    // Quarta-feira 04/11/2026 -> Semana de 02/11/2026 (Segunda) a 08/11/2026 (Domingo)
+    const boundsMid = fn('2026-11-04');
+    assert.equal(boundsMid.start, '2026-11-02');
+    assert.equal(boundsMid.end, '2026-11-08');
+
+    // Domingo 08/11/2026 -> mesma semana
+    const boundsSun = fn('2026-11-08');
+    assert.equal(boundsSun.start, '2026-11-02');
+    assert.equal(boundsSun.end, '2026-11-08');
+
+    // Segunda 02/11/2026 -> mesma semana
+    const boundsMon = fn('2026-11-02');
+    assert.equal(boundsMon.start, '2026-11-02');
+    assert.equal(boundsMon.end, '2026-11-08');
+  });
+
+  test('filterEvolutionsByPeriod filtra pontualmente por dia, semana, mês, ano e todo o período', () => {
+    const fnMatch = html.match(/function filterEvolutionsByPeriod\(evList,\s*pType,\s*pParams\)[\s\S]*?\n\}/);
+    assert.ok(fnMatch, 'filterEvolutionsByPeriod must be defined');
+    const fn = new Function('return (' + fnMatch[0] + ')')();
+
+    const sample = [
+      { id: '1', data: '2026-11-04' },
+      { id: '2', data: '2026-11-02' },
+      { id: '3', data: '2026-10-15' },
+      { id: '4', data: '2025-05-20' }
+    ];
+
+    // Dia
+    const byDay = fn(sample, 'dia', { date: '2026-11-04' });
+    assert.equal(byDay.length, 1);
+    assert.equal(byDay[0].id, '1');
+
+    // Semana
+    const byWeek = fn(sample, 'semana', { startDate: '2026-11-02', endDate: '2026-11-08' });
+    assert.equal(byWeek.length, 2);
+
+    // Mês
+    const byMonthNov = fn(sample, 'mes', { year: 2026, month: 11 });
+    assert.equal(byMonthNov.length, 2);
+    const byMonthOct = fn(sample, 'mes', { year: 2026, month: 10 });
+    assert.equal(byMonthOct.length, 1);
+
+    // Ano
+    const byYear2026 = fn(sample, 'ano', { year: 2026 });
+    assert.equal(byYear2026.length, 3);
+    const byYear2025 = fn(sample, 'ano', { year: 2025 });
+    assert.equal(byYear2025.length, 1);
+
+    // Todo o período
+    const byAll = fn(sample, 'todo', {});
+    assert.equal(byAll.length, 4);
+  });
+
+  test('PDF de evoluções inclui SPO2 formatado e campo de Observações', () => {
+    assert.equal(html.includes('SPO2: '), true);
+    assert.equal(html.includes('OBSERVAÇÕES:'), true);
+    assert.equal(html.includes('ev.observacoes'), true);
+  });
+});

@@ -719,3 +719,53 @@ describe('Aba Check-in Inicial, Desaparecimento pós Check-in & Navegação por 
     assert.equal(getRelativeLabel(today, '2026-11-02'), 'D-2');
   });
 });
+
+describe('Exportação de PDF com Fundo Limpo (Remoção de Planos de Fundo)', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'atendimentos.html'), 'utf8');
+
+  test('atendimentos.html não invoca marca d água ou planos de fundo em quebras de página', () => {
+    // Apenas a declaração de compatibilidade deve existir, sem chamadas de execução
+    const occurrences = (html.match(/marcaDaguaOutono/g) || []).length;
+    assert.equal(occurrences, 1);
+    assert.equal(html.includes('marcaDaguaOutono(doc, 210'), false);
+    assert.equal(html.includes('marcaDaguaOutono(doc,210'), false);
+    assert.equal(html.includes('doc.setGState'), false);
+    assert.equal(html.includes('doc.ellipse'), false);
+  });
+
+  test('marcaDaguaOutono é no-op seguro que não desenha nada no canvas do PDF', () => {
+    let drawCalls = 0;
+    const fakeDoc = {
+      setFillColor() { drawCalls++; },
+      ellipse() { drawCalls++; },
+      circle() { drawCalls++; },
+      setGState() { drawCalls++; },
+      rect() { drawCalls++; }
+    };
+    const fnMatch = html.match(/function marcaDaguaOutono\([^)]*\)\s*\{([\s\S]*?)\n\}/);
+    assert.ok(fnMatch);
+    const fn = new Function('doc', 'pageW', 'pageH', fnMatch[1]);
+    fn(fakeDoc, 210, 297);
+    assert.equal(drawCalls, 0);
+  });
+
+  test('receiptHeader renderiza cabeçalho limpo sem invocar planos de fundo', () => {
+    const fnMatch = html.match(/function receiptHeader\([^)]*\)\s*\{([\s\S]*?)\n\}/);
+    assert.ok(fnMatch);
+    const capturedTexts = [];
+    let ellipseCalls = 0;
+    const fakeDoc = {
+      setFillColor() {},
+      rect() {},
+      setTextColor() {},
+      setFont() {},
+      setFontSize() {},
+      text(str) { capturedTexts.push(str); },
+      ellipse() { ellipseCalls++; }
+    };
+    const fn = new Function('doc', 'title', 'config', fnMatch[1]);
+    fn(fakeDoc, 'Extrato Financeiro', { providerName: 'Scarlet Feitosa Santos' });
+    assert.equal(ellipseCalls, 0);
+    assert.equal(capturedTexts.some(t => t.includes('Scarlet Feitosa Santos')), true);
+  });
+});

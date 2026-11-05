@@ -851,6 +851,14 @@
       <input id="providerDocInput" placeholder="Número de registro CREFITO ou CPF">
       <label style="margin-top:8px;display:block;">Telefone ou PIX para contato</label>
       <input id="providerContactInput" placeholder="Ex: (11) 99999-9999">
+      <label style="margin-top:8px;display:block;">Aba inicial padrão ao abrir o app</label>
+      <select id="defaultTabSelect" style="width:100%;padding:10px;border-radius:var(--radius-xs);border:1px solid var(--line-strong);background:var(--card);color:var(--ink);font-size:14px;font-family:inherit;">
+        <option value="checkin">Check-in Diário (Padrão)</option>
+        <option value="pacientes">Pacientes</option>
+        <option value="agenda">Agenda</option>
+        <option value="evolucoes">Evoluções</option>
+        <option value="financeiro">Financeiro</option>
+      </select>
       <label style="margin-top:8px;display:block;">E-mail da sua Google Agenda (opcional)</label>
       <input id="calendarIdInput" type="email" placeholder="Ex: seuemail@gmail.com">
       <label style="margin-top:8px;display:block;">Link da planilha (Apps Script /exec)</label>
@@ -9113,12 +9121,20 @@ function exportSchedulesICS(){
 /* ============================================================
    CONFIGURAÇÕES, BACKUP & DIAGNÓSTICO
    ============================================================ */
+function getDefaultTab(){
+  var tab = (config && config.defaultTab) || localStorage.getItem('ft_default_tab') || 'checkin';
+  var validTabs = ['checkin', 'pacientes', 'agenda', 'evolucoes', 'financeiro'];
+  return (validTabs.indexOf(tab) > -1) ? tab : 'checkin';
+}
+
 async function saveSetup(){
   var name = document.getElementById('providerNameInput').value.trim();
   var doc = document.getElementById('providerDocInput').value.trim();
   var contact = document.getElementById('providerContactInput').value.trim();
   var calInput = document.getElementById('calendarIdInput');
   var calendarIdVal = calInput ? calInput.value.trim() : getUserCalendarId();
+  var defaultTabInput = document.getElementById('defaultTabSelect');
+  var defaultTabVal = defaultTabInput ? defaultTabInput.value : getDefaultTab();
   var errEl = document.getElementById('setupError');
   errEl.classList.add('hidden');
 
@@ -9142,10 +9158,12 @@ async function saveSetup(){
   var newConfig = {
     scriptUrl: scriptUrlVal,
     providerName: name, providerDoc: doc, providerContact: contact,
-    calendarId: calendarIdVal
+    calendarId: calendarIdVal,
+    defaultTab: defaultTabVal
   };
   try{
     localStorage.setItem(CONFIG_KEY, JSON.stringify(newConfig));
+    localStorage.setItem('ft_default_tab', defaultTabVal);
     localStorage.setItem('ft_calendar_id', calendarIdVal);
     config = newConfig;
   }catch(e){
@@ -9166,6 +9184,7 @@ async function saveSetup(){
   document.getElementById('providerNameDisplay').textContent = name;
   updateMonthLabel();
   updateGCalBannerUI();
+  switchMainTab(defaultTabVal);
   await loadData();
 }
 
@@ -9185,6 +9204,9 @@ function openSettings(){
   document.getElementById('providerNameInput').value = (config && config.providerName) || '';
   document.getElementById('providerDocInput').value = (config && config.providerDoc) || '';
   document.getElementById('providerContactInput').value = (config && config.providerContact) || '';
+  if(document.getElementById('defaultTabSelect')){
+    document.getElementById('defaultTabSelect').value = getDefaultTab();
+  }
   if(document.getElementById('calendarIdInput')){
     document.getElementById('calendarIdInput').value = getUserCalendarId();
   }
@@ -9217,6 +9239,9 @@ function cancelSetup(fromPopstate){
   document.getElementById('providerNameInput').value = (config && config.providerName) || '';
   document.getElementById('providerDocInput').value = (config && config.providerDoc) || '';
   document.getElementById('providerContactInput').value = (config && config.providerContact) || '';
+  if(document.getElementById('defaultTabSelect')){
+    document.getElementById('defaultTabSelect').value = getDefaultTab();
+  }
   if(document.getElementById('calendarIdInput')){
     document.getElementById('calendarIdInput').value = getUserCalendarId();
   }
@@ -9404,8 +9429,7 @@ async function init(){
     }
   }catch(eClean){}
 
-  var savedTab = 'checkin';
-  try{ savedTab = localStorage.getItem('active_tab') || 'checkin'; }catch(e){}
+  var savedTab = getDefaultTab();
 
   var hasUrl = (config && config.scriptUrl && config.scriptUrl.indexOf('/exec') > -1) || (SCRIPT_URL && SCRIPT_URL.indexOf('/exec') > -1);
   if(!config || !config.providerName || !hasUrl){
@@ -9414,6 +9438,9 @@ async function init(){
     }
     if(document.getElementById('calendarIdInput')){
       document.getElementById('calendarIdInput').value = getUserCalendarId();
+    }
+    if(document.getElementById('defaultTabSelect')){
+      document.getElementById('defaultTabSelect').value = getDefaultTab();
     }
     document.getElementById('setupScreen').classList.remove('hidden');
   } else {

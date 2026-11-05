@@ -5,6 +5,19 @@ Versão do Service Worker: `atend-v57` (`sw.js`)
 
 ---
 
+## 26. Correção da Aba Inicial Padrão (Check-in Sempre Acessível sem Desvio p/ Agenda) (58)
+- **1. Causa Raiz Identificada:**
+  - A função updateCheckinTabVisibility() continha a regra if(!hasSched && currentTab === 'checkin') switchMainTab('agenda').
+  - Quando o app abria no Check-in (ou quando a lista local de schedules iniciava vazia antes do término de loadData()), o código ocultava o botão de Check-in e forçava imediatamente a transição para a aba Agenda (genda).
+- **2. Correção Aplicada:**
+  - Removido o desvio forçado e a ocultação da aba Check-in em updateCheckinTabVisibility(). A aba Check-in possui seu próprio empty state amigável com botão de agendamento rápido quando não há pacientes agendados.
+  - A aba inicial definida em Configurações (getDefaultTab()) agora é 100% respeitada ao abrir o app e após a carga dos dados.
+- **Service Worker & Testes:**
+  - Versão do Service Worker incrementada para tend-v58 (sw.js).
+  - 100% dos testes aprovados.
+
+---
+
 ## 25. Exportação em Lote de Evoluções em PDF por Período e Múltiplos Pacientes (`v57`)
 - **1. Botão "Exportar em PDF" na Aba Evoluções:**
   - Adicionado botão de destaque (`#btnExportEvolucoesPDF`) ao lado de `+ Nova Evolução` no topo da aba Evoluções (`#tabEvolucoesView`).

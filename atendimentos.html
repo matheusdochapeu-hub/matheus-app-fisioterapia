@@ -7603,14 +7603,8 @@ function renderAgendaCalendar(year, month, monthSchedules){
 /* ---------- Controle & Renderização da Aba Check-in Diário ---------- */
 function updateCheckinTabVisibility(){
   var btn = document.getElementById('tabBtnCheckin');
-  var hasSched = Array.isArray(schedules) && schedules.length > 0;
   if(btn){
-    if(hasSched){
-      btn.classList.remove('hidden');
-    } else {
-      btn.classList.add('hidden');
-      if(currentTab === 'checkin') switchMainTab('agenda');
-    }
+    btn.classList.remove('hidden');
   }
 }
 

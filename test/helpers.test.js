@@ -769,3 +769,43 @@ describe('Exportação de PDF com Fundo Limpo (Remoção de Planos de Fundo)', (
     assert.equal(capturedTexts.some(t => t.includes('Scarlet Feitosa Santos')), true);
   });
 });
+
+describe('Aba Inicial Padrão Configurável (Check-in padrão com seleção em Configurações)', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'atendimentos.html'), 'utf8');
+
+  test('setupScreen possui select com todas as 5 abas disponíveis e checkin como padrão', () => {
+    assert.equal(html.includes('id="defaultTabSelect"'), true);
+    assert.equal(html.includes('value="checkin"'), true);
+    assert.equal(html.includes('value="pacientes"'), true);
+    assert.equal(html.includes('value="agenda"'), true);
+    assert.equal(html.includes('value="evolucoes"'), true);
+    assert.equal(html.includes('value="financeiro"'), true);
+  });
+
+  test('getDefaultTab retorna checkin por padrão na ausência de configuração', () => {
+    const fnMatch = html.match(/function getDefaultTab\([^)]*\)\s*\{([\s\S]*?)\n\}/);
+    assert.ok(fnMatch);
+    const fn = new Function('config', 'localStorage', fnMatch[1]);
+    const fakeStorage = { getItem: () => null };
+    assert.equal(fn(null, fakeStorage), 'checkin');
+    assert.equal(fn({}, fakeStorage), 'checkin');
+  });
+
+  test('getDefaultTab respeita a aba escolhida pelo usuário nas configurações', () => {
+    const fnMatch = html.match(/function getDefaultTab\([^)]*\)\s*\{([\s\S]*?)\n\}/);
+    assert.ok(fnMatch);
+    const fn = new Function('config', 'localStorage', fnMatch[1]);
+    const fakeStorage = { getItem: (key) => key === 'ft_default_tab' ? 'agenda' : null };
+    assert.equal(fn({ defaultTab: 'pacientes' }, fakeStorage), 'pacientes');
+    assert.equal(fn(null, fakeStorage), 'agenda');
+  });
+
+  test('getDefaultTab faz fallback seguro para checkin se valor for inválido', () => {
+    const fnMatch = html.match(/function getDefaultTab\([^)]*\)\s*\{([\s\S]*?)\n\}/);
+    assert.ok(fnMatch);
+    const fn = new Function('config', 'localStorage', fnMatch[1]);
+    const fakeStorage = { getItem: () => 'invalida' };
+    assert.equal(fn({ defaultTab: 'aba_fantasma' }, fakeStorage), 'checkin');
+    assert.equal(fn(null, fakeStorage), 'checkin');
+  });
+});

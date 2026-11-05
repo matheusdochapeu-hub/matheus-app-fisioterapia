@@ -3436,7 +3436,7 @@ function generatePatientStatementPDF(patientId){
   var total = 0, recebido = 0, pendente = 0;
   doc.setFontSize(10);
   pEntries.slice().reverse().forEach(function(s, i){
-    if(rowY + rowH > 260){ doc.addPage(); marcaDaguaOutono(doc,210,297); rowY = 20; }
+    if(rowY + rowH > 260){ doc.addPage(); rowY = 20; }
     if(i % 2 === 0){ doc.setFillColor(248,236,224); doc.rect(15, rowY, 180, rowH, 'F'); }
     doc.setTextColor(58,42,32);
     doc.text(formatDateBR(s.data), 19, rowY+6);
@@ -4114,7 +4114,6 @@ function renderEvolutionsToPDF(list, mainTitle, subtitle){
   list.forEach(function(ev){
     if(y > 240){
       doc.addPage();
-      marcaDaguaOutono(doc, 210, 297);
       y = 20;
     }
 
@@ -5028,7 +5027,7 @@ function submitMonthlyReceipt(){
     var pTotal = 0;
     doc.setFontSize(9.5);
     item.sessions.forEach(function(s, sIdx){
-      if(rY + rH > 255){ doc.addPage(); marcaDaguaOutono(doc,210,297); rY = 20; }
+      if(rY + rH > 255){ doc.addPage(); rY = 20; }
       if(sIdx % 2 === 0){ doc.setFillColor(248,236,224); doc.rect(15, rY, 180, rH, 'F'); }
       doc.setTextColor(58,42,32);
       doc.text(formatDateBR(s.data), 19, rY+6);
@@ -5802,7 +5801,7 @@ function exportAnnualFinancialPDF(){
 
   if(repMonthFilter !== 'all'){
     list.slice().sort(function(a,b){ return String(a.data).localeCompare(String(b.data)); }).forEach(function(s, idx){
-      if(rowY + rowH > 260){ doc.addPage(); marcaDaguaOutono(doc,210,297); rowY = 20; }
+      if(rowY + rowH > 260){ doc.addPage(); rowY = 20; }
       if(idx % 2 === 0){ doc.setFillColor(248,236,224); doc.rect(15, rowY, 180, rowH, 'F'); }
       doc.setTextColor(58,42,32); doc.setFontSize(9);
       doc.text(formatDateBR(s.data), 19, rowY+5.5);
@@ -5844,54 +5843,11 @@ function exportAnnualFinancialPDF(){
 }
 
 /* ============================================================
-   MARCA D'ÁGUA E CABEÇALHOS DE PDF
+   CABEÇALHOS E UTILITÁRIOS DE PDF (FUNDO LIMPO E PROFISSIONAL)
    ============================================================ */
 function marcaDaguaOutono(doc, pageW, pageH){
-  function rgb(c){ doc.setFillColor(c[0], c[1], c[2]); }
-  function flor(cx, cy, size, rot, petala, miolo){
-    var n = 6, pr = size*0.52;
-    for(var k=0;k<n;k++){
-      var a = rot + k*(2*Math.PI/n);
-      var px = cx + Math.cos(a)*pr, py = cy + Math.sin(a)*pr;
-      rgb(petala);
-      doc.ellipse(px, py, size*0.42, size*0.24, 'F');
-    }
-    rgb(miolo); doc.circle(cx, cy, size*0.26, 'F');
-  }
-  function folha(cx, cy, size, rot, cor){
-    var cos=Math.cos(rot), sin=Math.sin(rot);
-    function P(x,y){ return [cx + (x*cos - y*sin), cy + (x*sin + y*cos)]; }
-    rgb(cor);
-    var l1=P(0,-size*0.30), l2=P(0,size*0.30);
-    doc.ellipse(l1[0], l1[1], size*0.34, size*0.6, 'F');
-    doc.ellipse(l2[0], l2[1], size*0.34, size*0.6, 'F');
-  }
-
-  var terracota=[196,120,70], ambar=[201,138,43], oliva=[150,125,60],
-      vinho=[160,70,52], mostarda=[196,160,70], miolo=[150,96,40];
-
-  var itens = [
-    [30, 60, 12, 0.5, 0, terracota],
-    [172, 50, 11, -0.4, 1, ambar],
-    [60, 120, 10, 1.2, 1, mostarda],
-    [150, 140, 13, 0.2, 0, oliva],
-    [28, 200, 12, -0.3, 1, terracota],
-    [185, 185, 11, 0.9, 0, vinho],
-    [95, 215, 10, 2.3, 0, ambar],
-    [160, 255, 12, 0.6, 1, oliva],
-    [40, 268, 11, -1.0, 0, mostarda],
-    [110, 285, 10, 1.5, 1, vinho]
-  ];
-
-  var hasG = typeof doc.GState === 'function' && typeof doc.setGState === 'function';
-  if(!hasG) return;
-  doc.setGState(new doc.GState({opacity:0.2}));
-  itens.forEach(function(it){
-    if(it[4] === 1) flor(it[0], it[1], it[2], it[3], it[5], miolo);
-    else folha(it[0], it[1], it[2], it[3], it[5]);
-  });
-  doc.setGState(new doc.GState({opacity:1}));
-  doc.setDrawColor(0,0,0); doc.setLineWidth(0.2);
+  // Planos de fundo decorativos removidos: os PDFs são exportados com fundo limpo e profissional
+  return;
 }
 
 function drawStamp(doc, x, y){
@@ -5906,12 +5862,11 @@ function drawStamp(doc, x, y){
 }
 
 function receiptHeader(doc, title){
-  marcaDaguaOutono(doc, 210, 297);
   doc.setFillColor(181,84,46);
   doc.rect(0, 0, 210, 30, 'F');
   doc.setTextColor(255,255,255);
   doc.setFont('helvetica','bold'); doc.setFontSize(15);
-  doc.text('Fisioterapeuta Responsável: ' + ((config && config.providerName) || 'Matheus'), 15, 15);
+  doc.text('Fisioterapeuta Responsável: ' + ((config && config.providerName) || 'Scarlet Feitosa Santos'), 15, 15);
   doc.setFont('helvetica','normal'); doc.setFontSize(10);
   doc.setTextColor(248,226,212);
   var sub = [(config && config.providerDoc), (config && config.providerContact)].filter(Boolean).join('  -  ');

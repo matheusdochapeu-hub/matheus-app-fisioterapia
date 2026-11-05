@@ -1105,11 +1105,17 @@
         </div>
       </div>
 
-      <!-- ÚNICO BOTÃO GRANDE DE NOVA EVOLUÇÃO ABAIXO DO FILTRO -->
-      <button type="button" class="btn primary add-patient-bar-btn" style="margin:0 0 16px;" onclick="openNewEvolution()">
-        <svg style="width:18px;height:18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        + Nova Evolução
-      </button>
+      <!-- BARRA DE AÇÃO DE EVOLUÇÕES: NOVA EVOLUÇÃO + EXPORTAR EM PDF -->
+      <div style="display:flex;gap:10px;margin:0 0 16px;flex-wrap:wrap;">
+        <button type="button" class="btn primary add-patient-bar-btn" style="flex:1;min-width:180px;margin:0;" onclick="openNewEvolution()">
+          <svg style="width:18px;height:18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          + Nova Evolução
+        </button>
+        <button type="button" id="btnExportEvolucoesPDF" class="btn secondary" style="flex:1;min-width:180px;margin:0;display:inline-flex;align-items:center;justify-content:center;gap:8px;" onclick="openExportEvolutionsBatchModal()">
+          <svg style="width:18px;height:18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          📄 Exportar em PDF
+        </button>
+      </div>
 
       <div id="evosFeedContainer" class="evos-feed"></div>
     </div>
@@ -4120,7 +4126,7 @@ function renderEvolutionsToPDF(list, mainTitle, subtitle){
 
   var y = 64;
   list.forEach(function(ev){
-    if(y > 240){
+    if(y > 235){
       doc.addPage();
       y = 20;
     }
@@ -4130,7 +4136,14 @@ function renderEvolutionsToPDF(list, mainTitle, subtitle){
     doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(181, 84, 46);
     doc.text(getEvolutionLegalName(ev) + '  -  ' + formatDateBR(ev.data) + (ev.hora ? ' às ' + ev.hora : ''), 18, y + 5.5);
 
-    var vitalsTxt = [ev.pa ? 'PA: ' + ev.pa : '', ev.fc ? 'FC: ' + ev.fc : ''].filter(Boolean).join('  |  ');
+    var vitalsParts = [];
+    if(ev.pa) vitalsParts.push('PA: ' + ev.pa);
+    if(ev.fc) vitalsParts.push('FC: ' + ev.fc);
+    if(ev.spo2){
+      var spo2Val = String(ev.spo2).trim();
+      vitalsParts.push('SPO2: ' + (spo2Val.includes('%') ? spo2Val : spo2Val + '%'));
+    }
+    var vitalsTxt = vitalsParts.join('  |  ');
     if(vitalsTxt){
       doc.setFont('helvetica', 'normal'); doc.setTextColor(58, 42, 32);
       doc.text(vitalsTxt, 192, y + 5.5, { align: 'right' });
@@ -4138,6 +4151,7 @@ function renderEvolutionsToPDF(list, mainTitle, subtitle){
     y += 11;
 
     if(ev.estadoClinico){
+      if(y > 255){ doc.addPage(); y = 20; }
       doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(138, 111, 94);
       doc.text('ESTADO CLÍNICO GERAL:', 18, y);
       y += 4;
@@ -4148,6 +4162,7 @@ function renderEvolutionsToPDF(list, mainTitle, subtitle){
     }
 
     if(ev.condutas){
+      if(y > 255){ doc.addPage(); y = 20; }
       doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(138, 111, 94);
       doc.text('CONDUTAS FISIOTERAPÊUTICAS:', 18, y);
       y += 4;
@@ -4157,17 +4172,461 @@ function renderEvolutionsToPDF(list, mainTitle, subtitle){
       y += (splitCondutas.length * 4.5) + 3;
     }
 
+    if(ev.observacoes){
+      if(y > 255){ doc.addPage(); y = 20; }
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(138, 111, 94);
+      doc.text('OBSERVAÇÕES:', 18, y);
+      y += 4;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(58, 42, 32);
+      var splitObs = doc.splitTextToSize(ev.observacoes, 174);
+      doc.text(splitObs, 18, y);
+      y += (splitObs.length * 4.5) + 3;
+    }
+
     doc.setDrawColor(234, 217, 201); doc.setLineWidth(0.3);
     doc.line(15, y, 195, y);
     y += 6;
   });
 
+  if(y > 250){
+    doc.addPage();
+    y = 20;
+  }
   drawStamp(doc, 175, 274);
   doc.setFontSize(8.5); doc.setTextColor(138,111,94); doc.setFont('helvetica','normal');
   doc.text('Emitido em ' + formatDateBR(isoDate(new Date())), 15, 285);
 
   var cleanName = list[0] ? getEvolutionLegalName(list[0]).replace(/\s+/g, '_') + '_' : '';
   doc.save('prontuario_evolucoes_' + cleanName + isoDate(new Date()) + '.pdf');
+}
+
+/* ============================================================
+   EXPORTAÇÃO EM LOTE DE EVOLUÇÕES POR PERÍODO E PACIENTES
+   ============================================================ */
+var evoBatchCurrentPeriod = 'mes';
+
+function evolutionMatchesPatient(ev, p){
+  if(!ev || !p) return false;
+  if(ev.pacienteId && p.id && ev.pacienteId === p.id) return true;
+  var matched = findPatientForEvolution(ev);
+  return !!(matched && matched.id === p.id);
+}
+
+function getWeekBounds(dateStr){
+  var d = dateStr ? new Date(dateStr + 'T12:00:00') : new Date();
+  if(isNaN(d.getTime())) d = new Date();
+  var day = d.getDay();
+  var diffToMon = (day === 0 ? -6 : 1 - day);
+  var mon = new Date(d); mon.setDate(d.getDate() + diffToMon);
+  var sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+  return { start: isoDate(mon), end: isoDate(sun) };
+}
+
+function filterEvolutionsByPeriod(evList, pType, pParams){
+  if(!Array.isArray(evList)) return [];
+  if(pType === 'dia'){
+    return evList.filter(function(ev){ return ev.data === (pParams && pParams.date); });
+  }
+  if(pType === 'semana'){
+    var s = pParams && pParams.startDate;
+    var e = pParams && pParams.endDate;
+    return evList.filter(function(ev){ return (!s || ev.data >= s) && (!e || ev.data <= e); });
+  }
+  if(pType === 'mes'){
+    var y = pParams && pParams.year;
+    var m = pParams && pParams.month;
+    var prefix = y + '-' + String(m).padStart(2, '0');
+    return evList.filter(function(ev){ return ev.data && ev.data.indexOf(prefix) === 0; });
+  }
+  if(pType === 'ano'){
+    var yOnly = pParams && pParams.year;
+    var prefixYr = String(yOnly) + '-';
+    return evList.filter(function(ev){ return ev.data && ev.data.indexOf(prefixYr) === 0; });
+  }
+  if(pType === 'todo'){
+    return evList.slice();
+  }
+  return evList.slice();
+}
+
+function getSelectedEvoBatchFilter(){
+  var pType = evoBatchCurrentPeriod || 'mes';
+  var params = {};
+  var label = '';
+
+  if(pType === 'dia'){
+    var inp = document.getElementById('evoBatchInputDate');
+    var dtVal = (inp && inp.value) || isoDate(new Date());
+    params.date = dtVal;
+    label = 'Dia ' + formatDateBR(dtVal);
+  } else if(pType === 'semana'){
+    var inpW = document.getElementById('evoBatchInputWeek');
+    var dtWVal = (inpW && inpW.value) || isoDate(new Date());
+    var bounds = getWeekBounds(dtWVal);
+    params.startDate = bounds.start;
+    params.endDate = bounds.end;
+    label = 'Semana de ' + formatDateBR(bounds.start) + ' a ' + formatDateBR(bounds.end);
+  } else if(pType === 'mes'){
+    var selM = document.getElementById('evoBatchInputMonth');
+    var selY = document.getElementById('evoBatchInputYear');
+    var now = new Date();
+    var m = selM ? parseInt(selM.value, 10) : (now.getMonth() + 1);
+    var y = selY ? parseInt(selY.value, 10) : now.getFullYear();
+    params.month = m;
+    params.year = y;
+    var monthNames = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    label = (monthNames[m - 1] || 'Mês') + ' de ' + y;
+  } else if(pType === 'ano'){
+    var selYOnly = document.getElementById('evoBatchInputYearOnly');
+    var now2 = new Date();
+    var y2 = selYOnly ? parseInt(selYOnly.value, 10) : now2.getFullYear();
+    params.year = y2;
+    label = 'Ano de ' + y2;
+  } else {
+    pType = 'todo';
+    label = 'Todo o Período';
+  }
+
+  return { type: pType, params: params, label: label };
+}
+
+function setEvoBatchPeriod(period){
+  evoBatchCurrentPeriod = period;
+  var btns = document.querySelectorAll('.evo-period-btn');
+  btns.forEach(function(b){
+    if(b.getAttribute('data-period') === period){
+      b.classList.add('active');
+      b.style.background = 'var(--primary)';
+      b.style.color = '#fff';
+      b.style.fontWeight = '700';
+    } else {
+      b.classList.remove('active');
+      b.style.background = 'transparent';
+      b.style.color = 'var(--ink)';
+      b.style.fontWeight = '500';
+    }
+  });
+
+  var container = document.getElementById('evoBatchControlsContainer');
+  if(!container) return;
+
+  var now = new Date();
+  var todayIso = isoDate(now);
+  var curYear = now.getFullYear();
+  var curMonth = now.getMonth() + 1;
+
+  var html = '';
+  if(period === 'dia'){
+    html = '<div style="display:flex;align-items:center;gap:8px;">' +
+      '<label style="font-size:12px;font-weight:600;color:var(--ink);white-space:nowrap;">Data específica:</label>' +
+      '<input type="date" id="evoBatchInputDate" value="' + todayIso + '" style="flex:1;padding:6px 10px;border-radius:var(--radius-xs);border:1px solid var(--line);font-size:13px;" onchange="updateEvoBatchModalCounts()">' +
+    '</div>';
+  } else if(period === 'semana'){
+    var bounds = getWeekBounds(todayIso);
+    html = '<div style="display:flex;flex-direction:column;gap:4px;">' +
+      '<div style="display:flex;align-items:center;gap:8px;">' +
+        '<label style="font-size:12px;font-weight:600;color:var(--ink);white-space:nowrap;">Data na semana:</label>' +
+        '<input type="date" id="evoBatchInputWeek" value="' + todayIso + '" style="flex:1;padding:6px 10px;border-radius:var(--radius-xs);border:1px solid var(--line);font-size:13px;" onchange="updateEvoBatchModalCounts()">' +
+      '</div>' +
+      '<div id="evoBatchWeekRangeLabel" style="font-size:11.5px;color:var(--primary-deep);font-weight:600;margin-top:2px;">' +
+        'Intervalo: ' + formatDateBR(bounds.start) + ' a ' + formatDateBR(bounds.end) +
+      '</div>' +
+    '</div>';
+  } else if(period === 'mes'){
+    var monthNames = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    var monthOpts = monthNames.map(function(mName, idx){
+      var num = idx + 1;
+      return '<option value="' + num + '" ' + (num === curMonth ? 'selected' : '') + '>' + mName + '</option>';
+    }).join('');
+    var yearOpts = '';
+    for(var yr = curYear - 3; yr <= curYear + 2; yr++){
+      yearOpts += '<option value="' + yr + '" ' + (yr === curYear ? 'selected' : '') + '>' + yr + '</option>';
+    }
+    html = '<div style="display:flex;align-items:center;gap:8px;">' +
+      '<label style="font-size:12px;font-weight:600;color:var(--ink);white-space:nowrap;">Mês / Ano:</label>' +
+      '<select id="evoBatchInputMonth" style="flex:2;padding:6px 10px;border-radius:var(--radius-xs);border:1px solid var(--line);font-size:13px;" onchange="updateEvoBatchModalCounts()">' + monthOpts + '</select>' +
+      '<select id="evoBatchInputYear" style="flex:1;padding:6px 10px;border-radius:var(--radius-xs);border:1px solid var(--line);font-size:13px;" onchange="updateEvoBatchModalCounts()">' + yearOpts + '</select>' +
+    '</div>';
+  } else if(period === 'ano'){
+    var yearOptsOnly = '';
+    for(var yr2 = curYear - 3; yr2 <= curYear + 2; yr2++){
+      yearOptsOnly += '<option value="' + yr2 + '" ' + (yr2 === curYear ? 'selected' : '') + '>' + yr2 + '</option>';
+    }
+    html = '<div style="display:flex;align-items:center;gap:8px;">' +
+      '<label style="font-size:12px;font-weight:600;color:var(--ink);white-space:nowrap;">Ano completo:</label>' +
+      '<select id="evoBatchInputYearOnly" style="flex:1;padding:6px 10px;border-radius:var(--radius-xs);border:1px solid var(--line);font-size:13px;" onchange="updateEvoBatchModalCounts()">' + yearOptsOnly + '</select>' +
+    '</div>';
+  } else {
+    html = '<div style="font-size:12px;color:var(--ink-soft);padding:4px 0;">' +
+      'Exportar todo o histórico de evoluções dos pacientes selecionados (sem restrição de data).' +
+    '</div>';
+  }
+
+  container.innerHTML = html;
+  updateEvoBatchModalCounts();
+}
+
+function updateEvoBatchModalCounts(){
+  var filterResult = getSelectedEvoBatchFilter();
+  var titleEl = document.getElementById('evoBatchSelectedPeriodTitle');
+  if(titleEl){
+    titleEl.innerHTML = '&#128197; ' + filterResult.label;
+  }
+  var weekLabel = document.getElementById('evoBatchWeekRangeLabel');
+  if(weekLabel && filterResult.type === 'semana' && filterResult.params){
+    weekLabel.innerText = 'Intervalo: ' + formatDateBR(filterResult.params.startDate) + ' a ' + formatDateBR(filterResult.params.endDate);
+  }
+
+  var filteredEvos = filterEvolutionsByPeriod(evolutions, filterResult.type, filterResult.params);
+
+  patients.forEach(function(p){
+    var countEl = document.getElementById('evoCount-' + p.id);
+    if(countEl){
+      var count = filteredEvos.filter(function(ev){
+        return evolutionMatchesPatient(ev, p);
+      }).length;
+      if(count > 0){
+        countEl.className = 'patient-chk-count';
+        countEl.style.color = 'var(--primary-deep)';
+        countEl.style.fontWeight = '700';
+        countEl.innerText = '(' + count + (count === 1 ? ' evolução' : ' evoluções') + ')';
+      } else {
+        countEl.className = 'patient-chk-count';
+        countEl.style.color = 'var(--ink-soft)';
+        countEl.style.fontWeight = '500';
+        countEl.innerText = '(0 evoluções)';
+      }
+    }
+  });
+
+  updateEvoBatchTotalCountOnly();
+}
+
+function updateEvoBatchTotalCountOnly(){
+  var filterResult = getSelectedEvoBatchFilter();
+  var filteredEvos = filterEvolutionsByPeriod(evolutions, filterResult.type, filterResult.params);
+  var chks = document.querySelectorAll('.evo-batch-chk:checked');
+  var selectedIds = Array.from(chks).map(function(c){ return c.value; });
+
+  var total = filteredEvos.filter(function(ev){
+    var p = findPatientForEvolution(ev);
+    return p && selectedIds.indexOf(p.id) > -1;
+  }).length;
+
+  var totalEl = document.getElementById('evoBatchTotalCount');
+  if(totalEl){
+    totalEl.innerText = total;
+  }
+}
+
+function toggleSelectAllEvoBatch(master){
+  var chks = document.querySelectorAll('.evo-batch-chk');
+  chks.forEach(function(c){ c.checked = master.checked; });
+  updateEvoBatchTotalCountOnly();
+}
+
+function openExportEvolutionsBatchModal(){
+  if(!patients || patients.length === 0){
+    alert('Ainda não há pacientes cadastrados.');
+    return;
+  }
+
+  patients = deduplicatePatientsList(patients);
+  var sortedPatients = patients.slice().sort(function(a,b){
+    return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b), 'pt-BR');
+  });
+
+  var rowsHtml = sortedPatients.map(function(p){
+    return '<label class="patient-chk-row">' +
+      '<input type="checkbox" class="evo-batch-chk" value="' + escapeHtml(p.id) + '" checked onchange="updateEvoBatchTotalCountOnly()">' +
+      '<span class="patient-chk-info"><b>' + escapeHtml(getPatientDisplayName(p)) + '</b></span>' +
+      '<span class="patient-chk-count" id="evoCount-' + escapeHtml(p.id) + '">-</span>' +
+    '</label>';
+  }).join('');
+
+  var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
+    '<div class="modal">' +
+      '<div class="grabber"></div>' +
+      '<h2>Exportar Evoluções em PDF</h2>' +
+      '<p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 10px;">Selecione o período e os pacientes para exportar o histórico de evoluções clínicas.</p>' +
+
+      '<div style="display:flex;gap:4px;margin-bottom:10px;background:var(--bg);padding:4px;border-radius:var(--radius-sm);border:1px solid var(--line);overflow-x:auto;">' +
+        '<button type="button" class="btn small evo-period-btn" data-period="mes" style="flex:1;min-width:60px;" onclick="setEvoBatchPeriod(\'mes\')">Mês</button>' +
+        '<button type="button" class="btn small evo-period-btn" data-period="semana" style="flex:1;min-width:65px;" onclick="setEvoBatchPeriod(\'semana\')">Semana</button>' +
+        '<button type="button" class="btn small evo-period-btn" data-period="dia" style="flex:1;min-width:55px;" onclick="setEvoBatchPeriod(\'dia\')">Dia</button>' +
+        '<button type="button" class="btn small evo-period-btn" data-period="ano" style="flex:1;min-width:55px;" onclick="setEvoBatchPeriod(\'ano\')">Ano</button>' +
+        '<button type="button" class="btn small evo-period-btn" data-period="todo" style="flex:1;min-width:65px;" onclick="setEvoBatchPeriod(\'todo\')">Todo</button>' +
+      '</div>' +
+
+      '<div id="evoBatchControlsContainer" style="margin-bottom:10px;"></div>' +
+
+      '<div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg);padding:8px 10px;border-radius:var(--radius-xs);margin-bottom:6px;">' +
+        '<span id="evoBatchSelectedPeriodTitle" style="font-size:12px;font-weight:700;color:var(--primary-deep);">&#128197; -</span>' +
+        '<label style="font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;cursor:pointer;">' +
+          '<input type="checkbox" id="chkSelectAllEvoBatch" checked onchange="toggleSelectAllEvoBatch(this)"> Selecionar todos' +
+        '</label>' +
+      '</div>' +
+
+      '<div class="patient-chk-list">' + rowsHtml + '</div>' +
+
+      '<div class="btn-row">' +
+        '<button type="button" class="btn ghost" onclick="closeModal()">Cancelar</button>' +
+        '<button type="button" class="btn accent" style="flex:1;" onclick="submitExportEvolutionsBatchPDF()">' +
+          '&#128196; Gerar PDF (<span id="evoBatchTotalCount">0</span>)' +
+        '</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+
+  openModal(html);
+  setEvoBatchPeriod('mes');
+}
+
+function submitExportEvolutionsBatchPDF(){
+  var chks = document.querySelectorAll('.evo-batch-chk:checked');
+  if(!chks || chks.length === 0){
+    alert('Selecione ao menos um paciente.');
+    return;
+  }
+
+  var selectedPatientIds = Array.from(chks).map(function(c){ return c.value; });
+  var filterResult = getSelectedEvoBatchFilter();
+  var pType = filterResult.type;
+  var pParams = filterResult.params;
+  var pLabel = filterResult.label;
+
+  var allPeriodEvos = filterEvolutionsByPeriod(evolutions, pType, pParams);
+
+  var targetPatients = patients.filter(function(p){
+    return selectedPatientIds.indexOf(p.id) > -1;
+  }).sort(function(a, b){
+    return getPatientLegalName(a).localeCompare(getPatientLegalName(b), 'pt-BR');
+  });
+
+  var exportGroups = [];
+  var totalEvosCount = 0;
+
+  targetPatients.forEach(function(p){
+    var pEvos = allPeriodEvos.filter(function(ev){
+      return evolutionMatchesPatient(ev, p);
+    }).sort(function(a, b){
+      var cmp = (a.data || '').localeCompare(b.data || '');
+      if(cmp !== 0) return cmp;
+      return (a.hora || '').localeCompare(b.hora || '');
+    });
+
+    if(pEvos.length > 0){
+      exportGroups.push({ patient: p, evos: pEvos });
+      totalEvosCount += pEvos.length;
+    }
+  });
+
+  if(exportGroups.length === 0 || totalEvosCount === 0){
+    alert('Nenhuma evolução encontrada para os pacientes selecionados no período escolhido.');
+    return;
+  }
+
+  var doc = new jspdf.jsPDF();
+  var isFirstPage = true;
+
+  exportGroups.forEach(function(group){
+    if(!isFirstPage){
+      doc.addPage();
+    }
+    isFirstPage = false;
+
+    var p = group.patient;
+    var list = group.evos;
+
+    receiptHeader(doc, 'Prontuário Fisioterapêutico · Evoluções');
+
+    doc.setFontSize(10.5); doc.setTextColor(138, 111, 94);
+    doc.text('Paciente: ' + getPatientLegalName(p) + '   |   Período: ' + pLabel, 15, 54);
+
+    var y = 64;
+    list.forEach(function(ev){
+      if(y > 235){
+        doc.addPage();
+        y = 20;
+      }
+
+      doc.setFillColor(248, 236, 224);
+      doc.rect(15, y, 180, 8, 'F');
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(181, 84, 46);
+      doc.text(getEvolutionLegalName(ev) + '  -  ' + formatDateBR(ev.data) + (ev.hora ? ' às ' + ev.hora : ''), 18, y + 5.5);
+
+      var vitalsParts = [];
+      if(ev.pa) vitalsParts.push('PA: ' + ev.pa);
+      if(ev.fc) vitalsParts.push('FC: ' + ev.fc);
+      if(ev.spo2){
+        var spo2Val = String(ev.spo2).trim();
+        vitalsParts.push('SPO2: ' + (spo2Val.includes('%') ? spo2Val : spo2Val + '%'));
+      }
+      var vitalsTxt = vitalsParts.join('  |  ');
+      if(vitalsTxt){
+        doc.setFont('helvetica', 'normal'); doc.setTextColor(58, 42, 32);
+        doc.text(vitalsTxt, 192, y + 5.5, { align: 'right' });
+      }
+      y += 11;
+
+      if(ev.estadoClinico){
+        if(y > 255){ doc.addPage(); y = 20; }
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(138, 111, 94);
+        doc.text('ESTADO CLÍNICO GERAL:', 18, y);
+        y += 4;
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(58, 42, 32);
+        var splitEstado = doc.splitTextToSize(ev.estadoClinico, 174);
+        doc.text(splitEstado, 18, y);
+        y += (splitEstado.length * 4.5) + 3;
+      }
+
+      if(ev.condutas){
+        if(y > 255){ doc.addPage(); y = 20; }
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(138, 111, 94);
+        doc.text('CONDUTAS FISIOTERAPÊUTICAS:', 18, y);
+        y += 4;
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(58, 42, 32);
+        var splitCondutas = doc.splitTextToSize(ev.condutas, 174);
+        doc.text(splitCondutas, 18, y);
+        y += (splitCondutas.length * 4.5) + 3;
+      }
+
+      if(ev.observacoes){
+        if(y > 255){ doc.addPage(); y = 20; }
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(138, 111, 94);
+        doc.text('OBSERVAÇÕES:', 18, y);
+        y += 4;
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(58, 42, 32);
+        var splitObs = doc.splitTextToSize(ev.observacoes, 174);
+        doc.text(splitObs, 18, y);
+        y += (splitObs.length * 4.5) + 3;
+      }
+
+      doc.setDrawColor(234, 217, 201); doc.setLineWidth(0.3);
+      doc.line(15, y, 195, y);
+      y += 6;
+    });
+
+    if(y > 250){
+      doc.addPage();
+      y = 20;
+    }
+    drawStamp(doc, 175, 274);
+    doc.setFontSize(8.5); doc.setTextColor(138, 111, 94); doc.setFont('helvetica', 'normal');
+    doc.text('Emitido em ' + formatDateBR(isoDate(new Date())), 15, 285);
+  });
+
+  var periodSlug = pType + (pType === 'mes' ? '_' + pParams.year + '-' + String(pParams.month).padStart(2,'0') : (pType === 'ano' ? '_' + pParams.year : (pType === 'dia' ? '_' + pParams.date : '')));
+  var filename = '';
+  if(exportGroups.length === 1){
+    var cleanPacName = getPatientLegalName(exportGroups[0].patient).replace(/\s+/g, '_');
+    filename = 'evolucoes_' + cleanPacName + '_' + periodSlug + '.pdf';
+  } else {
+    filename = 'evolucoes_lote_' + exportGroups.length + '_pacientes_' + periodSlug + '.pdf';
+  }
+
+  doc.save(filename);
+  closeModal();
 }
 
 /* ============================================================

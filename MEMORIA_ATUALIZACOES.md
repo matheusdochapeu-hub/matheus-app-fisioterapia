@@ -1,7 +1,29 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `04/11/2026`  
-Versão do Service Worker: `atend-v56` (`sw.js`)
+Versão do Service Worker: `atend-v57` (`sw.js`)
+
+---
+
+## 25. Exportação em Lote de Evoluções em PDF por Período e Múltiplos Pacientes (`v57`)
+- **1. Botão "Exportar em PDF" na Aba Evoluções:**
+  - Adicionado botão de destaque (`#btnExportEvolucoesPDF`) ao lado de `+ Nova Evolução` no topo da aba Evoluções (`#tabEvolucoesView`).
+- **2. Modal Inteligente de Exportação em Lote (`openExportEvolutionsBatchModal`):**
+  - **Filtro Temporal Dinâmico:** Seletor por botões rápidos com suporte a:
+    - *Dia específico:* Seletor de data pontual.
+    - *Semana:* Seletor de data de referência com cálculo automático do intervalo semanal completo de Segunda a Domingo (`getWeekBounds`).
+    - *Mês:* Seletor de Mês e Ano.
+    - *Ano:* Seletor de Ano completo.
+    - *Todo o Período:* Exportação de todo o histórico sem restrição temporal.
+  - **Seleção de Pacientes:** Lista com checkboxes individuais e botão mestre "Selecionar todos".
+  - **Contadores em Tempo Real:** Atualização imediata do badge de contagem de evoluções por paciente no período (`(X evoluções)`) e do total geral no botão de confirmação.
+- **3. Estrutura do Documento PDF Gerado (`submitExportEvolutionsBatchPDF` / `renderEvolutionsToPDF`):**
+  - Fundo branco limpo, sem planos de fundo nem marcas d'água.
+  - Cabeçalho padronizado `Prontuário Fisioterapêutico · Evoluções` com identificação do paciente e período exportado.
+  - Sinais vitais com inclusão obrigatória de `SPO2` formatada (`SPO2: XX%`).
+  - Bloco de `OBSERVAÇÕES` incluído sempre que preenchido.
+  - Separação por paciente com quebra de página (`doc.addPage()`) e carimbo profissional com data de emissão ao final de cada registro.
+  - Nome do arquivo padronizado: `evolucoes_[Nome]_[periodo].pdf` (individual) ou `evolucoes_lote_[N]_pacientes_[periodo].pdf` (múltiplos).
 
 ---
 

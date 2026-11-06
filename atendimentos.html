@@ -832,6 +832,100 @@
     to{transform:translate3d(0, 0, 0);opacity:1;}
   }
 
+
+  /* Formato Padronizado de Botões em Pílula (Pill Action Buttons) */
+  .pill-action-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+  .btn-pill {
+    width: 100%;
+    box-sizing: border-box;
+    height: 38px;
+    min-height: 38px;
+    border-radius: 999px !important;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: 'Inter', -apple-system, sans-serif;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+    box-shadow: var(--shadow-soft);
+    padding: 0 14px;
+    line-height: 1;
+  }
+  .btn-pill:hover {
+    filter: brightness(1.04);
+  }
+  .btn-pill:active {
+    transform: scale(0.985);
+  }
+  .btn-pill.primary-green {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    color: #ffffff !important;
+    border: none !important;
+    font-weight: 700;
+    box-shadow: 0 2px 6px rgba(16,185,129,0.3);
+  }
+  .btn-pill.primary-accent {
+    background: linear-gradient(135deg, #b45309 0%, #92400e 100%) !important;
+    color: #ffffff !important;
+    border: none !important;
+    font-weight: 700;
+    box-shadow: 0 2px 6px rgba(180,83,9,0.3);
+  }
+  .btn-pill.primary-terracotta {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-deep) 100%) !important;
+    color: #ffffff !important;
+    border: none !important;
+    font-weight: 700;
+    box-shadow: 0 2px 6px rgba(124,45,18,0.3);
+  }
+  .btn-pill.outline {
+    background: var(--surface) !important;
+    border: 1px solid var(--line-strong, #d8cbbf) !important;
+    color: var(--ink) !important;
+  }
+  .btn-pill.outline:hover {
+    background: var(--bg-tint) !important;
+    border-color: var(--primary) !important;
+  }
+  .btn-pill.outline-highlight {
+    background: var(--surface) !important;
+    border: 1.5px solid var(--primary, #7c2d12) !important;
+    color: var(--primary-deep, #571e0c) !important;
+    font-weight: 700;
+  }
+  .btn-pill.danger-solid {
+    background: #992d24 !important;
+    color: #ffffff !important;
+    border: none !important;
+    font-weight: 700;
+    box-shadow: 0 2px 6px rgba(153,45,36,0.25);
+  }
+  .btn-pill.danger-solid:hover {
+    filter: brightness(1.08);
+  }
+  .sched-actions .btn {
+    border-radius: 999px !important;
+    height: 38px;
+    min-height: 38px;
+    font-size: 13px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
 </style>
 </head>
 <body>
@@ -2480,49 +2574,17 @@ function renderSinglePatientCardHtml(p){
     '</div>' +
     quickArchivedBar +
     '<div class="p-cascade '+(isOpen?'':'hidden')+'" id="pcascade_'+p.id+'">' +
-      '<div class="cascade-grid">' +
-        '<button class="casc-btn" onclick="openNewEntry(\''+p.id+'\')">' +
-          '<span class="casc-icon">&#128205;</span>' +
-          '<div class="casc-info"><span class="casc-title">Check-in</span><span class="casc-desc">Lançar sessão rápida</span></div>' +
-        '</button>' +
-        '<button class="casc-btn" onclick="openScheduleModal(\''+p.id+'\')">' +
-          '<span class="casc-icon">&#128197;</span>' +
-          '<div class="casc-info"><span class="casc-title">Agendar</span><span class="casc-desc">Semana/mês & Google Agenda</span></div>' +
-        '</button>' +
-        '<button class="casc-btn" onclick="openNewEvolution(\''+p.id+'\')">' +
-          '<span class="casc-icon">&#129658;</span>' +
-          '<div class="casc-info"><span class="casc-title">Evolução</span><span class="casc-desc">Registrar prontuário</span></div>' +
-        '</button>' +
-        '<button class="casc-btn" onclick="openPatientEvolutions(\''+p.id+'\')">' +
-          '<span class="casc-icon">&#128203;</span>' +
-          '<div class="casc-info"><span class="casc-title">Evoluções</span><span class="casc-desc">Histórico & PDF</span></div>' +
-        '</button>' +
-        '<button class="casc-btn" onclick="openPatientForm(\''+p.id+'\')">' +
-          '<span class="casc-icon">&#128100;</span>' +
-          '<div class="casc-info"><span class="casc-title">Dados Cadastrais</span><span class="casc-desc">Ficha & CREFITO-3</span></div>' +
-        '</button>' +
-        '<button class="casc-btn" onclick="openPatientFilesModal(\''+p.id+'\', \'exame\')">' +
-          '<span class="casc-icon">&#128221;</span>' +
-          '<div class="casc-info"><span class="casc-title">Exames</span><span class="casc-desc">Laudos, fotos & PDFs</span></div>' +
-        '</button>' +
-        '<button class="casc-btn" style="grid-column:1 / -1;" onclick="openPatientFilesModal(\''+p.id+'\', \'documento\')">' +
-          '<span class="casc-icon">&#128193;</span>' +
-          '<div class="casc-info"><span class="casc-title">Documentos</span><span class="casc-desc">Termos, receitas & fotos</span></div>' +
-        '</button>' +
-        '<button class="casc-btn" style="grid-column:1 / -1;" onclick="openPatientFinancial(\''+p.id+'\')">' +
-          '<span class="casc-icon">&#128176;</span>' +
-          '<div class="casc-info"><span class="casc-title">Financeiro do Paciente</span><span class="casc-desc">Extrato de sessões por período & recibos</span></div>' +
-        '</button>' +
-        '<button class="casc-btn" style="grid-column:1 / -1;" onclick="toggleArchivePatient(\''+p.id+'\')">' +
-          '<span class="casc-icon">'+(isArchived ? '&#128260;' : '&#128194;')+'</span>' +
-          '<div class="casc-info"><span class="casc-title">'+(isArchived ? 'Desarquivar / Reativar Paciente' : 'Finalizar / Arquivar Paciente')+'</span><span class="casc-desc">'+(isArchived ? 'Retornar à lista de pacientes ativos' : 'Mover para a aba de Pacientes Arquivados no final da página')+'</span></div>' +
-        '</button>' +
-        (isArchived
-          ? '<button class="casc-btn" style="grid-column:1 / -1;border-color:rgba(168,51,51,0.3);background:var(--danger-bg);" onclick="deletePatient(\''+p.id+'\')">' +
-              '<span class="casc-icon">&#128465;&#65039;</span>' +
-              '<div class="casc-info"><span class="casc-title" style="color:var(--danger);">Excluir Definitivamente</span><span class="casc-desc" style="color:var(--danger);">Apagar permanentemente o paciente arquivado</span></div>' +
-            '</button>'
-          : '') +
+      '<div class="pill-action-stack" style="gap:8px;">' +
+        '<button class="btn-pill primary-green" onclick="openNewEntry(\''+p.id+'\')"><span>&#128205;</span> Check-in</button>' +
+        '<button class="btn-pill primary-terracotta" onclick="openScheduleModal(\''+p.id+'\')"><span>&#128197;</span> Agendar</button>' +
+        '<button class="btn-pill primary-accent" onclick="openNewEvolution(\''+p.id+'\')"><span>&#129658;</span> Evolução</button>' +
+        '<button class="btn-pill outline" onclick="openPatientEvolutions(\''+p.id+'\')"><span>&#128203;</span> Evoluções</button>' +
+        '<button class="btn-pill outline" onclick="openPatientForm(\''+p.id+'\')"><span>&#128100;</span> Dados cadastrais</button>' +
+        '<button class="btn-pill outline" onclick="openPatientFilesModal(\''+p.id+'\', \'exame\')"><span>&#128221;</span> Exames</button>' +
+        '<button class="btn-pill outline" onclick="openPatientFilesModal(\''+p.id+'\', \'documento\')"><span>&#128193;</span> Documentos</button>' +
+        '<button class="btn-pill outline-highlight" onclick="openPatientFinancial(\''+p.id+'\')"><span>&#128176;</span> Financeiro paciente</button>' +
+        '<button class="btn-pill outline" onclick="toggleArchivePatient(\''+p.id+'\')"><span>'+(isArchived ? '&#128260;' : '&#128194;')+'</span> '+(isArchived ? 'Reativar paciente' : 'Finalizar')+'</button>' +
+        (isArchived ? '<button class="btn-pill danger-solid" onclick="deletePatient(\''+p.id+'\')"><span>&#128465;&#65039;</span> Excluir paciente</button>' : '') +
       '</div>' +
     '</div>' +
   '</div>';
@@ -4943,13 +5005,11 @@ function renderList(){
             '<span class="badge '+(pago?'pago':'pendente')+'" onclick="badgeClick(\''+e.id+'\')">'+escapeHtml(e.status)+'</span>' +
           '</div>' +
         '</div>' +
-        '<div class="entry-actions'+(pago?' paid':'')+'">' +
-          payBtn +
-          '<div class="entry-icons">' +
-            '<button onclick="generateReceipt(\''+e.id+'\')" aria-label="Gerar recibo">&#128220; <span class="lbl">Recibo</span></button>' +
-            '<button onclick="openEditEntry(\''+e.id+'\')" aria-label="Editar atendimento">&#9998; <span class="lbl">Editar</span></button>' +
-            '<button class="del" onclick="deleteEntry(\''+e.id+'\')" aria-label="Excluir atendimento">&#10005; <span class="lbl">Excluir</span></button>' +
-          '</div>' +
+        '<div class="pill-action-stack" style="border-top:1px dashed var(--line);padding-top:10px;margin-top:8px;">' +
+          (!pago ? '<button class="btn-pill primary-green" onclick="openPaymentModal(\''+e.id+'\')">💰 Registrar pagamento</button>' : '') +
+          '<button class="btn-pill outline" onclick="generateReceipt(\''+e.id+'\')">📄 Recibo</button>' +
+          '<button class="btn-pill outline" onclick="openEditEntry(\''+e.id+'\')">✎ Editar</button>' +
+          '<button class="btn-pill danger-solid" onclick="deleteEntry(\''+e.id+'\')">🗑 Excluir</button>' +
         '</div>' +
       '</div>' +
     '</div>';

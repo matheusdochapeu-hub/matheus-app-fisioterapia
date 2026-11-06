@@ -1,7 +1,34 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
-Data da consolidação: `04/11/2026`  
-Versão do Service Worker: `atend-v62` (`sw.js`)
+Data da consolidação: `06/11/2026`  
+Versão do Service Worker: `atend-v63` (`sw.js`)
+
+---
+
+## 31. Padronização de Botões em Formato Pílula (Pill Buttons) nas Abas Pacientes e Financeiro (`v63`)
+- **1. Formato Pílula Padronizado (Full-Width Pill Action Stack):**
+  - Implementado sistema de estilos CSS unificado (`.pill-action-stack` e `.btn-pill`) inspirado no layout validado da Agenda, com altura ergonômica de 38px, bordas 100% arredondadas em formato cápsula (`border-radius: 999px`), fonte Inter semibold (13px), ícones centrais e largura total (100%).
+- **2. Aba Pacientes (Card de Ações em Cascata):**
+  - Substituído o antigo grid de 2 colunas por uma pilha vertical limpa, elegante e de fácil toque:
+    - `📍 Check-in` (pílula verde esmeralda `.primary-green`)
+    - `📅 Agendar` (pílula terracota `.primary-terracotta`)
+    - `🩺 Evolução` (pílula mostarda outonal `.primary-accent`)
+    - `📋 Evoluções` (pílula contorno `.outline`)
+    - `👤 Dados cadastrais` (pílula contorno `.outline`)
+    - `📝 Exames` (pílula contorno `.outline`)
+    - `📁 Documentos` (pílula contorno `.outline`)
+    - `💰 Financeiro paciente` (pílula destaque `.outline-highlight`)
+    - `📦 Finalizar / ↺ Reativar` (pílula contorno `.outline`)
+    - `🗑 Excluir paciente` (pílula vermelha sólida `.danger-solid`, exibida se arquivado)
+- **3. Aba Financeiro (Ações de Cada Atendimento):**
+  - Substituída a antiga fileira de botões pequenos pelo padrão pílula vertical:
+    - `💰 Registrar pagamento` (pílula verde `.primary-green`, exibida quando pendente)
+    - `📄 Recibo` (pílula contorno `.outline`)
+    - `✎ Editar` (pílula contorno `.outline`)
+    - `🗑 Excluir` (pílula vermelha sólida `.danger-solid`)
+- **Service Worker & Testes:**
+  - Versão do Service Worker incrementada para `atend-v63` (`sw.js`).
+  - 167 testes automatizados executados e 100% aprovados.
 
 ---
 

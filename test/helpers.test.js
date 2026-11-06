@@ -1017,3 +1017,39 @@ describe('Aprimoramento de UX na Agenda: Botão Check-in em Evidência e Privaci
     assert.ok(html.includes('✓ Fazer Check-in'), 'deve ter rótulo claro de check-in');
   });
 });
+
+describe('Padronização de Botões em Formato Pílula (Pill Buttons) nas abas Pacientes e Financeiro', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'atendimentos.html'), 'utf8');
+
+  test('possui definições CSS para botões em formato pílula e pilha de ações', () => {
+    assert.ok(html.includes('.pill-action-stack'), 'deve possuir .pill-action-stack');
+    assert.ok(html.includes('.btn-pill'), 'deve possuir .btn-pill');
+    assert.ok(html.includes('.btn-pill.primary-green'), 'deve possuir .btn-pill.primary-green');
+    assert.ok(html.includes('.btn-pill.primary-accent'), 'deve possuir .btn-pill.primary-accent');
+    assert.ok(html.includes('.btn-pill.primary-terracotta'), 'deve possuir .btn-pill.primary-terracotta');
+    assert.ok(html.includes('.btn-pill.outline'), 'deve possuir .btn-pill.outline');
+    assert.ok(html.includes('.btn-pill.danger-solid'), 'deve possuir .btn-pill.danger-solid');
+    assert.ok(html.includes('.sched-actions .btn'), 'deve padronizar botões da agenda');
+  });
+
+  test('aba Pacientes adota botões em pílula para todas as ações do paciente', () => {
+    assert.ok(html.includes('class="btn-pill primary-green" onclick="openNewEntry('), 'deve possuir botão pílula Check-in');
+    assert.ok(html.includes('class="btn-pill primary-terracotta" onclick="openScheduleModal('), 'deve possuir botão pílula Agendar');
+    assert.ok(html.includes('class="btn-pill primary-accent" onclick="openNewEvolution('), 'deve possuir botão pílula Evolução');
+    assert.ok(html.includes('class="btn-pill outline" onclick="openPatientEvolutions('), 'deve possuir botão pílula Evoluções');
+    assert.ok(html.includes('class="btn-pill outline" onclick="openPatientForm('), 'deve possuir botão pílula Dados cadastrais');
+    assert.ok(html.includes("openPatientFilesModal") && html.includes("Exames</button>"), 'deve possuir botão pílula Exames');
+    assert.ok(html.includes("openPatientFilesModal") && html.includes("Documentos</button>"), 'deve possuir botão pílula Documentos');
+    assert.ok(html.includes('class="btn-pill outline-highlight" onclick="openPatientFinancial('), 'deve possuir botão pílula Financeiro paciente');
+    assert.ok(html.includes('class="btn-pill outline" onclick="toggleArchivePatient('), 'deve possuir botão pílula Finalizar/Reativar');
+    assert.ok(html.includes('class="btn-pill danger-solid" onclick="deletePatient('), 'deve possuir botão pílula Excluir paciente');
+  });
+
+  test('aba Financeiro adota botões em pílula para registrar pagamento, recibo, editar e excluir', () => {
+    assert.ok(html.includes('class="btn-pill primary-green" onclick="openPaymentModal('), 'deve possuir botão pílula Registrar pagamento');
+    assert.ok(html.includes('class="btn-pill outline" onclick="generateReceipt('), 'deve possuir botão pílula Recibo');
+    assert.ok(html.includes('class="btn-pill outline" onclick="openEditEntry('), 'deve possuir botão pílula Editar');
+    assert.ok(html.includes('class="btn-pill danger-solid" onclick="deleteEntry('), 'deve possuir botão pílula Excluir');
+  });
+});
+

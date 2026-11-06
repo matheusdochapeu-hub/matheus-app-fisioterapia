@@ -8,7 +8,7 @@ Este documento registra de forma definitiva a arquitetura, regras de negócio ap
 - **Repositório:** `matheusdochapeu-hub/matheus-app-fisioterapia` (Branch: `main`)
 - **PWA & Front-End:** Single Page Application (SPA) em HTML5/Vanilla JavaScript + CSS moderno (sem dependências de frameworks externos pesados).
 - **Back-End / API:** Google Apps Script (`Code.gs`) integrado ao Google Sheets como banco de dados em nuvem.
-- **Service Worker:** `atend-v62` (`sw.js`).
+- **Service Worker:** `atend-v63` (`sw.js`).
 - **Suíte de Testes:** Node.js native test runner (`node --test test/helpers.test.js`) com 100% de aprovação.
 
 ---

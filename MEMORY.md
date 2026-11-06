@@ -8,39 +8,37 @@ Este documento registra de forma definitiva a arquitetura, regras de negócio ap
 - **Repositório:** `matheusdochapeu-hub/matheus-app-fisioterapia` (Branch: `main`)
 - **PWA & Front-End:** Single Page Application (SPA) em HTML5/Vanilla JavaScript + CSS moderno (sem dependências de frameworks externos pesados).
 - **Back-End / API:** Google Apps Script (`Code.gs`) integrado ao Google Sheets como banco de dados em nuvem.
-- **Service Worker:** `atend-v56` (`sw.js`).
-- **Suíte de Testes:** Node.js native test runner (`node --test test/helpers.test.js`) com 100% de aprovação (136 testes integrados).
+- **Service Worker:** `atend-v59` (`sw.js`).
+- **Suíte de Testes:** Node.js native test runner (`node --test test/helpers.test.js`) com 100% de aprovação.
 
 ---
 
 ## 🏛️ Estrutura e Ordem das Abas Principais
 
-A interface é composta por 5 abas com proporção uniforme de 20%, sem quebra de texto (`white-space: nowrap`) e navegação fluida por toque e gestos:
+A interface é composta por 4 abas com proporção uniforme de 25%, sem quebra de texto (`white-space: nowrap`) e navegação fluida por toque e gestos:
 
-1. **`Check-in` (Aba Inicial Padrão):**
-   - Atendimento diário ágil para rotina clínica em trânsito.
-   - Navegação temporal dinâmica: Dia atual (`Hoje`), dias futuros (`D+1`, `D+2`...) e anteriores (`D-1`, `D-2`...) via botões direcionais `[◀]` e `[▶]`.
-   - Seletor nativo de calendário com 1 toque no título da data e botão `[📅 Voltar p/ Hoje]`.
-   - **Regra de ouro:** Assim que o check-in é realizado (`Confirmar Atendimento`), o paciente **desaparece imediatamente** da lista do dia (permanecendo acessível nas abas Agenda, Pacientes, Evoluções e Financeiro).
-   - Card comemorativo quando todos os atendimentos do dia forem concluídos.
-
-2. **`Pacientes`:**
-   - Gestão cadastral completa, anamnese, busca rápida, prontuário individual e histórico do paciente.
-
-3. **`Agenda`:**
+1. **`Agenda` (Aba Principal e Padrão):**
+   - Central de operações e agendamentos clínicos diários e mensais.
+   - **Ações Rápidas por Paciente nos Cards da Agenda:**
+     - **`[✓ Check-in]`**: Botão de confirmação imediata da sessão (`completeScheduleCheckin`), alterando o status para Realizado e sincronizando com o controle financeiro.
+     - **`[🩺 Evolução]`**: Botão que abre instantaneamente o formulário de evolução clínica (`openNewEvolution`) com paciente, data e hora do atendimento automaticamente preenchidos.
+     - Ações adicionais de gerenciamento: `[✎ Remarcar]`, `[📅 Google Agenda]`, `[✕ Cancelar]` e `[🗑 Excluir]`.
    - Exibição por padrão **apenas do dia vigente**.
    - Botão em evidência para alternância rápida: `[📅 Ver apenas hoje]` / `[📅 Ver mês inteiro]` (`#agendaToggleScopeBtn`).
    - Calendário mensal com destaque visual para o dia atual ("HOJE") e chips de KPI interativos.
    - Alertas inteligentes de trânsito, tempo de deslocamento e estimativa de combustível.
 
-4. **`Evoluções`:**
+2. **`Pacientes`:**
+   - Gestão cadastral completa, anamnese, busca rápida, prontuário individual e histórico do paciente.
+
+3. **`Evoluções`:**
    - Registro de prontuário clínico com campo obrigatório de **SPO2 (Saturação de Oxigênio)** no formato `SPO2: XX%`.
    - Campo dedicado para **Observações** logo abaixo de Condutas.
    - Botão **`[📋 Copiar conduta anterior]`** que puxa automaticamente a última conduta clínica do mesmo paciente.
    - Botão **`[✏️ Editar]`** disponível tanto no feed geral de evoluções quanto no histórico clínico de cada paciente.
    - Botão **`[📄 Exportar em PDF]`** no topo da aba: exporta evoluções em lote permitindo selecionar o período (**Dia específico**, **Semana**, **Mês**, **Ano** ou **Todo o período**) e filtrar por um ou múltiplos pacientes com contadores dinâmicos de evoluções por paciente em tempo real.
 
-5. **`Financeiro`:**
+4. **`Financeiro`:**
    - Controle de honorários, sessões realizadas vs pendentes, previsão mensal e relatório de ausências/férias.
 
 ---

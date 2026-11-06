@@ -637,15 +637,17 @@ describe('Evoluções com SPO2/Observações, Check-in Diário & Google Agenda (
 });
 
 describe('Aba Check-in Inicial, Desaparecimento pós Check-in & Navegação por Gestos Swipe (v51)', () => {
-  test('Check-in é a primeira aba na navegação (à esquerda de Pacientes)', () => {
+  test('Agenda é a primeira aba na navegação (à esquerda de Pacientes) e Check-in diário foi removido das abas', () => {
     const mNav = html.match(/<nav class="main-tabs"[\s\S]*?<\/nav>/);
     assert.ok(mNav, 'nav.main-tabs deve existir');
     const navContent = mNav[0];
-    const checkinIdx = navContent.indexOf('id="tabBtnCheckin"');
+    const agendaIdx = navContent.indexOf('id="tabBtnAgenda"');
     const pacientesIdx = navContent.indexOf('id="tabBtnPacientes"');
-    assert.ok(checkinIdx > -1, 'tabBtnCheckin deve existir');
+    const checkinIdx = navContent.indexOf('id="tabBtnCheckin"');
+    assert.equal(checkinIdx, -1, 'tabBtnCheckin não deve existir');
+    assert.ok(agendaIdx > -1, 'tabBtnAgenda deve existir');
     assert.ok(pacientesIdx > -1, 'tabBtnPacientes deve existir');
-    assert.ok(checkinIdx < pacientesIdx, 'tabBtnCheckin deve ficar antes de tabBtnPacientes');
+    assert.ok(agendaIdx < pacientesIdx, 'tabBtnAgenda deve ficar antes de tabBtnPacientes');
   });
 
   test('Paciente com check-in realizado some da lista de check-in pendente', () => {
@@ -662,7 +664,7 @@ describe('Aba Check-in Inicial, Desaparecimento pós Check-in & Navegação por 
   });
 
   test('Gesto Swipe calcula transição de aba corretamente', () => {
-    const tabs = ['checkin', 'pacientes', 'agenda', 'evolucoes', 'financeiro'];
+    const tabs = ['agenda', 'pacientes', 'evolucoes', 'financeiro'];
     function getNextTab(current, deltaX, deltaY, duration) {
       if (Math.abs(deltaX) >= 45 && duration <= 450 && Math.abs(deltaX) > Math.abs(deltaY) * 1.4) {
         const idx = tabs.indexOf(current);
@@ -672,11 +674,11 @@ describe('Aba Check-in Inicial, Desaparecimento pós Check-in & Navegação por 
       return current;
     }
 
-    assert.equal(getNextTab('checkin', -80, 10, 200), 'pacientes');
-    assert.equal(getNextTab('pacientes', -70, 5, 180), 'agenda');
-    assert.equal(getNextTab('agenda', 80, 5, 200), 'pacientes');
-    assert.equal(getNextTab('pacientes', 60, 10, 210), 'checkin');
-    assert.equal(getNextTab('checkin', -50, 100, 200), 'checkin');
+    assert.equal(getNextTab('agenda', -80, 10, 200), 'pacientes');
+    assert.equal(getNextTab('pacientes', -70, 5, 180), 'evolucoes');
+    assert.equal(getNextTab('evolucoes', 80, 5, 200), 'pacientes');
+    assert.equal(getNextTab('pacientes', 60, 10, 210), 'agenda');
+    assert.equal(getNextTab('agenda', -50, 100, 200), 'agenda');
   });
 
   test('Navegação entre dias no Check-in calcula D+1, D-1, D+2 e D-2 corretamente', () => {
@@ -770,43 +772,54 @@ describe('Exportação de PDF com Fundo Limpo (Remoção de Planos de Fundo)', (
   });
 });
 
-describe('Aba Inicial Padrão Configurável (Check-in padrão com seleção em Configurações)', () => {
+describe('Aba Inicial Padrão Configurável (Agenda padrão com seleção em Configurações)', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'atendimentos.html'), 'utf8');
 
-  test('setupScreen possui select com todas as 5 abas disponíveis e checkin como padrão', () => {
+  test('setupScreen possui select com abas disponíveis e agenda como padrão (sem checkin)', () => {
     assert.equal(html.includes('id="defaultTabSelect"'), true);
-    assert.equal(html.includes('value="checkin"'), true);
-    assert.equal(html.includes('value="pacientes"'), true);
+    assert.equal(html.includes('value="checkin"'), false);
     assert.equal(html.includes('value="agenda"'), true);
+    assert.equal(html.includes('value="pacientes"'), true);
     assert.equal(html.includes('value="evolucoes"'), true);
     assert.equal(html.includes('value="financeiro"'), true);
   });
 
-  test('getDefaultTab retorna checkin por padrão na ausência de configuração', () => {
-    const fnMatch = html.match(/function getDefaultTab\([^)]*\)\s*\{([\s\S]*?)\n\}/);
+  test('getDefaultTab retorna agenda por padrão na ausência de configuração', () => {
+    const fnMatch = html.match(/function getDefaultTab\([^)]*\)\s*\{([\s\S]*?)\r?\n\}/);
     assert.ok(fnMatch);
     const fn = new Function('config', 'localStorage', fnMatch[1]);
     const fakeStorage = { getItem: () => null };
-    assert.equal(fn(null, fakeStorage), 'checkin');
-    assert.equal(fn({}, fakeStorage), 'checkin');
+    assert.equal(fn(null, fakeStorage), 'agenda');
+    assert.equal(fn({}, fakeStorage), 'agenda');
   });
 
   test('getDefaultTab respeita a aba escolhida pelo usuário nas configurações', () => {
-    const fnMatch = html.match(/function getDefaultTab\([^)]*\)\s*\{([\s\S]*?)\n\}/);
+    const fnMatch = html.match(/function getDefaultTab\([^)]*\)\s*\{([\s\S]*?)\r?\n\}/);
     assert.ok(fnMatch);
     const fn = new Function('config', 'localStorage', fnMatch[1]);
-    const fakeStorage = { getItem: (key) => key === 'ft_default_tab' ? 'agenda' : null };
+    const fakeStorage = { getItem: (key) => key === 'ft_default_tab' ? 'evolucoes' : null };
     assert.equal(fn({ defaultTab: 'pacientes' }, fakeStorage), 'pacientes');
-    assert.equal(fn(null, fakeStorage), 'agenda');
+    assert.equal(fn(null, fakeStorage), 'evolucoes');
   });
 
-  test('getDefaultTab faz fallback seguro para checkin se valor for inválido', () => {
-    const fnMatch = html.match(/function getDefaultTab\([^)]*\)\s*\{([\s\S]*?)\n\}/);
+  test('getDefaultTab faz fallback seguro para agenda se valor for inválido', () => {
+    const fnMatch = html.match(/function getDefaultTab\([^)]*\)\s*\{([\s\S]*?)\r?\n\}/);
     assert.ok(fnMatch);
     const fn = new Function('config', 'localStorage', fnMatch[1]);
     const fakeStorage = { getItem: () => 'invalida' };
-    assert.equal(fn({ defaultTab: 'aba_fantasma' }, fakeStorage), 'checkin');
-    assert.equal(fn(null, fakeStorage), 'checkin');
+    assert.equal(fn({ defaultTab: 'aba_fantasma' }, fakeStorage), 'agenda');
+    assert.equal(fn(null, fakeStorage), 'agenda');
+  });
+});
+
+describe('Botões de Ação na Agenda (Check-in e Evoluções nos cards)', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'atendimentos.html'), 'utf8');
+
+  test('Agenda exibe botões de Check-in e Evolução para pacientes nos agendamentos', () => {
+    assert.ok(html.includes('completeScheduleCheckin('), 'deve ter chamada completeScheduleCheckin');
+    assert.ok(html.includes('openNewEvolution('), 'deve ter chamada openNewEvolution');
+    assert.ok(html.includes('Check-in'), 'deve ter botão de check-in');
+    assert.ok(html.includes('Evolução'), 'deve ter botão de evolução');
   });
 });
 

@@ -853,9 +853,8 @@
       <input id="providerContactInput" placeholder="Ex: (11) 99999-9999">
       <label style="margin-top:8px;display:block;">Aba inicial padrão ao abrir o app</label>
       <select id="defaultTabSelect" style="width:100%;padding:10px;border-radius:var(--radius-xs);border:1px solid var(--line-strong);background:var(--card);color:var(--ink);font-size:14px;font-family:inherit;">
-        <option value="checkin">Check-in Diário (Padrão)</option>
         <option value="pacientes">Pacientes</option>
-        <option value="agenda">Agenda</option>
+        <option value="agenda">Agenda (Padrão)</option>
         <option value="evolucoes">Evoluções</option>
         <option value="financeiro">Financeiro</option>
       </select>
@@ -911,18 +910,16 @@
     <!-- 5 ABAS PRINCIPAIS -->
         <!-- 5 ABAS PRINCIPAIS: Check-in à esquerda de Pacientes -->
     <nav class="main-tabs" role="tablist" aria-label="Navegação principal">
-      <button id="tabBtnCheckin" class="main-tab active" onclick="switchMainTab('checkin')" role="tab" aria-selected="true" title="Atendimentos e Check-in de hoje">
-        <svg class="tab-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-        <span>Check-in</span>
+      
+      <button id="tabBtnAgenda" class="main-tab active" onclick="switchMainTab('agenda')" role="tab" aria-selected="true">
+        <svg class="tab-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span>Agenda</span>
       </button>
       <button id="tabBtnPacientes" class="main-tab" onclick="switchMainTab('pacientes')" role="tab" aria-selected="false">
         <svg class="tab-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         <span>Pacientes</span>
       </button>
-      <button id="tabBtnAgenda" class="main-tab" onclick="switchMainTab('agenda')" role="tab" aria-selected="false">
-        <svg class="tab-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        <span>Agenda</span>
-      </button>
+      
       <button id="tabBtnEvolucoes" class="main-tab" onclick="switchMainTab('evolucoes')" role="tab" aria-selected="false">
         <svg class="tab-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
         <span>Evoluções</span>
@@ -935,37 +932,7 @@
 
         <!-- CARROSSEL / SWIPE VIEWS CONTAINER -->
     <div id="tabsCarouselViewport" class="tabs-carousel-viewport">
-      <!-- ABA CHECK-IN: ATENDIMENTO DIÁRIO RÁPIDO COM NAVEGAÇÃO DE DIAS -->
-      <div id="tabCheckinView" class="tab-view">
-        <div class="card" style="margin-bottom:14px;padding:12px 14px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;">
-            <button type="button" class="btn ghost small" style="width:auto;padding:6px 12px;font-size:15px;font-weight:700;line-height:1;" onclick="changeCheckinDay(-1)" title="Dia anterior (D-1)">◀</button>
-            
-            <div style="text-align:center;flex:1;min-width:0;cursor:pointer;position:relative;" onclick="triggerCheckinDatePicker()" title="Toque para escolher outra data no calendário">
-              <div style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;">
-                <span id="checkinDayRelativeBadge" class="tag" style="background:#eff6ff;color:#1d4ed8;font-weight:700;font-size:10.5px;padding:2px 6px;">Hoje</span>
-                <span id="checkinCurrentDayTime" style="font-size:14.5px;font-weight:800;color:var(--ink);">-</span>
-                <span style="font-size:12px;color:var(--ink-faint);">📅</span>
-              </div>
-              <input type="date" id="checkinDateHiddenInput" style="position:absolute;left:50%;top:50%;opacity:0;pointer-events:none;width:0;height:0;" onchange="setCheckinDate(this.value)">
-            </div>
-
-            <button type="button" class="btn ghost small" style="width:auto;padding:6px 12px;font-size:15px;font-weight:700;line-height:1;" onclick="changeCheckinDay(1)" title="Próximo dia (D+1)">▶</button>
-          </div>
-
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid var(--line);padding-top:10px;flex-wrap:wrap;">
-            <div id="checkinStatsSummary" style="font-size:12px;color:var(--ink-soft);font-weight:600;">Carregando atendimentos...</div>
-            <div style="display:flex;align-items:center;gap:6px;">
-              <button type="button" id="checkinBackToTodayBtn" class="btn ghost small hidden" style="width:auto;padding:4px 9px;font-size:11px;font-weight:700;color:var(--primary);border-color:var(--primary);" onclick="changeCheckinDay(0)">📅 Voltar p/ Hoje</button>
-              <button type="button" class="btn primary small" style="width:auto;padding:6px 12px;font-size:12px;font-weight:700;" onclick="openNewEntry()">+ Registrar</button>
-            </div>
-          </div>
-        </div>
-
-        <div id="checkinTodayList"></div>
-      </div>
-
-    <!-- ABA 1: PACIENTES E DADOS CADASTRAIS -->
+      <!-- ABA 1: PACIENTES E DADOS CADASTRAIS -->
     <div id="tabPacientesView" class="tab-view hidden">
       <div class="search-box">
         <svg class="search-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -1232,7 +1199,7 @@ var currentMonth = new Date();
 var agendaMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
 var agendaSelectedDay = isoDate(new Date());
 var schedModalMode = 'single'; // 'single' ou 'batch'
-var currentTab = 'checkin';
+var currentTab = 'agenda';
 var _modalStatePushed = false;
 var reportYear = currentMonth.getFullYear();
 var repMonthFilter = 'all'; // 'all' ou '0'..'11'
@@ -1601,7 +1568,7 @@ function switchMainTab(tab, explicitDir){
   var prevTab = currentTab;
   currentTab = tab;
   try { localStorage.setItem('active_tab', tab); } catch(e){}
-  var tabs = ['checkin', 'pacientes', 'agenda', 'evolucoes', 'financeiro'];
+  var tabs = ['agenda', 'pacientes', 'evolucoes', 'financeiro'];
   var prevIdx = tabs.indexOf(prevTab);
   var newIdx = tabs.indexOf(tab);
   var dir = explicitDir || (newIdx > prevIdx ? 'next' : (newIdx < prevIdx ? 'prev' : 'none'));
@@ -3621,7 +3588,7 @@ function renderEvolutionsTab(){
   }).join('');
 }
 
-function openNewEvolution(preSelectPatientId){
+function openNewEvolution(preSelectPatientId, preSelectDate, preSelectHora){
   if(patients.length === 0){
     alert('Cadastre um paciente antes de registrar evoluções.');
     openPatientForm();
@@ -3654,11 +3621,11 @@ function openNewEvolution(preSelectPatientId){
       '<div class="form-grid-2" style="margin-top:8px;">' +
         '<div>' +
           '<label>Data da sessão</label>' +
-          '<input id="newEvoData" type="date" value="'+isoDate(now)+'" onchange="updateNewEvoScheduleUI()">' +
+          '<input id="newEvoData" type="date" value="'+(preSelectDate || isoDate(now))+'" onchange="updateNewEvoScheduleUI()">' +
         '</div>' +
         '<div>' +
           '<label>Horário</label>' +
-          '<input id="newEvoHora" type="time" value="'+isoTime(now)+'">' +
+          '<input id="newEvoHora" type="time" value="'+(preSelectHora || isoTime(now))+'">' +
         '</div>' +
       '</div>' +
 
@@ -7483,25 +7450,28 @@ function renderAgendaTab(){
       ? '<span class="gcal-sync-tag" title="Sincronizado com Google Agenda">📅 Google Agenda</span>'
       : '';
 
+        var evoPatId = (pObj && pObj.id) ? pObj.id : (sc.pacienteId || '');
     var actionsHtml = '';
     if(st === 'Agendado'){
       actionsHtml = '<div class="sched-actions">' +
-        '<button class="btn small primary" style="background:var(--ok);padding:7px 12px;" onclick="completeScheduleCheckin(\''+sc.id+'\')">✓ Confirmar Atendimento (Check-in)</button>' +
-        '<button class="btn small ghost" style="padding:7px 10px;" onclick="openEditScheduleModal(\''+sc.id+'\')">&#9998; Remarcar</button>' +
+        '<button class="btn small primary" style="background:var(--ok);padding:7px 12px;" onclick="completeScheduleCheckin(\''+sc.id+'\')">✓ Check-in</button>' +
+        '<button class="btn small accent" style="padding:7px 12px;" onclick="openNewEvolution(\''+evoPatId+'\', \''+(sc.data||'')+'\', \''+(sc.hora||'')+'\')" title="Lançar evolução clínica deste paciente">🩺 Evolução</button>' +
+        '<button class="btn small ghost" style="padding:7px 10px;" onclick="openEditScheduleModal(\''+sc.id+'\')">✎ Remarcar</button>' +
         '<button class="btn small ghost" style="padding:7px 10px;" onclick="openScheduleInGCalUrl(\''+sc.id+'\')" title="Abrir diretamente no aplicativo Google Agenda">📅 Google Agenda</button>' +
-        '<button class="btn small danger" style="padding:7px 10px;" onclick="cancelScheduleStatus(\''+sc.id+'\')" title="Marcar como Cancelado e recalcular rota do dia">&#10005; Cancelar Sessão</button>' +
+        '<button class="btn small danger" style="padding:7px 10px;" onclick="cancelScheduleStatus(\''+sc.id+'\')" title="Marcar como Cancelado e recalcular rota do dia">✕ Cancelar</button>' +
       '</div>';
     } else if(st === 'Cancelado'){
       actionsHtml = '<div class="sched-actions">' +
-        '<button class="btn small ghost" style="padding:6px 10px;color:var(--primary-deep);font-weight:700;" onclick="reactivateScheduleStatus(\''+sc.id+'\')">&#8634; Reativar Sessão</button>' +
-        '<button class="btn small ghost" style="padding:6px 10px;" onclick="openEditScheduleModal(\''+sc.id+'\')">&#9998; Editar</button>' +
-        '<button class="btn small danger" style="padding:6px 10px;" onclick="deleteSchedule(\''+sc.id+'\')">&#128465; Excluir</button>' +
+        '<button class="btn small ghost" style="padding:6px 10px;color:var(--primary-deep);font-weight:700;" onclick="reactivateScheduleStatus(\''+sc.id+'\')">↺ Reativar</button>' +
+        '<button class="btn small ghost" style="padding:6px 10px;" onclick="openEditScheduleModal(\''+sc.id+'\')">✎ Editar</button>' +
+        '<button class="btn small danger" style="padding:6px 10px;" onclick="deleteSchedule(\''+sc.id+'\')">🗑 Excluir</button>' +
       '</div>';
     } else {
       actionsHtml = '<div class="sched-actions">' +
-        '<button class="btn small ghost" style="padding:6px 10px;" onclick="openEditScheduleModal(\''+sc.id+'\')">&#9998; Editar</button>' +
+        '<button class="btn small accent" style="padding:6px 11px;" onclick="openNewEvolution(\''+evoPatId+'\', \''+(sc.data||'')+'\', \''+(sc.hora||'')+'\')" title="Lançar evolução clínica deste atendimento">🩺 Evolução</button>' +
+        '<button class="btn small ghost" style="padding:6px 10px;" onclick="openEditScheduleModal(\''+sc.id+'\')">✎ Editar</button>' +
         '<button class="btn small ghost" style="padding:6px 10px;" onclick="openScheduleInGCalUrl(\''+sc.id+'\')">📅 Google Agenda</button>' +
-        '<button class="btn small danger" style="padding:6px 10px;" onclick="deleteSchedule(\''+sc.id+'\')">&#128465; Excluir</button>' +
+        '<button class="btn small danger" style="padding:6px 10px;" onclick="deleteSchedule(\''+sc.id+'\')">🗑 Excluir</button>' +
       '</div>';
     }
 
@@ -9575,9 +9545,9 @@ function exportSchedulesICS(){
    CONFIGURAÇÕES, BACKUP & DIAGNÓSTICO
    ============================================================ */
 function getDefaultTab(){
-  var tab = (config && config.defaultTab) || localStorage.getItem('ft_default_tab') || 'checkin';
-  var validTabs = ['checkin', 'pacientes', 'agenda', 'evolucoes', 'financeiro'];
-  return (validTabs.indexOf(tab) > -1) ? tab : 'checkin';
+  var tab = (config && config.defaultTab) || localStorage.getItem('ft_default_tab') || 'agenda';
+  var validTabs = ['agenda', 'pacientes', 'evolucoes', 'financeiro'];
+  return (validTabs.indexOf(tab) > -1) ? tab : 'agenda';
 }
 
 async function saveSetup(){
@@ -9918,7 +9888,7 @@ async function init(){
   var isHorizontalDrag = false;
   var activeViewEl = null;
 
-  var TAB_ORDER = ['checkin', 'pacientes', 'agenda', 'evolucoes', 'financeiro'];
+  var TAB_ORDER = ['agenda', 'pacientes', 'evolucoes', 'financeiro'];
 
   function getActiveView(){
     return document.getElementById('tab' + capitalize(currentTab) + 'View');

@@ -1,7 +1,25 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `04/11/2026`  
-Versão do Service Worker: `atend-v57` (`sw.js`)
+Versão do Service Worker: `atend-v59` (`sw.js`)
+
+---
+
+## 27. Agenda como Aba Principal/Padrão e Ações Rápidas de Check-in e Evolução nos Cards (`v59`)
+- **1. Remoção da Aba Check-in Diário:**
+  - Aba de navegação principal reduzida de 5 para 4 abas (`Agenda` -> `Pacientes` -> `Evoluções` -> `Financeiro`), otimizando o espaçamento para telas móveis e desktop.
+  - Removido o container de visualização antigo (`#tabCheckinView`).
+- **2. Agenda como Aba Principal e Padrão:**
+  - A aba `Agenda` agora ocupa a primeira posição na navegação e é definida como a aba inicial padrão do aplicativo (`defaultTab = 'agenda'`).
+  - Atualizado o seletor de aba padrão em Configurações (`#defaultTabSelect`) para ter a Agenda como padrão e fallback seguro.
+- **3. Botões de Ação Direta nos Cards da Agenda:**
+  - **Check-in (`✓ Check-in`):** Para agendamentos com status "Agendado", permite registrar a conclusão imediata do atendimento (`completeScheduleCheckin`) com um único toque, disparando a sincronização financeira e atualização do card.
+  - **Evolução (`🩺 Evolução`):** Presente tanto em agendamentos pendentes quanto já realizados, abre o formulário de evolução clínica pré-preenchendo automaticamente o paciente, a data e a hora da sessão (`openNewEvolution(evoPatId, sc.data, sc.hora)`).
+- **4. Transições de Carrossel e Gestos Swipe:**
+  - Array de transições atualizado para `['agenda', 'pacientes', 'evolucoes', 'financeiro']`.
+- **Service Worker & Testes Automatizados:**
+  - Service worker atualizado para `atend-v59` (`sw.js`).
+  - 100% dos testes aprovados no test runner nativo do Node.js.
 
 ---
 

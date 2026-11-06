@@ -998,3 +998,21 @@ describe('Preservação Persistente de Saturação de O2 (SPO2) e Observações 
     assert.equal(target.observacoes, 'Anotação local');
   });
 });
+
+
+describe('Aprimoramento de UX na Agenda: Botão Check-in em Evidência e Privacidade no Topo', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'atendimentos.html'), 'utf8');
+
+  test('topo da aba Agenda possui botão de alternância de exibição/ocultação de valores (#agendaEyeToggleBtn)', () => {
+    assert.ok(html.includes('id="agendaEyeToggleBtn"'), 'agendaEyeToggleBtn deve existir');
+    assert.ok(html.includes('id="agendaEyeIcon"'), 'agendaEyeIcon deve existir');
+    assert.ok(html.includes('id="agendaEyeText"'), 'agendaEyeText deve existir');
+    assert.ok(html.includes('toggleHideFinancials()'), 'deve chamar toggleHideFinancials');
+  });
+
+  test('botão de check-in nos cards de agendamento está em evidência com classe sched-btn-checkin', () => {
+    assert.ok(html.includes('sched-btn-checkin'), 'deve possuir classe sched-btn-checkin');
+    assert.ok(html.includes('sched-actions-row'), 'deve possuir container sched-actions-row para ações secundárias');
+    assert.ok(html.includes('✓ Fazer Check-in'), 'deve ter rótulo claro de check-in');
+  });
+});

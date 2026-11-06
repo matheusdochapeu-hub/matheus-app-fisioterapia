@@ -698,7 +698,12 @@
   }
   .sched-patient{font-size:14.5px;font-weight:700;color:var(--ink);}
   .sched-meta{font-size:12px;color:var(--ink-soft);line-height:1.4;}
-  .sched-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-start;border-top:1px dashed var(--line);padding-top:8px;margin-top:2px;}
+  .sched-actions{display:flex;flex-direction:column;gap:8px;border-top:1px dashed var(--line);padding-top:10px;margin-top:4px;}
+  .sched-btn-checkin{width:100%;box-sizing:border-box;min-height:40px;height:40px;background:linear-gradient(135deg,#10b981 0%,#059669 100%) !important;color:#ffffff !important;border:none !important;border-radius:var(--radius-sm);font-size:13.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 2px 6px rgba(16,185,129,0.3);cursor:pointer;transition:transform .12s ease,box-shadow .12s ease,filter .12s ease;}
+  .sched-btn-checkin:hover{filter:brightness(1.05);box-shadow:0 3px 10px rgba(16,185,129,0.4);}
+  .sched-btn-checkin:active{transform:scale(0.985);}
+  .sched-actions-row{display:flex;align-items:center;gap:6px;width:100%;flex-wrap:wrap;}
+  .sched-actions-row .btn{flex:1;min-width:76px;height:34px;min-height:34px;padding:0 8px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;box-sizing:border-box;border-radius:var(--radius-xs);}
   .agenda-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px;}
   .agenda-stats .chip{
     background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm);
@@ -954,6 +959,13 @@
 
     <!-- ABA NOVA: AGENDA & GOOGLE AGENDA -->
     <div id="tabAgendaView" class="tab-view hidden">
+      <div class="agenda-privacy-bar" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:12px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:0.5px;">🗓️ Agenda de Atendimentos</span>
+        <button id="agendaEyeToggleBtn" class="eye-toggle-btn" onclick="toggleHideFinancials()" title="Ocultar ou exibir valores">
+          <span id="agendaEyeIcon">🙈</span>
+          <span id="agendaEyeText">Exibir valores</span>
+        </button>
+      </div>
       <div id="gcalBannerBox" class="gcal-banner disconnected">
         <div class="gcal-status" style="flex:1;min-width:0;cursor:pointer;user-select:none;" onclick="toggleGCalBannerCollapse()" title="Toque para recolher ou expandir">
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
@@ -1677,6 +1689,10 @@ function updateEyeButtonUI(){
   if(repIcon) repIcon.textContent = hidden ? '🙈' : '👁️';
   if(pFinIcon) pFinIcon.textContent = hidden ? '🙈' : '👁️';
   if(pFinText) pFinText.textContent = hidden ? 'Exibir valores' : 'Ocultar valores';
+  var agendaIcon = document.getElementById('agendaEyeIcon');
+  var agendaText = document.getElementById('agendaEyeText');
+  if(agendaIcon) agendaIcon.textContent = hidden ? '🙈' : '👁️';
+  if(agendaText) agendaText.textContent = hidden ? 'Exibir valores' : 'Ocultar valores';
 }
 
 /* ---------- Controle de Modais & Botão Voltar do Celular ---------- */

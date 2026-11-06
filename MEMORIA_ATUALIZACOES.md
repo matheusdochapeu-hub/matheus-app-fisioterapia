@@ -1,7 +1,22 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `04/11/2026`  
-Versão do Service Worker: `atend-v60` (`sw.js`)
+Versão do Service Worker: `atend-v61` (`sw.js`)
+
+---
+
+## 29. Aprimoramento de UX na Agenda: Botão Check-in em Evidência e Privacidade no Topo (`v61`)
+- **1. Botão Check-in em Evidência Total:**
+  - O botão `✓ Fazer Check-in (Atendimento Realizado)` agora é renderizado como elemento principal em destaque no topo das ações do card (`.sched-btn-checkin`), com largura total (100%), gradiente verde esmeralda (`#10b981` a `#059669`), sombra suave e excelente área de toque para uso em trânsito.
+- **2. Organização das Ações Secundárias:**
+  - As ações `[🩺 Evolução]`, `[✎ Remarcar]`, `[📅 Google Agenda]` e `[✕ Cancelar]` foram organizadas em uma fileira dedicada (`.sched-actions-row`), com altura padronizada (34px), ícones claros e distribuição limpa, eliminando quebras desordenadas de botões.
+  - Para atendimentos já "Realizados", o botão `🩺 Evolução Clínica` assume o destaque prioritário.
+- **3. Botão de Exibir/Ocultar Valores no Topo da Agenda:**
+  - Adicionado no topo da aba Agenda a barra de privacidade com o botão `#agendaEyeToggleBtn` (`🙈 Exibir valores` / `👁️ Ocultar valores`).
+  - O botão sincroniza em tempo real com o estado de privacidade global do app, permitindo ocultar ou revelar instantaneamente os valores de cada atendimento (ex.: `R$ ••••` ➔ `R$ 150,00`).
+- **Service Worker & Testes:**
+  - Versão do Service Worker incrementada para `atend-v61` (`sw.js`).
+  - 161 testes automatizados executados e 100% aprovados.
 
 ---
 

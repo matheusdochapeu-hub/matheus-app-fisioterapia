@@ -8,7 +8,7 @@ Este documento registra de forma definitiva a arquitetura, regras de negócio ap
 - **Repositório:** `matheusdochapeu-hub/matheus-app-fisioterapia` (Branch: `main`)
 - **PWA & Front-End:** Single Page Application (SPA) em HTML5/Vanilla JavaScript + CSS moderno (sem dependências de frameworks externos pesados).
 - **Back-End / API:** Google Apps Script (`Code.gs`) integrado ao Google Sheets como banco de dados em nuvem.
-- **Service Worker:** `atend-v60` (`sw.js`).
+- **Service Worker:** `atend-v61` (`sw.js`).
 - **Suíte de Testes:** Node.js native test runner (`node --test test/helpers.test.js`) com 100% de aprovação.
 
 ---
@@ -28,9 +28,11 @@ A interface é composta por 4 abas com proporção uniforme de 25%, sem quebra d
 1. **`Agenda` (Aba Principal e Padrão):**
    - Central de operações e agendamentos clínicos diários e mensais.
    - **Ações Rápidas por Paciente nos Cards da Agenda:**
-     - **`[✓ Check-in]`**: Botão de confirmação imediata da sessão (`completeScheduleCheckin`), alterando o status para Realizado e sincronizando com o controle financeiro.
+     - **`[✓ Fazer Check-in]` (Em Grande Evidência):** Botão principal de destaque total no card (`.sched-btn-checkin`), com gradiente verde esmeralda, sombra suave e alvo de toque amplo, permitindo confirmar a sessão imediatamente com 1 toque.
+     - **Linha de Ações Secundárias Organizadas (`.sched-actions-row`):** Fileira alinhada contendo `[🩺 Evolução]` (destaque clínico), `[✎ Remarcar]`, `[📅 Google Agenda]` e `[✕ Cancelar]` com altura uniforme e espaçamento perfeito.
      - **`[🩺 Evolução]`**: Botão que abre instantaneamente o formulário de evolução clínica (`openNewEvolution`) com paciente, data e hora do atendimento automaticamente preenchidos.
      - Ações adicionais de gerenciamento: `[✎ Remarcar]`, `[📅 Google Agenda]`, `[✕ Cancelar]` e `[🗑 Excluir]`.
+   - Botão de privacidade no topo (`#agendaEyeToggleBtn`): permite alternar entre exibir ou ocultar os valores financeiros dos cards da Agenda instantaneamente.
    - Exibição por padrão **apenas do dia vigente**.
    - Botão em evidência para alternância rápida: `[📅 Ver apenas hoje]` / `[📅 Ver mês inteiro]` (`#agendaToggleScopeBtn`).
    - Calendário mensal com destaque visual para o dia atual ("HOJE") e chips de KPI interativos.

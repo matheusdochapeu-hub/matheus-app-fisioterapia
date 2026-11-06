@@ -1003,10 +1003,11 @@ describe('Preservação Persistente de Saturação de O2 (SPO2) e Observações 
 describe('Aprimoramento de UX na Agenda: Botão Check-in em Evidência e Privacidade no Topo', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'atendimentos.html'), 'utf8');
 
-  test('topo da aba Agenda possui botão de alternância de exibição/ocultação de valores (#agendaEyeToggleBtn)', () => {
+  test('topo da aba Agenda e barra de filtros possuem botões de alternância de exibição/ocultação de valores', () => {
     assert.ok(html.includes('id="agendaEyeToggleBtn"'), 'agendaEyeToggleBtn deve existir');
-    assert.ok(html.includes('id="agendaEyeIcon"'), 'agendaEyeIcon deve existir');
-    assert.ok(html.includes('id="agendaEyeText"'), 'agendaEyeText deve existir');
+    assert.ok(html.includes('id="agendaRowEyeToggleBtn"'), 'agendaRowEyeToggleBtn ao lado do botão de ver mês inteiro deve existir');
+    assert.ok(html.includes('id="agendaRowEyeIcon"'), 'agendaRowEyeIcon deve existir');
+    assert.ok(html.includes('id="agendaRowEyeText"'), 'agendaRowEyeText deve existir');
     assert.ok(html.includes('toggleHideFinancials()'), 'deve chamar toggleHideFinancials');
   });
 

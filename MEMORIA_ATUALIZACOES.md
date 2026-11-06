@@ -1,7 +1,19 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `04/11/2026`  
-Versão do Service Worker: `atend-v61` (`sw.js`)
+Versão do Service Worker: `atend-v62` (`sw.js`)
+
+---
+
+## 30. Botão de Exibir/Ocultar Valores ao Lado de "Ver Mês Inteiro" na Agenda (`v62`)
+- **1. Botão de Privacidade ao Lado de "Ver Mês Inteiro":**
+  - Adicionado o botão `#agendaRowEyeToggleBtn` na barra de filtros da Agenda, posicionado estrategicamente ao lado do botão de alternância de escopo `[📅 Ver mês inteiro / Ver apenas hoje]`.
+  - Permite ocultar e revelar os valores financeiros dos cards com 1 toque bem em frente à lista de atendimentos.
+- **2. Sincronização em Tempo Real:**
+  - O estado do botão sincroniza perfeitamente com os demais botões de privacidade do app e com a renderização dos cards da Agenda.
+- **Service Worker & Testes:**
+  - Versão do Service Worker incrementada para `atend-v62` (`sw.js`).
+  - 161 testes automatizados executados e 100% aprovados.
 
 ---
 

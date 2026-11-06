@@ -1021,7 +1021,13 @@
           <option value="Realizado">Realizados</option>
           <option value="Cancelado">Cancelados</option>
         </select>
-        <button type="button" id="agendaToggleScopeBtn" class="btn small" style="width:auto;white-space:nowrap;padding:6px 12px;font-size:12px;font-weight:700;margin-left:auto;" onclick="toggleAgendaMonthOrDayScope()"></button>
+        <div style="display:flex;gap:6px;align-items:center;margin-left:auto;flex-wrap:wrap;">
+          <button type="button" id="agendaToggleScopeBtn" class="btn small" style="width:auto;white-space:nowrap;padding:6px 12px;font-size:12px;font-weight:700;" onclick="toggleAgendaMonthOrDayScope()"></button>
+          <button type="button" id="agendaRowEyeToggleBtn" class="eye-toggle-btn" style="width:auto;white-space:nowrap;padding:6px 10px;font-size:12px;" onclick="toggleHideFinancials()" title="Ocultar ou exibir valores">
+            <span id="agendaRowEyeIcon">🙈</span>
+            <span id="agendaRowEyeText">Exibir valores</span>
+          </button>
+        </div>
       </div>
 
       <div id="agendaDayHeader" class="sched-day-header"></div>
@@ -1693,6 +1699,10 @@ function updateEyeButtonUI(){
   var agendaText = document.getElementById('agendaEyeText');
   if(agendaIcon) agendaIcon.textContent = hidden ? '🙈' : '👁️';
   if(agendaText) agendaText.textContent = hidden ? 'Exibir valores' : 'Ocultar valores';
+  var agendaRowIcon = document.getElementById('agendaRowEyeIcon');
+  var agendaRowText = document.getElementById('agendaRowEyeText');
+  if(agendaRowIcon) agendaRowIcon.textContent = hidden ? '🙈' : '👁️';
+  if(agendaRowText) agendaRowText.textContent = hidden ? 'Exibir valores' : 'Ocultar valores';
 }
 
 /* ---------- Controle de Modais & Botão Voltar do Celular ---------- */

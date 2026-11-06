@@ -130,6 +130,7 @@ function onOpen() {
     ui.createMenu('📅 Fisioterapia (Scarlet)')
       .addItem('👤 Verificar Organizador & Agenda', 'menuVerificarOrganizador')
       .addItem('🔑 Autorizar Google Agenda', 'autorizarGoogleAgenda')
+      .addItem('📋 Atualizar Cabeçalhos das Abas (SPO2/Obs)', 'atualizarCabecalhosPlanilha')
       .addItem('⚙️ Atualizar Aba de Configurações', 'menuAtualizarConfiguracoes')
       .addToUi();
   } catch (e) {}
@@ -166,6 +167,15 @@ function menuVerificarOrganizador() {
 function menuAtualizarConfiguracoes() {
   getConfigSheet_();
   SpreadsheetApp.getUi().alert('Configurações atualizadas com sucesso na aba "' + SHEET_CONFIG + '".');
+}
+
+function atualizarCabecalhosPlanilha() {
+  getAtendSheet_();
+  getPacSheet_();
+  getEvoSheet_();
+  getAgendSheet_();
+  getConfigSheet_();
+  SpreadsheetApp.getUi().alert('✅ Cabeçalhos da planilha verificados e atualizados com sucesso (incluindo SPO2 e Observações na aba Evoluções)!');
 }
 
 function getTimeZone_() {
@@ -1270,7 +1280,9 @@ function doPost(e) {
             ev.fc || '',
             ev.estadoClinico || '',
             ev.condutas || '',
-            ev.criadoEm || nowIso
+            ev.criadoEm || nowIso,
+            ev.spo2 || '',
+            ev.observacoes || ''
           ];
         });
         var sEvoSheet = getEvoSheet_();

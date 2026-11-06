@@ -1908,7 +1908,7 @@ async function loadData(opts){
     patients = deduplicatePatientsList(patients);
     saveLocalPatients();
 
-    // A PLANILHA É A FONTE DA VERDADE OFICIAL PARA EVOLUÇÕES
+    // A PLANILHA É A FONTE DA VERDADE OFICIAL PARA EVOLUÇÕES (COM BLINDAGEM DE SINAIS VITAIS)
     var sheetEvos = (data.evolucoes || []).map(function(r){
       return {
         id: String(r.ID),
@@ -1918,23 +1918,62 @@ async function loadData(opts){
         hora: r.Hora || '',
         pa: r.PA || '',
         fc: r.FC || '',
-        spo2: r.SPO2 || '',
+        spo2: extractEvoSpo2(r),
         estadoClinico: r.EstadoClinico || '',
         condutas: r.Condutas || '',
-        observacoes: r.Observacoes || '',
+        observacoes: extractEvoObservacoes(r),
         criadoEm: r.CriadoEm || ''
       };
     });
+
     var localEvos = getLocalEvolutions();
     var evoMap = {};
-    // Mantém itens offline locais provisórios
+
+    // 1. Indexa todas as evoluções locais conhecidas
     localEvos.forEach(function(ev){
-      if(ev && ev.id && String(ev.id).indexOf('_local_') > -1) evoMap[ev.id] = ev;
+      if(ev && ev.id) evoMap[ev.id] = ev;
     });
-    // Planilha oficial por cima (sobrescreve e elimina resquícios)
-    sheetEvos.forEach(function(ev){ if(ev && ev.id) evoMap[ev.id] = ev; });
+
+    // 2. Mescla com os dados da planilha preservando estritamente SPO2 e Observações locais
+    sheetEvos.forEach(function(ev){
+      if(!ev || !ev.id) return;
+      var existing = evoMap[ev.id];
+      // Se não encontrou por ID exato, tenta encontrar por paciente + data + hora
+      if(!existing && ev.pacienteId && ev.data){
+        existing = localEvos.find(function(loc){
+          return loc && loc.pacienteId === ev.pacienteId && loc.data === ev.data && (!ev.hora || loc.hora === ev.hora);
+        });
+      }
+
+      if(existing){
+        // Preserva SPO2 local se a planilha não possui
+        if(!ev.spo2 && existing.spo2){
+          ev.spo2 = existing.spo2;
+        }
+        // Preserva Observações locais se a planilha não possui
+        if(!ev.observacoes && existing.observacoes){
+          ev.observacoes = existing.observacoes;
+        }
+      }
+
+      // Consulta também o cache persistente dedicado (por ID ou composto pacienteId_data_hora)
+      if(!ev.spo2){
+        var cachedSpo2 = getPersistentEvoSpo2(ev.id, ev.pacienteId, ev.data, ev.hora);
+        if(cachedSpo2) ev.spo2 = cachedSpo2;
+      }
+      if(!ev.observacoes){
+        var cachedObs = getPersistentEvoObs(ev.id, ev.pacienteId, ev.data, ev.hora);
+        if(cachedObs) ev.observacoes = cachedObs;
+      }
+
+      evoMap[ev.id] = ev;
+    });
+
     evolutions = Object.keys(evoMap).map(function(k){ return evoMap[k]; });
     saveLocalEvolutions();
+
+    // 3. Sincronização em background: atualiza a planilha oficial se ela estava sem SPO2/Obs
+    syncPendingVitalsToSheet(sheetEvos, evolutions);
 
     // A PLANILHA É A FONTE DA VERDADE OFICIAL PARA AGENDAMENTOS (A PLANILHA SOBRESCREVE DADOS LOCAIS)
     var sheetScheds = (data.agendamentos || []).filter(function(r){
@@ -2167,6 +2206,126 @@ function isSchedulePendingForecast(sc){
   return true;
 }
 
+
+function extractEvoSpo2(r) {
+  if (!r) return '';
+  if (r.SPO2 !== undefined && r.SPO2 !== null && String(r.SPO2).trim() !== '') return String(r.SPO2).trim();
+  if (r.spo2 !== undefined && r.spo2 !== null && String(r.spo2).trim() !== '') return String(r.spo2).trim();
+  if (r.SpO2 !== undefined && r.SpO2 !== null && String(r.SpO2).trim() !== '') return String(r.SpO2).trim();
+  if (r.Spo2 !== undefined && r.Spo2 !== null && String(r.Spo2).trim() !== '') return String(r.Spo2).trim();
+  if (r.SatO2 !== undefined && r.SatO2 !== null && String(r.SatO2).trim() !== '') return String(r.SatO2).trim();
+  if (r['Sat O2'] !== undefined && r['Sat O2'] !== null && String(r['Sat O2']).trim() !== '') return String(r['Sat O2']).trim();
+  if (r['Saturação'] !== undefined && r['Saturação'] !== null && String(r['Saturação']).trim() !== '') return String(r['Saturação']).trim();
+  if (r['Saturacao'] !== undefined && r['Saturacao'] !== null && String(r['Saturacao']).trim() !== '') return String(r['Saturacao']).trim();
+  for (var k in r) {
+    if (Object.prototype.hasOwnProperty.call(r, k)) {
+      var cleanK = String(k).trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (cleanK === 'spo2' || cleanK === 'sato2' || cleanK === 'saturacao' || cleanK === 'saturacaodeoxigenio') {
+        if (r[k] !== undefined && r[k] !== null && String(r[k]).trim() !== '') {
+          return String(r[k]).trim();
+        }
+      }
+    }
+  }
+  return '';
+}
+
+function extractEvoObservacoes(r) {
+  if (!r) return '';
+  if (r.Observacoes !== undefined && r.Observacoes !== null && String(r.Observacoes).trim() !== '') return String(r.Observacoes).trim();
+  if (r.observacoes !== undefined && r.observacoes !== null && String(r.observacoes).trim() !== '') return String(r.observacoes).trim();
+  if (r.Observacao !== undefined && r.Observacao !== null && String(r.Observacao).trim() !== '') return String(r.Observacao).trim();
+  if (r.observacao !== undefined && r.observacao !== null && String(r.observacao).trim() !== '') return String(r.observacao).trim();
+  if (r.Obs !== undefined && r.Obs !== null && String(r.Obs).trim() !== '') return String(r.Obs).trim();
+  if (r.obs !== undefined && r.obs !== null && String(r.obs).trim() !== '') return String(r.obs).trim();
+  for (var k in r) {
+    if (Object.prototype.hasOwnProperty.call(r, k)) {
+      var cleanK = String(k).trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (cleanK === 'observacoes' || cleanK === 'observacao' || cleanK === 'obs') {
+        if (r[k] !== undefined && r[k] !== null && String(r[k]).trim() !== '') {
+          return String(r[k]).trim();
+        }
+      }
+    }
+  }
+  return '';
+}
+
+function getPersistentEvoVitalsCache() {
+  try {
+    var raw = localStorage.getItem('ft_evo_vitals_cache');
+    return raw ? JSON.parse(raw) : { spo2: {}, obs: {} };
+  } catch(e) {
+    return { spo2: {}, obs: {} };
+  }
+}
+
+function setPersistentEvoVitals(id, pacienteId, data, hora, spo2, obs) {
+  try {
+    var cache = getPersistentEvoVitalsCache();
+    if (!cache.spo2) cache.spo2 = {};
+    if (!cache.obs) cache.obs = {};
+    var sVal = spo2 ? String(spo2).trim() : '';
+    var oVal = obs ? String(obs).trim() : '';
+    if (id) {
+      if (sVal) cache.spo2[id] = sVal;
+      if (oVal) cache.obs[id] = oVal;
+    }
+    if (pacienteId && data) {
+      var compKey = String(pacienteId).trim() + '_' + String(data).trim() + '_' + String(hora || '').trim();
+      if (sVal) cache.spo2[compKey] = sVal;
+      if (oVal) cache.obs[compKey] = oVal;
+    }
+    localStorage.setItem('ft_evo_vitals_cache', JSON.stringify(cache));
+  } catch(e) {}
+}
+
+function getPersistentEvoSpo2(id, pacienteId, data, hora) {
+  try {
+    var cache = getPersistentEvoVitalsCache();
+    if (id && cache.spo2 && cache.spo2[id]) return cache.spo2[id];
+    if (pacienteId && data) {
+      var compKey = String(pacienteId).trim() + '_' + String(data).trim() + '_' + String(hora || '').trim();
+      if (cache.spo2 && cache.spo2[compKey]) return cache.spo2[compKey];
+    }
+    return '';
+  } catch(e) { return ''; }
+}
+
+function getPersistentEvoObs(id, pacienteId, data, hora) {
+  try {
+    var cache = getPersistentEvoVitalsCache();
+    if (id && cache.obs && cache.obs[id]) return cache.obs[id];
+    if (pacienteId && data) {
+      var compKey = String(pacienteId).trim() + '_' + String(data).trim() + '_' + String(hora || '').trim();
+      if (cache.obs && cache.obs[compKey]) return cache.obs[compKey];
+    }
+    return '';
+  } catch(e) { return ''; }
+}
+
+function syncPendingVitalsToSheet(sheetEvos, allEvos) {
+  try {
+    if (!Array.isArray(sheetEvos) || !Array.isArray(allEvos)) return;
+    var sheetMap = {};
+    sheetEvos.forEach(function(se){ if(se && se.id) sheetMap[se.id] = se; });
+    allEvos.forEach(function(ev){
+      if(!ev || !ev.id) return;
+      var se = sheetMap[ev.id];
+      if(se && ((!se.spo2 && ev.spo2) || (!se.observacoes && ev.observacoes))){
+        postAction({
+          action: 'update_evolution',
+          id: ev.id,
+          spo2: ev.spo2 || '',
+          observacoes: ev.observacoes || ''
+        }).catch(function(err){
+          console.warn('Sync pending vitals:', ev.id, err);
+        });
+      }
+    });
+  } catch(e) {}
+}
+
 function getLocalEvolutions(){
   try{
     var raw = localStorage.getItem('ft_local_evolutions');
@@ -2177,6 +2336,13 @@ function getLocalEvolutions(){
 function saveLocalEvolutions(){
   try{
     localStorage.setItem('ft_local_evolutions', JSON.stringify(evolutions));
+    if (Array.isArray(evolutions)) {
+      evolutions.forEach(function(ev){
+        if (ev && (ev.spo2 || ev.observacoes)) {
+          setPersistentEvoVitals(ev.id, ev.pacienteId, ev.data, ev.hora, ev.spo2, ev.observacoes);
+        }
+      });
+    }
   }catch(e){}
 }
 
@@ -3772,6 +3938,7 @@ async function submitNewEvolution(){
   };
 
   evolutions.unshift(newEv);
+  setPersistentEvoVitals(id, pId, data, hora, spo2, observacoes);
   saveLocalEvolutions();
   populateEvolutionsFilters();
   renderEvolutionsTab();
@@ -3902,6 +4069,7 @@ async function submitEditEvolution(id){
   ev.estadoClinico = estado;
   ev.condutas = condutas;
   ev.observacoes = observacoes;
+  setPersistentEvoVitals(id, ev.pacienteId, data, hora, spo2, observacoes);
   saveLocalEvolutions();
 
   renderEvolutionsTab();

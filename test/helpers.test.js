@@ -913,3 +913,88 @@ describe('Exportação de Evoluções em PDF em Lote por Período e Múltiplos P
     assert.equal(html.includes('ev.observacoes'), true);
   });
 });
+
+
+describe('Preservação Persistente de Saturação de O2 (SPO2) e Observações contra Sobrescrita da Planilha', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'atendimentos.html'), 'utf8');
+
+  test('funções extractEvoSpo2 e extractEvoObservacoes estão definidas e extraem variações com tolerância a maiúsculas/espaços', () => {
+    const spo2FnMatch = html.match(/function extractEvoSpo2\(r\)\s*\{([\s\S]*?)\n\}/);
+    assert.ok(spo2FnMatch, 'extractEvoSpo2 deve estar definida');
+    const extractEvoSpo2 = new Function('r', spo2FnMatch[1]);
+
+    assert.equal(extractEvoSpo2({ SPO2: '98%' }), '98%');
+    assert.equal(extractEvoSpo2({ spo2: '97%' }), '97%');
+    assert.equal(extractEvoSpo2({ SpO2: '99' }), '99');
+    assert.equal(extractEvoSpo2({ SatO2: '95%' }), '95%');
+    assert.equal(extractEvoSpo2({ 'Saturação': '98' }), '98');
+    assert.equal(extractEvoSpo2({}), '');
+    assert.equal(extractEvoSpo2(null), '');
+
+    const obsFnMatch = html.match(/function extractEvoObservacoes\(r\)\s*\{([\s\S]*?)\n\}/);
+    assert.ok(obsFnMatch, 'extractEvoObservacoes deve estar definida');
+    const extractEvoObservacoes = new Function('r', obsFnMatch[1]);
+
+    assert.equal(extractEvoObservacoes({ Observacoes: 'Paciente bem disposto' }), 'Paciente bem disposto');
+    assert.equal(extractEvoObservacoes({ observacoes: 'Estável' }), 'Estável');
+    assert.equal(extractEvoObservacoes({ Obs: 'Acompanhado da filha' }), 'Acompanhado da filha');
+    assert.equal(extractEvoObservacoes({}), '');
+  });
+
+  test('reconciliação de evoluções NUNCA apaga SPO2 local se a planilha retornar SPO2 vazio', () => {
+    // Simula a lógica de reconciliação de evoluções
+    const localEvos = [
+      { id: 'ev1', pacienteId: 'p1', data: '2026-11-05', hora: '15:00', pa: '110/60', fc: '60', spo2: '98%', estadoClinico: 'BEG', observacoes: 'Sem queixas' }
+    ];
+    // Planilha oficial retornando evolução sem a coluna SPO2 preenchida (legado ou pendente de deploy do Code.gs)
+    const sheetEvos = [
+      { id: 'ev1', pacienteId: 'p1', pacienteNome: 'Tereza', data: '2026-11-05', hora: '15:00', pa: '110/60', fc: 60, spo2: '', estadoClinico: 'BEG', condutas: 'Ciclo', observacoes: '', criadoEm: '2026-11-05T18:00:00Z' }
+    ];
+
+    const evoMap = {};
+    localEvos.forEach(ev => { evoMap[ev.id] = Object.assign({}, ev); });
+
+    sheetEvos.forEach(ev => {
+      const existing = evoMap[ev.id];
+      if (existing) {
+        if (!ev.spo2 && existing.spo2) ev.spo2 = existing.spo2;
+        if (!ev.observacoes && existing.observacoes) ev.observacoes = existing.observacoes;
+      }
+      evoMap[ev.id] = ev;
+    });
+
+    const finalEvos = Object.keys(evoMap).map(k => evoMap[k]);
+    assert.equal(finalEvos.length, 1);
+    assert.equal(finalEvos[0].spo2, '98%', 'SPO2 não pode ser apagado pela planilha');
+    assert.equal(finalEvos[0].observacoes, 'Sem queixas', 'Observações não podem ser apagadas pela planilha');
+  });
+
+  test('reconciliação recupera SPO2 e Observações mesmo se o ID tiver sido remapeado usando chave composta pacienteId + data + hora', () => {
+    const localEvos = [
+      { id: 'ev_provisorio', pacienteId: 'p_tereza', data: '2026-11-05', hora: '15:00', spo2: '99%', observacoes: 'Anotação local' }
+    ];
+    const sheetEvos = [
+      { id: 'ev_planilha_oficial', pacienteId: 'p_tereza', data: '2026-11-05', hora: '15:00', spo2: '', observacoes: '' }
+    ];
+
+    const evoMap = {};
+    localEvos.forEach(ev => { evoMap[ev.id] = Object.assign({}, ev); });
+
+    sheetEvos.forEach(ev => {
+      let existing = evoMap[ev.id];
+      if (!existing && ev.pacienteId && ev.data) {
+        existing = localEvos.find(loc => loc && loc.pacienteId === ev.pacienteId && loc.data === ev.data && (!ev.hora || loc.hora === ev.hora));
+      }
+      if (existing) {
+        if (!ev.spo2 && existing.spo2) ev.spo2 = existing.spo2;
+        if (!ev.observacoes && existing.observacoes) ev.observacoes = existing.observacoes;
+      }
+      evoMap[ev.id] = ev;
+    });
+
+    const target = evoMap['ev_planilha_oficial'];
+    assert.ok(target);
+    assert.equal(target.spo2, '99%');
+    assert.equal(target.observacoes, 'Anotação local');
+  });
+});

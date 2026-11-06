@@ -8,8 +8,16 @@ Este documento registra de forma definitiva a arquitetura, regras de negócio ap
 - **Repositório:** `matheusdochapeu-hub/matheus-app-fisioterapia` (Branch: `main`)
 - **PWA & Front-End:** Single Page Application (SPA) em HTML5/Vanilla JavaScript + CSS moderno (sem dependências de frameworks externos pesados).
 - **Back-End / API:** Google Apps Script (`Code.gs`) integrado ao Google Sheets como banco de dados em nuvem.
-- **Service Worker:** `atend-v59` (`sw.js`).
+- **Service Worker:** `atend-v60` (`sw.js`).
 - **Suíte de Testes:** Node.js native test runner (`node --test test/helpers.test.js`) com 100% de aprovação.
+
+---
+
+## 🛡️ Blindagem de Sinais Vitais (SPO2 e Observações) contra Sobrescrita da Planilha
+- **Causa Raiz Resolvida:** Quando a planilha oficial retornava dados sem a coluna SPO2 preenchida (seja por delay de sincronização, ausência do cabeçalho no Sheets ou versão anterior do Web App no Google Apps Script), a função `loadData()` sobrescrevia o registro local com valores em branco.
+- **Cache Persistente Dedicado:** Implementado `ft_evo_vitals_cache` que armazena a saturação de O2 e observações indexados tanto pelo ID da evolução quanto pela chave composta `[pacienteId + '_' + data + '_' + hora]`.
+- **Reconciliação Não-Destrutiva:** Durante a carga de dados, se o registro vindo da planilha oficial estiver com SPO2 ou observações em branco, os valores locais e do cache são estritamente preservados.
+- **Auto-Sync em Background:** `syncPendingVitalsToSheet()` envia automaticamente `update_evolution` para gravar os sinais vitais na planilha assim que o backend estiver atualizado.
 
 ---
 

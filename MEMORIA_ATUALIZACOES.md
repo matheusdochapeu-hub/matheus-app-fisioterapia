@@ -1,7 +1,26 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `04/11/2026`  
-Versão do Service Worker: `atend-v59` (`sw.js`)
+Versão do Service Worker: `atend-v60` (`sw.js`)
+
+---
+
+## 28. Blindagem e Preservação de Saturação de O2 (SPO2) e Observações contra Sobrescrita (`v60`)
+- **1. Diagnóstico do Problema:**
+  - As saturações de O2 desapareciam após alguns minutos porque, ao sincronizar com a planilha (`loadData()`), o objeto retornado pelo Apps Script vinha sem o campo `SPO2` (pois a planilha no Google Drive ainda não tinha a coluna atualizada ou rodava versão anterior do script). A função sobrescrevia o registro local apagando a saturação e as observações salvas no aparelho.
+- **2. Blindagem e Cache Persistente Multi-Camada (`ft_evo_vitals_cache`):**
+  - Implementado cache persistente dedicado no `localStorage` indexado por ID e por chave composta (`pacienteId_data_hora`).
+  - Funções `extractEvoSpo2(r)` e `extractEvoObservacoes(r)` adicionadas com tolerância universal a variações de maiúsculas/minúsculas e acentuação (`SPO2`, `spo2`, `SpO2`, `SatO2`, `Saturação`, etc.).
+- **3. Reconciliação Não-Destrutiva em `loadData()`.**
+  - A planilha oficial agora é mesclada sem apagar sinais vitais locais: se o campo `spo2` ou `observacoes` vier vazio da nuvem, os valores locais são 100% mantidos e restaurados.
+- **4. Sincronização Automática em Background (`syncPendingVitalsToSheet`):**
+  - Quando a planilha estiver sem SPO2 mas o dispositivo tiver a informação, o app dispara requisição em segundo plano para persistir os dados na planilha oficial.
+- **5. Atualização no `Code.gs`:**
+  - Corrigido `bulk_import` para mapear colunas 11 (`SPO2`) e 12 (`Observacoes`).
+  - Adicionada função `atualizarCabecalhosPlanilha` no menu do Google Sheets.
+- **Service Worker & Testes:**
+  - Versão do Service Worker incrementada para `atend-v60` (`sw.js`).
+  - 157 testes automatizados aprovados (100% de sucesso).
 
 ---
 

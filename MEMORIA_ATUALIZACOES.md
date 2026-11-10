@@ -1,7 +1,20 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
-Data da consolidação: `06/11/2026`  
-Versão do Service Worker: `atend-v63` (`sw.js`)
+Data da consolidação: `10/11/2026`  
+Versão do Service Worker: `atend-v64` (`sw.js`)
+
+---
+
+## 32. Deduplicação Financeira com Histórico Preservado (`v64`)
+- **Diagnóstico (nov/2026):** o Financeiro somava **linhas** de atendimento, não sessões. Havia 15 linhas para 13 sessões reais: `Sebastião Franco Elias` (10/11 13:00) e `Irani Rodrigues Paula Elias` (05/11 14:00) tinham dois lançamentos cada (IDs distintos), inflando "sessões realizadas" em +2 e o ganho real em +R$ 190,00 (R$ 1.350,00 em vez de R$ 1.160,00; total possível R$ 4.900,00 em vez de R$ 4.710,00).
+- **Nada foi apagado:** as duas linhas continuam na planilha e na lista. A regra é *mesma paciente + mesma data + mesmo horário = mesma sessão*.
+- **Índice de duplicidade (`buildDuplicateIndex` / `rebuildFinancialDupIndex`):** escolhe a linha canônica (primeiro a vinculada à Agenda, depois a já paga, por fim a mais antiga) e marca as demais como repetidas.
+- **UI do Financeiro:** banner com o total fora dos totais, selo `Duplicado · fora dos totais` e botão `↺ Somar mesmo assim` (persistido em `ft_dup_keep_v1`); o botão `− Não somar` desfaz a escolha. A linha repetida continua visível, editável e exportável.
+- **Cálculos alinhados:** Financeiro (KPIs e previsão), Relatório, PDF anual, extrato do paciente, comprovantes mensais e calendário do relatório passam a contar apenas sessões distintas — os números batem com a Agenda.
+- **Backend idempotente (`Code.gs`):** `create` não grava de novo se o ID já existe e, se já houver lançamento com a mesma paciente/data/horário, devolve `duplicateOf` com o ID existente em vez de criar outra linha.
+- **Check-in à prova de corrida:** ao receber `duplicateOf`, o app descarta a cópia local e vincula o agendamento ao lançamento que já estava na planilha (caso clássico de check-in em dois aparelhos ou retentativa de rede).
+- **Auto check-in da evolução:** agora também envia `update_schedule` dos agendamentos vinculados, evitando lançamentos órfãos na planilha.
+- **Service Worker:** `atend-v64`; suíte com 77 testes (7 novos cobrindo a deduplicação e o cenário real de novembro).
 
 ---
 

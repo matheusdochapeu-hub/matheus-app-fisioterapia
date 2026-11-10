@@ -1053,3 +1053,93 @@ describe('Padronização de Botões em Formato Pílula (Pill Buttons) nas abas P
   });
 });
 
+
+/* ------------------------------------------------------------------
+ * Deduplicação financeira (histórico preservado)
+ * Regra: mesma paciente + mesma data + mesmo horário = mesma sessão.
+ * ------------------------------------------------------------------ */
+const buildDuplicateIndex = extractFn('buildDuplicateIndex');
+const normName = extractFn('normName');
+
+function dupKey(e) { return 'nm:' + normName(e.nome); }
+
+describe('buildDuplicateIndex (lançamentos repetidos)', () => {
+  test('marca a segunda linha da mesma sessão e mantém a vinculada à Agenda', () => {
+    const list = [
+      { id: 'e1', nome: 'Sebastião Franco Elias', data: '2026-11-10', hora: '13:00', status: 'Pendente', valor: 95 },
+      { id: 'e2', nome: 'Sebastião Franco Elias', data: '2026-11-10', hora: '13:00', status: 'Pendente', valor: 95 }
+    ];
+    const idx = buildDuplicateIndex(list, { e2: true }, dupKey);
+    assert.deepEqual(idx, { e1: 'e2' }, 'a linha sem vínculo deve ser a duplicada');
+  });
+
+  test('não marca sessões em horários diferentes no mesmo dia', () => {
+    const list = [
+      { id: 'e1', nome: 'Irani', data: '2026-11-05', hora: '14:00', status: 'Pendente', valor: 95 },
+      { id: 'e2', nome: 'Irani', data: '2026-11-05', hora: '16:00', status: 'Pendente', valor: 95 }
+    ];
+    assert.deepEqual(buildDuplicateIndex(list, {}, dupKey), {});
+  });
+
+  test('não marca nada quando há apenas uma linha por sessão', () => {
+    const list = [
+      { id: 'e1', nome: 'Tereza', data: '2026-11-10', hora: '15:00', status: 'Pendente', valor: 70 }
+    ];
+    assert.deepEqual(buildDuplicateIndex(list, {}, dupKey), {});
+  });
+
+  test('não deduplica lançamentos sem horário (não há como provar repetição)', () => {
+    const list = [
+      { id: 'e1', nome: 'Tereza', data: '2026-11-10', hora: '', status: 'Pendente', valor: 70 },
+      { id: 'e2', nome: 'Tereza', data: '2026-11-10', hora: '', status: 'Pendente', valor: 70 }
+    ];
+    assert.deepEqual(buildDuplicateIndex(list, {}, dupKey), {});
+  });
+
+  test('prefere a linha já paga quando nenhuma está vinculada à Agenda', () => {
+    const list = [
+      { id: 'e1', nome: 'Dona Diva', data: '2026-09-15', hora: '16:00', status: 'Pendente', valor: 100 },
+      { id: 'e2', nome: 'Dona Diva', data: '2026-09-15', hora: '16:00', status: 'Pago', valor: 100 }
+    ];
+    assert.deepEqual(buildDuplicateIndex(list, {}, dupKey), { e1: 'e2' });
+  });
+
+  test('normaliza acentos e caixa no nome da paciente', () => {
+    const list = [
+      { id: 'e1', nome: 'SEBASTIAO FRANCO ELIAS', data: '2026-11-10', hora: '13:00', status: 'Pendente', valor: 95 },
+      { id: 'e2', nome: 'Sebastião Franco Elias', data: '2026-11-10', hora: '13:00', status: 'Pendente', valor: 95 }
+    ];
+    assert.deepEqual(buildDuplicateIndex(list, {}, dupKey), { e2: 'e1' });
+  });
+
+  test('cenário real de novembro/2026: 15 linhas -> 13 sessões e R$ 1.160,00', () => {
+    const base = [
+      { nome: 'Sebastião Franco Elias', data: '2026-11-03', hora: '13:30', valor: 95 },
+      { nome: 'Irani Rodrigues Paula Elias', data: '2026-11-03', hora: '14:01', valor: 95 },
+      { nome: 'Tereza', data: '2026-11-03', hora: '15:01', valor: 70 },
+      { nome: 'Vinícius Franco Ruy', data: '2026-11-04', hora: '13:00', valor: 90 },
+      { nome: 'Diva Bigoni Furlaneti', data: '2026-11-04', hora: '14:30', valor: 100 },
+      { nome: 'Sebastião Franco Elias', data: '2026-11-05', hora: '13:00', valor: 95 },
+      { nome: 'Irani Rodrigues Paula Elias', data: '2026-11-05', hora: '14:00', valor: 95 },
+      { nome: 'Tereza', data: '2026-11-05', hora: '15:00', valor: 70 },
+      { nome: 'Vinícius Franco Ruy', data: '2026-11-06', hora: '13:00', valor: 90 },
+      { nome: 'Diva Bigoni Furlaneti', data: '2026-11-06', hora: '14:30', valor: 100 },
+      { nome: 'Sebastião Franco Elias', data: '2026-11-10', hora: '13:00', valor: 95 },
+      { nome: 'Irani Rodrigues Paula Elias', data: '2026-11-10', hora: '14:00', valor: 95 },
+      { nome: 'Tereza', data: '2026-11-10', hora: '15:00', valor: 70 }
+    ].map((e, i) => Object.assign({ id: 'e' + (i + 1), status: 'Pendente' }, e));
+
+    const duplicadas = [
+      { id: 'dupIrani', nome: 'Irani Rodrigues Paula Elias', data: '2026-11-05', hora: '14:00', status: 'Pendente', valor: 95 },
+      { id: 'dupSebas', nome: 'Sebastião Franco Elias', data: '2026-11-10', hora: '13:00', status: 'Pendente', valor: 95 }
+    ];
+
+    const todas = base.concat(duplicadas);
+    const idx = buildDuplicateIndex(todas, { e7: true, e11: true }, dupKey);
+    assert.equal(Object.keys(idx).length, 2, 'exatamente 2 linhas repetidas');
+    const efetivas = todas.filter(e => !idx[e.id]);
+    assert.equal(efetivas.length, 13, '13 sessões reais');
+    assert.equal(efetivas.reduce((s, e) => s + e.valor, 0), 1160, 'R$ 1.160,00 realizados');
+    assert.equal(todas.reduce((s, e) => s + e.valor, 0), 1350, 'soma bruta inflada = R$ 1.350,00');
+  });
+});

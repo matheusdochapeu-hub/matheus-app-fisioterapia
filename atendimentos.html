@@ -795,6 +795,19 @@
   .forecast-item.highlight .f-val{color:var(--primary-deep);}
   .forecast-item .f-sub{font-size:10.5px;color:var(--ink-soft);}
   .bar-sub-prev{width:100%;background:repeating-linear-gradient(45deg,#6b8cae,#6b8cae 3px,#8faec9 3px,#8faec9 6px);transition:height .25s ease;opacity:0.85;}
+
+  /* Lançamentos repetidos: continuam no histórico, mas ficam fora dos totais */
+  .dup-banner{
+    background:var(--accent-soft);border:1px solid var(--accent);border-left:4px solid var(--accent);
+    color:var(--accent-ink);border-radius:var(--radius-xs);padding:9px 11px;margin:0 0 10px;
+    font-size:11.5px;line-height:1.45;font-weight:600;
+  }
+  .dup-badge{
+    display:inline-block;background:#fde8d7;color:#9a4a12;border:1px solid #e9b98e;
+    font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:99px;margin-left:4px;
+    vertical-align:middle;white-space:nowrap;
+  }
+  .entry.is-dup{background:#fff8f1;border-style:dashed;}
   @media (max-width: 480px){
     .main-tabs{padding:3px;gap:2px;}
     .main-tab{padding:8px 3px;font-size:11px;gap:3px;}
@@ -1530,6 +1543,104 @@ function entryMatchesPatient(e, p){
   if(p.nomeFantasia && normName(p.nomeFantasia) === en) return true;
   if(p.oldNome && normName(p.oldNome) === en) return true;
   return false;
+}
+
+/* ============================================================
+   DEDUPLICAÇÃO FINANCEIRA (histórico preservado)
+   Regra: mesma paciente + mesma data + mesmo horário = mesma sessão.
+   A linha canônica é a que conta; as repetidas continuam na planilha,
+   aparecem marcadas no Financeiro e ficam fora dos totais.
+   Nada é apagado automaticamente.
+   ============================================================ */
+var DUP_KEEP_KEY = 'ft_dup_keep_v1';
+var financialDupOf = {};
+
+function getDupKeepIds(){
+  try{
+    var raw = localStorage.getItem(DUP_KEEP_KEY);
+    var list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list : [];
+  }catch(e){ return []; }
+}
+
+function isDuplicateKept(id){
+  return getDupKeepIds().indexOf(id) > -1;
+}
+
+function setDupKeep(id, keep){
+  var list = getDupKeepIds().filter(function(x){ return x !== id; });
+  if(keep) list.push(id);
+  try{ localStorage.setItem(DUP_KEEP_KEY, JSON.stringify(list)); }catch(e){}
+}
+
+function entryPatientKey(e){
+  if(!e) return '';
+  var p = findPatientByName(e.nome);
+  return p ? ('id:' + p.id) : ('nm:' + normName(e.nome));
+}
+
+/* Função pura: devolve { idRepetido: idCanonico }.
+   Prefere a linha ligada à Agenda, depois a já paga e, por fim, a mais antiga. */
+function buildDuplicateIndex(entryList, linkedIds, resolveKey){
+  var groups = {};
+  var linked = linkedIds || {};
+  var keyOf = typeof resolveKey === 'function' ? resolveKey : function(e){ return 'nm:' + normName(e && e.nome); };
+
+  (entryList || []).forEach(function(e, idx){
+    if(!e || !e.id || !e.data || !e.hora) return; // sem horário não há como provar repetição
+    var base = keyOf(e);
+    if(!base) return;
+    var key = base + '|' + String(e.data).slice(0,10) + '|' + String(e.hora).slice(0,5);
+    (groups[key] = groups[key] || []).push({ e: e, idx: idx });
+  });
+
+  var dupOf = {};
+  Object.keys(groups).forEach(function(key){
+    var g = groups[key];
+    if(g.length < 2) return;
+    g.sort(function(a, b){
+      var la = linked[a.e.id] ? 0 : 1;
+      var lb = linked[b.e.id] ? 0 : 1;
+      if(la !== lb) return la - lb;
+      var pa = a.e.status === 'Pago' ? 0 : 1;
+      var pb = b.e.status === 'Pago' ? 0 : 1;
+      if(pa !== pb) return pa - pb;
+      return a.idx - b.idx;
+    });
+    for(var i = 1; i < g.length; i++){
+      dupOf[g[i].e.id] = g[0].e.id;
+    }
+  });
+  return dupOf;
+}
+
+function rebuildFinancialDupIndex(){
+  var linked = {};
+  (schedules || []).forEach(function(sc){ if(sc && sc.atendimentoId) linked[sc.atendimentoId] = true; });
+  financialDupOf = buildDuplicateIndex(entries, linked, entryPatientKey);
+  return financialDupOf;
+}
+
+function isKnownDuplicate(e){
+  return !!(e && e.id && financialDupOf[e.id]);
+}
+
+function isDuplicateEntry(e){
+  return isKnownDuplicate(e) && !isDuplicateKept(e.id);
+}
+
+function effectiveEntries(){
+  rebuildFinancialDupIndex();
+  return (entries || []).filter(function(e){ return !isDuplicateEntry(e); });
+}
+
+function toggleDuplicateKeep(id){
+  var keeping = !isDuplicateKept(id);
+  setDupKeep(id, keeping);
+  renderList();
+  if(document.getElementById('repBody')) renderReportBody();
+  if(document.getElementById('pFinSessionsList') && pFinLastPatientId) renderPatientFinancialDetails(pFinLastPatientId);
+  showToast(keeping ? 'Lançamento somado novamente aos totais.' : 'Lançamento repetido mantido no histórico e fora dos totais.', 'ok');
 }
 
 function findPatientByName(rawName){
@@ -3370,6 +3481,7 @@ async function removePatientFile(fileId, patientId, tipo){
    FINANCEIRO DO PACIENTE (COM SELEÇÃO FLEXÍVEL DE PERÍODOS)
    ============================================================ */
 var pFinPeriodMode = 'all'; // 'all', 'year', 'month', 'multi'
+var pFinLastPatientId = ''; // usado ao alternar duplicidade no Financeiro do paciente
 var pFinSelectedYear = new Date().getFullYear();
 var pFinSelectedMonth = new Date().getMonth();
 var pFinMultiMonths = {};
@@ -3461,7 +3573,9 @@ function filterDateByPatientFinPeriod(dateStr){
 
 function getPatientFilteredSessions(patientOrName){
   var pObj = (patientOrName && typeof patientOrName === 'object') ? patientOrName : findPatientByName(patientOrName);
+  rebuildFinancialDupIndex();
   var pEntries = entries.filter(function(e){
+    if(isDuplicateEntry(e)) return false;
     return pObj ? entryMatchesPatient(e, pObj) : (e.nome === patientOrName);
   }).sort(function(a,b){ return String(b.data).localeCompare(String(a.data)); });
 
@@ -3484,6 +3598,8 @@ function getPatientFilteredSchedules(patientObj){
 function renderPatientFinancialDetails(patientId){
   var p = patients.find(function(x){ return x.id === patientId; });
   if(!p) return;
+  pFinLastPatientId = patientId;
+  rebuildFinancialDupIndex();
 
   var pEntriesAll = entries.filter(function(e){ return entryMatchesPatient(e, p); });
   var pSchedsAll = schedules.filter(function(sc){ return sc.status !== 'Cancelado' && scheduleMatchesPatient(sc, p); });
@@ -4053,7 +4169,26 @@ async function submitNewEvolution(){
       renderList();
       renderPatientsTab();
       renderAgendaTab();
-      postAction(Object.assign({ action: 'create' }, newEntry)).catch(function(e){ console.warn(e); });
+      postAction(Object.assign({ action: 'create' }, newEntry)).then(function(resp){
+        if(resp && resp.duplicateOf){
+          entries = entries.filter(function(x){ return x.id !== newEntryId; });
+          reconcileSchedulesWithEntries();
+          renderList();
+          renderAgendaTab();
+          renderPatientsTab();
+          return;
+        }
+        // Persiste na planilha os vínculos que o reconcile acabou de criar
+        schedules.filter(function(sc){ return sc.atendimentoId === newEntryId; }).forEach(function(sc){
+          var scP = getSchedulePatientObj(sc);
+          postAction(Object.assign({
+            action: 'update_schedule',
+            pacienteDisplay: getSchedulePatientDisplayName(sc),
+            telefone: scP ? (scP.telefone || '') : '',
+            endereco: scP ? [scP.endereco, scP.bairro, scP.cidade].filter(Boolean).join(', ') : ''
+          }, sc)).catch(function(e){ console.warn(e); });
+        });
+      }).catch(function(e){ console.warn(e); });
     }
     showToast('Evolução e Check-in financeiro registrados!', 'ok');
   } else {
@@ -4922,19 +5057,23 @@ function shiftMonth(delta){
 }
 
 function renderList(){
-  var list = entriesForMonth();
+  rebuildFinancialDupIndex();
+  var allList = entriesForMonth();
+  var list = allList.filter(function(e){ return !isDuplicateEntry(e); });
+  var dupList = allList.filter(function(e){ return isDuplicateEntry(e); });
   var schedList = pendingSchedulesForMonth();
   var container = document.getElementById('entryList');
   var empty = document.getElementById('emptyState');
   if(!container) return;
 
-  var recebido = 0, pendente = 0, total = 0, previstoMes = 0;
+  var recebido = 0, pendente = 0, total = 0, previstoMes = 0, totalDuplicado = 0;
   var pacientesSet = {};
   list.forEach(function(e){
     total += e.valor;
     if(e.status === 'Pago') recebido += e.valor; else pendente += e.valor;
     pacientesSet[getEntryDisplayName(e)] = true;
   });
+  dupList.forEach(function(e){ totalDuplicado += parseFloat(e.valor) || 0; });
   schedList.forEach(function(sc){
     previstoMes += getScheduleEffectiveValor(sc);
   });
@@ -4979,7 +5118,7 @@ function renderList(){
   }
   empty.classList.add('hidden');
 
-  var realizedHtml = list.map(function(e){
+  var realizedHtml = allList.map(function(e){
     var pago = e.status === 'Pago';
     var pObj = findPatientByName(e.nome);
     var isArchived = pObj && pObj.arquivado === 'Sim';
@@ -4991,12 +5130,21 @@ function renderList(){
     var archBadge = isArchived ? '<span style="font-size:10px;font-weight:600;color:var(--ink-soft);background:var(--bg-tint);padding:1px 5px;border-radius:4px;margin-left:4px;">Finalizado</span>' : '';
     var schedBadge = linkedSc ? '<span style="font-size:10px;font-weight:600;color:var(--primary-deep);background:var(--primary-soft);padding:1px 6px;border-radius:99px;margin-left:4px;" title="Vinculado ao agendamento da Agenda">&#128197; Agenda</span>' : '';
 
-    return '<div class="entry">' +
+    var isDup = isDuplicateEntry(e);
+    var isKeptDup = isKnownDuplicate(e) && !isDup;
+    var dupBadge = isDup
+      ? '<span class="dup-badge" title="Mesma paciente, mesma data e mesmo hor&#225;rio de outro lan&#231;amento. Continua no hist&#243;rico, mas n&#227;o entra nos totais.">Duplicado &middot; fora dos totais</span>'
+      : (isKeptDup ? '<span class="dup-badge" title="Voc&#234; optou por somar este lan&#231;amento repetido.">Duplicado &middot; somado por op&#231;&#227;o</span>' : '');
+    var dupBtn = isDup
+      ? '<button class="btn-pill outline" onclick="toggleDuplicateKeep(\''+e.id+'\')">&#8634; Somar mesmo assim</button>'
+      : (isKeptDup ? '<button class="btn-pill outline" onclick="toggleDuplicateKeep(\''+e.id+'\')">&minus; N&#227;o somar</button>' : '');
+
+    return '<div class="entry'+(isDup?' is-dup':'')+'">' +
       '<div class="entry-body">' +
         '<div class="entry-top">' +
           renderPatientAvatar(pObj, e.nome) +
           '<div class="info">' +
-            '<div class="name">'+escapeHtml(dispName)+archBadge+schedBadge+'</div>' +
+            '<div class="name">'+escapeHtml(dispName)+archBadge+schedBadge+dupBadge+'</div>' +
             '<div class="date">'+formatDateBR(e.data)+(e.hora ? ' &middot; '+escapeHtml(e.hora) : '')+'</div>' +
             paidNote +
           '</div>' +
@@ -5006,7 +5154,8 @@ function renderList(){
           '</div>' +
         '</div>' +
         '<div class="pill-action-stack" style="border-top:1px dashed var(--line);padding-top:10px;margin-top:8px;">' +
-          (!pago ? '<button class="btn-pill primary-green" onclick="openPaymentModal(\''+e.id+'\')">💰 Registrar pagamento</button>' : '') +
+          (!pago && !isDup ? '<button class="btn-pill primary-green" onclick="openPaymentModal(\''+e.id+'\')">💰 Registrar pagamento</button>' : '') +
+          dupBtn +
           '<button class="btn-pill outline" onclick="generateReceipt(\''+e.id+'\')">📄 Recibo</button>' +
           '<button class="btn-pill outline" onclick="openEditEntry(\''+e.id+'\')">✎ Editar</button>' +
           '<button class="btn-pill danger-solid" onclick="deleteEntry(\''+e.id+'\')">🗑 Excluir</button>' +
@@ -5045,7 +5194,15 @@ function renderList(){
     '</div>';
   }
 
-  container.innerHTML = realizedHtml + forecastListHtml;
+  var dupBanner = '';
+  if(dupList.length > 0){
+    dupBanner = '<div class="dup-banner">&#9888;&#65039; ' + dupList.length + ' lançamento' + (dupList.length === 1 ? '' : 's') +
+      ' repetido' + (dupList.length === 1 ? '' : 's') + ' (' + (hidden ? 'R$ •••' : formatMoney(totalDuplicado)) + ')' +
+      ' mantido' + (dupList.length === 1 ? '' : 's') + ' no histórico e fora dos totais. ' +
+      'Se algum for legítimo, use &#8220;Somar mesmo assim&#8221;.</div>';
+  }
+
+  container.innerHTML = dupBanner + realizedHtml + forecastListHtml;
 }
 
 function returnFromEntryModal(returnContext){
@@ -5271,7 +5428,7 @@ async function submitNewEntry(returnContext){
   showToast(linkedSc ? 'Atendimento salvo e vinculado à Agenda!' : 'Atendimento salvo!', 'ok');
 
   try{
-    await postAction({
+    var createResp = await postAction({
       action: 'create',
       id: id,
       nome: nome,
@@ -5282,6 +5439,21 @@ async function submitNewEntry(returnContext){
       lat: newEntry.lat,
       lng: newEntry.lng
     });
+
+    // Já existia na planilha (mesma paciente/data/horário): mantém o lançamento original
+    if(createResp && createResp.duplicateOf){
+      entries = entries.filter(function(x){ return x.id !== id; });
+      if(linkedSc){
+        linkedSc.status = 'Realizado';
+        linkedSc.atendimentoId = String(createResp.duplicateOf);
+        saveLocalSchedules();
+        await postAction(Object.assign({ action: 'update_schedule' }, linkedSc));
+      }
+      await loadData({ silent: true });
+      showToast('Esta sessão já estava lançada — mantivemos o registro original, sem duplicar.', 'ok');
+      return;
+    }
+
     if(linkedSc){
       await postAction(Object.assign({ action: 'update_schedule' }, linkedSc));
     }
@@ -5462,6 +5634,11 @@ async function deleteEntry(id, returnContext){
 function openPaymentModal(id, returnToContext){
   var e = entries.find(function(x){ return x.id === id; });
   if(!e) return;
+  rebuildFinancialDupIndex();
+  if(isDuplicateEntry(e)){
+    showToast('Este lançamento está duplicado e fora dos totais. Use “Somar mesmo assim” antes de registrar o pagamento.', 'info');
+    return;
+  }
   var cancelAction = returnToContext ? 'returnFromEntryModal(\''+escapeHtml(returnToContext)+'\')' : 'closeModal()';
   var confirmAction = returnToContext ? 'submitPayment(\''+e.id+'\', \''+escapeHtml(returnToContext)+'\')' : 'submitPayment(\''+e.id+'\')';
   var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
@@ -5558,9 +5735,11 @@ function openMonthlyReceipt(){
 
   var y = currentMonth.getFullYear(), m = currentMonth.getMonth();
   var sortedPatients = patients.slice().sort(function(a,b){ return getPatientDisplayName(a).localeCompare(getPatientDisplayName(b),'pt-BR'); });
+  rebuildFinancialDupIndex();
 
   var rowsHtml = sortedPatients.map(function(p){
     var sCount = entries.filter(function(e){
+      if(isDuplicateEntry(e)) return false;
       var d = new Date(e.data + 'T00:00:00');
       return !isNaN(d.getTime()) && entryMatchesPatient(e, p) && d.getFullYear() === y && d.getMonth() === m;
     }).length;
@@ -5614,11 +5793,13 @@ function submitMonthlyReceipt(){
 
   var y = currentMonth.getFullYear(), m = currentMonth.getMonth();
   var patientsWithSessions = [];
+  rebuildFinancialDupIndex();
 
   selectedIds.forEach(function(pId){
     var pObj = patients.find(function(x){ return x.id === pId; }) || findPatientByName(pId);
     if(!pObj) return;
     var sList = entries.filter(function(e){
+      if(isDuplicateEntry(e)) return false;
       var d = new Date(e.data + 'T00:00:00');
       return !isNaN(d.getTime()) && entryMatchesPatient(e, pObj) && d.getFullYear() === y && d.getMonth() === m;
     }).sort(function(a,b){ return String(a.data).localeCompare(String(b.data)); });
@@ -5752,6 +5933,8 @@ function submitMonthlyReceipt(){
 function generateReceipt(id){
   var e = entries.find(function(x){ return x.id === id; });
   if(!e) return;
+  rebuildFinancialDupIndex();
+  if(isDuplicateEntry(e) && !confirm('Este lançamento está marcado como duplicado (mesma paciente, data e horário de outro lançamento) e não entra nos totais.\n\nGerar o recibo mesmo assim?')) return;
   var doc = new jspdf.jsPDF();
   receiptHeader(doc, 'Recibo de Sessão');
 
@@ -5792,7 +5975,9 @@ function generateReceipt(id){
    RELATÓRIOS FINANCEIROS AVANÇADOS (COM SELETOR DE MÊS)
    ============================================================ */
 function entriesOfYear(y){
+  rebuildFinancialDupIndex();
   return entries.filter(function(e){
+    if(isDuplicateEntry(e)) return false;
     var d = new Date(e.data + 'T00:00:00');
     return !isNaN(d.getTime()) && d.getFullYear() === y;
   });
@@ -6278,6 +6463,7 @@ function renderWorkCalendar(){
   var grid = document.getElementById('calGrid');
   var detailsEl = document.getElementById('calDayDetails');
   if(!label || !grid) return;
+  rebuildFinancialDupIndex();
   var y = calMonth.getFullYear(), m = calMonth.getMonth();
   label.textContent = monthLabel(calMonth);
 
@@ -6285,6 +6471,7 @@ function renderWorkCalendar(){
   var schedByDay = {};
   var vacByDay = {};
   entries.forEach(function(e){
+    if(isDuplicateEntry(e)) return;
     var d = new Date(e.data+'T00:00:00');
     if(!isNaN(d.getTime()) && d.getFullYear() === y && d.getMonth() === m){
       var dayNum = d.getDate();
@@ -6356,7 +6543,7 @@ function renderWorkCalendar(){
     return;
   }
 
-  var selEntries = entries.filter(function(e){ return e.data === calSelectedDay; }).sort(function(a,b){
+  var selEntries = entries.filter(function(e){ return e.data === calSelectedDay && !isDuplicateEntry(e); }).sort(function(a,b){
     return String(a.hora || '').localeCompare(String(b.hora || ''));
   });
   var selScheds = schedules.filter(function(sc){
@@ -9601,6 +9788,35 @@ async function completeScheduleCheckin(id, silentToast){
   var patEnd = pObj ? [pObj.endereco, pObj.bairro, pObj.cidade].filter(Boolean).join(', ') : '';
   var valorSessao = getScheduleEffectiveValor(sc);
 
+  // Revalida direto na planilha antes de lançar: em outro aparelho (ou com o cache
+  // local desatualizado) a sessão pode já ter sido lançada há instantes.
+  try{
+    var freshUrl = scriptUrl() + (scriptUrl().indexOf('?') > -1 ? '&' : '?') + '_t=' + Date.now();
+    var freshRes = await fetch(freshUrl, { cache: 'no-store' });
+    if(freshRes.ok){
+      var freshData = await freshRes.json();
+      var knownIds = {};
+      entries.forEach(function(e){ knownIds[e.id] = true; });
+      (freshData.atendimentos || []).forEach(function(r){
+        var fid = String(r.ID);
+        if(!fid || knownIds[fid]) return;
+        knownIds[fid] = true;
+        entries.push({
+          id: fid,
+          nome: r.Paciente || '',
+          data: r.Data || '',
+          hora: r.Hora || '',
+          valor: parseValor(r.Valor),
+          status: r.Status || 'Pendente',
+          paymentDate: r.DataPagamento || '',
+          lat: r.Latitude || '',
+          lng: r.Longitude || ''
+        });
+      });
+      rebuildFinancialDupIndex();
+    }
+  }catch(eFresh){ /* sem rede: segue com o cache local */ }
+
   // Verifica se já existe um atendimento lançado manualmente nesta mesma data sem vínculo com outro agendamento
   var existingUnlinkedEntry = entries.find(function(e){
     if(e.data !== sc.data) return false;
@@ -9669,7 +9885,27 @@ async function completeScheduleCheckin(id, silentToast){
   }
 
   try{
-    await postAction(Object.assign({ action: 'create' }, newEntry));
+    var createResp = await postAction(Object.assign({ action: 'create' }, newEntry));
+
+    // A planilha já tinha esta sessão (check-in feito em outro aparelho ou retentativa).
+    // Descarta a cópia local e vincula o agendamento ao lançamento existente.
+    if(createResp && createResp.duplicateOf){
+      entries = entries.filter(function(x){ return x.id !== newEntryId; });
+      sc.atendimentoId = String(createResp.duplicateOf);
+      saveLocalSchedules();
+      await postAction(Object.assign({
+        action: 'update_schedule',
+        pacienteDisplay: dispName,
+        telefone: patTel,
+        endereco: patEnd
+      }, sc));
+      await loadData({ silent: true });
+      if(!silentToast){
+        showToast('✓ Esta sessão já estava lançada — check-in vinculado ao lançamento existente, sem duplicar.', 'ok');
+      }
+      return;
+    }
+
     await postAction(Object.assign({
       action: 'update_schedule',
       pacienteDisplay: dispName,

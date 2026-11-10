@@ -763,6 +763,32 @@ function isInvalidOptionalName_(name) {
   return !!String(name || '').trim() && isInvalidPatientName_(name);
 }
 
+/** Normaliza nome de paciente para comparar (sem acento, minúsculo, espaços simples). */
+function normPatientName_(name) {
+  return String(name || '').trim().toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
+}
+
+/** Procura um lançamento já existente para a mesma paciente + data + horário.
+ *  Devolve o ID encontrado ou '' — usado para impedir duplicidade de sessão. */
+function findSessionEntryId_(sheet, pacienteNome, data, hora) {
+  var target = normPatientName_(pacienteNome);
+  if (!target || !data || !hora) return '';
+  var rows = sheetToObjects_(sheet);
+  var hhmm = String(hora).slice(0, 5);
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+    if (!row || !row.ID) continue;
+    if (normPatientName_(row.Paciente) !== target) continue;
+    if (String(row.Data) !== String(data)) continue;
+    if (String(row.Hora).slice(0, 5) !== hhmm) continue;
+    return String(row.ID);
+  }
+  return '';
+}
+
 function doGet(e) {
   cleanupUnusedSheets_();
   var rawPac = sheetToObjects_(getPacSheet_());
@@ -1210,18 +1236,39 @@ function doPost(e) {
       result.warning = 'Exercícios e Rotinas foram removidos desta versão.';
 
     } else if (!body.action || body.action === 'create') {
-      getAtendSheet_().appendRow([
-        body.id,
-        body.nome,
-        body.data,
-        body.hora || '',
-        body.valor,
-        body.status || 'Pendente',
-        body.paymentDate || '',
-        body.lat || '',
-        body.lng || '',
-        new Date().toISOString()
-      ]);
+      var sAtendCreate = getAtendSheet_();
+      var existingById = body.id ? getRowObjectById_(sAtendCreate, body.id) : null;
+
+      if (existingById) {
+        // Reenvio do mesmo ID (retentativa/duplo toque): não grava de novo.
+        result.success = true;
+        result.duplicate = true;
+        result.entryId = String(body.id);
+      } else {
+        // Mesma paciente + mesma data + mesmo horário = mesma sessão.
+        // Se já existe (ex.: check-in feito em outro aparelho), devolve o ID existente
+        // para o app apenas vincular o agendamento, sem criar cobrança repetida.
+        var existingSessionId = findSessionEntryId_(sAtendCreate, body.nome, body.data, body.hora);
+        if (existingSessionId) {
+          result.success = true;
+          result.duplicateOf = existingSessionId;
+          result.entryId = existingSessionId;
+        } else {
+          sAtendCreate.appendRow([
+            body.id,
+            body.nome,
+            body.data,
+            body.hora || '',
+            body.valor,
+            body.status || 'Pendente',
+            body.paymentDate || '',
+            body.lat || '',
+            body.lng || '',
+            new Date().toISOString()
+          ]);
+          result.entryId = body.id;
+        }
+      }
 
     } else if (body.action === 'bulk_import') {
       var nowIso = new Date().toISOString();

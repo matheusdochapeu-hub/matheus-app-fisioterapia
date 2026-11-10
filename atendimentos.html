@@ -1598,6 +1598,10 @@ function buildDuplicateIndex(entryList, linkedIds, resolveKey){
   Object.keys(groups).forEach(function(key){
     var g = groups[key];
     if(g.length < 2) return;
+    // Mês fechado: se todas as linhas do grupo já estão pagas, não mexe em nada.
+    // (ex.: Dona Diva 15/09 — as duas continuam valendo)
+    var allPaid = g.every(function(x){ return x.e.status === 'Pago'; });
+    if(allPaid) return;
     g.sort(function(a, b){
       var la = linked[a.e.id] ? 0 : 1;
       var lb = linked[b.e.id] ? 0 : 1;

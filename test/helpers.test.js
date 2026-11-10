@@ -1143,3 +1143,21 @@ describe('buildDuplicateIndex (lançamentos repetidos)', () => {
     assert.equal(todas.reduce((s, e) => s + e.valor, 0), 1350, 'soma bruta inflada = R$ 1.350,00');
   });
 });
+﻿
+describe('deduplicação em mês fechado', () => {
+  test('não sinaliza quando todas as linhas do grupo já estão pagas', () => {
+    const list = [
+      { id: 'e1', nome: 'Dona Diva', data: '2026-09-15', hora: '16:00', status: 'Pago', valor: 100 },
+      { id: 'e2', nome: 'Dona Diva', data: '2026-09-15', hora: '16:00', status: 'Pago', valor: 100 }
+    ];
+    assert.deepEqual(buildDuplicateIndex(list, {}, dupKey), {});
+  });
+
+  test('sinaliza quando ainda há valor em aberto no grupo', () => {
+    const list = [
+      { id: 'e1', nome: 'Dona Diva', data: '2026-09-15', hora: '16:00', status: 'Pago', valor: 100 },
+      { id: 'e2', nome: 'Dona Diva', data: '2026-09-15', hora: '16:00', status: 'Pendente', valor: 100 }
+    ];
+    assert.deepEqual(buildDuplicateIndex(list, {}, dupKey), { e2: 'e1' });
+  });
+});

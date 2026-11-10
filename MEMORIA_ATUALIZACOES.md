@@ -1,7 +1,14 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `10/11/2026`  
-Versão do Service Worker: `atend-v64` (`sw.js`)
+Versão do Service Worker: `atend-v65` (`sw.js`)
+
+---
+
+## 33. Duplicidade só é sinalizada com valor em aberto (`v65`)
+- **Regra de mês fechado:** se **todas** as linhas repetidas de um grupo já estão `Pago`, o app não sinaliza nada — o histórico pago continua valendo integralmente. Caso concreto: Dona Diva 15/09 (duas linhas de R$ 100, ambas pagas) permanece somando R$ 200; setembro continua com 40 sessões / R$ 3.700.
+- **Quando age:** a deduplicação marca linhas extras apenas se houver pelo menos um lançamento em aberto no grupo (caso dos duplicados de novembro, que estavam `Pendente`).
+- **Testes:** +2 casos (79 no app / 105 no FisioFlow) cobrindo "tudo pago não sinaliza" e "um pendente sinaliza".
 
 ---
 

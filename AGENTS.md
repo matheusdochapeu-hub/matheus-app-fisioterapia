@@ -33,7 +33,7 @@ node --test test/**/*.test.js   # 74 testes
 
 - GitHub Pages a partir da `main`:
   <https://matheusdochapeu-hub.github.io/matheus-app-fisioterapia/>
-- Sem CI hoje (ponto de melhoria).
+- CI em `.github/workflows/ci.yml`: roda a suíte (74 testes) em todo push/PR.
 
 ## Arquivos-chave
 

@@ -805,7 +805,20 @@ function doGet(e) {
     config: sheetToObjects_(getConfigSheet_()),
     organizer: APP_ORGANIZER_EMAIL
   };
-  return ContentService.createTextOutput(JSON.stringify(result))
+  var json = JSON.stringify(result);
+
+  // JSONP: o Matrix (e qualquer app em outro domínio) não consegue ler a resposta por CORS.
+  // Com ?callback=..., devolvemos o JSON embrulhado para o <script> do conector consumir.
+  var callback = e && e.parameter && e.parameter.callback;
+  if (callback) {
+    var cleanCb = String(callback).replace(/[^a-zA-Z0-9_$.]/g, "");
+    if (cleanCb) {
+      return ContentService.createTextOutput(cleanCb + '(' + json + ');')
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    }
+  }
+
+  return ContentService.createTextOutput(json)
     .setMimeType(ContentService.MimeType.JSON);
 }
 

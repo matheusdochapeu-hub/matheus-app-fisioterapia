@@ -794,6 +794,14 @@
   .forecast-item .f-val{font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:var(--ink);}
   .forecast-item.highlight .f-val{color:var(--primary-deep);}
   .forecast-item .f-sub{font-size:10.5px;color:var(--ink-soft);}
+  .work-hours-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;}
+  .work-weeks{margin-top:8px;border-top:1px dashed var(--line-strong);padding-top:6px;}
+  .work-weeks summary{cursor:pointer;font-size:11px;font-weight:700;color:var(--primary-deep);}
+  .wh-week-row{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;font-size:11px;padding:5px 0;border-bottom:1px solid var(--line);}
+  .wh-week-row:last-child{border-bottom:0;}
+  .wh-week-row .w-lbl{color:var(--ink-soft);line-height:1.35;}
+  .wh-week-row .w-sub{font-size:10px;color:var(--ink-soft);}
+  .wh-week-row .w-val{font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--primary-deep);white-space:nowrap;}
   .bar-sub-prev{width:100%;background:repeating-linear-gradient(45deg,#6b8cae,#6b8cae 3px,#8faec9 3px,#8faec9 6px);transition:height .25s ease;opacity:0.85;}
 
   /* Lançamentos repetidos: continuam no histórico, mas ficam fora dos totais */
@@ -1242,6 +1250,28 @@
         <div class="chip"><span class="n" id="statSessoes">0</span><span class="t">sessões<br>realizadas</span></div>
         <div class="chip"><span class="n" id="statPacientes">0</span><span class="t">pacientes<br>atendidas</span></div>
         <div class="chip"><span class="n" id="statTotal">R$ ••••••</span><span class="t">ganho real<br>(realizado)</span></div>
+      </div>
+
+      <div id="workHoursCard" class="forecast-card">
+        <div style="font-size:12px;font-weight:700;color:var(--primary-deep);display:flex;align-items:center;gap:6px;">
+          <span>&#9201; Horas trabalhadas (casa &rarr; pacientes &rarr; casa)</span>
+        </div>
+        <div class="work-hours-grid">
+          <div class="forecast-item">
+            <span class="f-lbl">Esta semana</span>
+            <span class="f-val" id="whWeekVal">&mdash;</span>
+            <span class="f-sub" id="whWeekSub">sem sess&otilde;es</span>
+          </div>
+          <div class="forecast-item highlight">
+            <span class="f-lbl">No m&ecirc;s</span>
+            <span class="f-val" id="whMonthVal">&mdash;</span>
+            <span class="f-sub" id="whMonthSub">sem sess&otilde;es</span>
+          </div>
+        </div>
+        <details class="work-weeks">
+          <summary>Ver semana a semana</summary>
+          <div id="whWeeksList"></div>
+        </details>
       </div>
 
       <div id="finForecastCard" class="forecast-card">
@@ -5092,6 +5122,8 @@ function renderList(){
   document.getElementById('statPacientes').textContent = Object.keys(pacientesSet).length;
   document.getElementById('statTotal').textContent = hidden ? maskTxt : formatMoney(total);
 
+  updateWorkedHoursCard(list);
+
   var elRealVal = document.getElementById('finRealVal');
   var elRealSub = document.getElementById('finRealSub');
   var elSchedVal = document.getElementById('finScheduledVal');
@@ -7275,6 +7307,242 @@ function formatTimeMinutes(totalMin){
 
 function formatDurationHuman(mins){
   return formatDurationFriendly(mins);
+}
+
+/* ============================================================
+   HORAS TRABALHADAS — jornada real (saída de casa → pacientes → casa)
+   ============================================================ */
+var _workHoursApproxLegs = 0;
+var _workHoursRouteQueue = {};
+
+/* Minutos de carro entre dois endereços (cache do motor de rotas / estimativa). */
+function routeMinutesBetween(origin, dest){
+  if(!origin || !dest) return 0;
+  var key = makeRoutePairKey(origin, dest);
+  var cache = getRouteCacheMap();
+  if(!cache[key] || !cache[key].ok){
+    _workHoursRouteQueue[key] = { origin: origin, destination: dest };
+  }
+  var r = getRouteSyncOrApprox(origin, dest);
+  if(!r || typeof r.durationMin !== 'number' || !isFinite(r.durationMin)) return 0;
+  if(r.approx) _workHoursApproxLegs++;
+  return Math.max(0, r.durationMin);
+}
+
+/* Núcleo puro: sessões de UM dia → minutos de jornada.
+   sessions: [{hora:'14:00', duracaoMin:50, endereco:'Rua X, Bairro, Cidade'}]
+   routeMin(origem, destino) → minutos */
+function computeDayWorkedMinutes(sessions, homeAddr, routeMin){
+  var leg = (typeof routeMin === 'function') ? routeMin : function(){ return 0; };
+  var items = (sessions || []).map(function(s){
+    return {
+      start: parseTimeMinutes(s && s.hora),
+      dur: Math.max(0, parseInt(s && s.duracaoMin, 10) || 0),
+      endereco: (s && s.endereco) || ''
+    };
+  }).filter(function(s){ return s.start !== null; })
+    .sort(function(a, b){ return a.start - b.start; });
+
+  if(!items.length) return { totalMin:0, atendimentoMin:0, deslocamentoMin:0, sessoes:0 };
+
+  var atendimentoMin = 0;
+  for(var i = 0; i < items.length; i++) atendimentoMin += items[i].dur;
+
+  var primeiro = items[0];
+  var ultimo = items[items.length - 1];
+  var legMin = function(origem, destino){
+    return (origem && destino) ? Math.max(0, leg(origem, destino) || 0) : 0;
+  };
+  var deslocamentoMin = legMin(homeAddr, primeiro.endereco);
+  for(var j = 1; j < items.length; j++){
+    deslocamentoMin += legMin(items[j-1].endereco, items[j].endereco);
+  }
+  deslocamentoMin += legMin(ultimo.endereco, homeAddr);
+
+  /* Do início da 1ª sessão ao fim da última + todo o deslocamento (saída e volta para casa). */
+  var spanMin = (ultimo.start + ultimo.dur) - primeiro.start;
+  var totalMin = Math.max(0, spanMin + deslocamentoMin);
+
+  return { totalMin: totalMin, atendimentoMin: atendimentoMin, deslocamentoMin: deslocamentoMin, sessoes: items.length };
+}
+
+/* Agrupa por dia e soma a jornada do período. */
+function computePeriodWorkedMinutes(sessions, homeAddr, routeMin){
+  var byDay = {};
+  (sessions || []).forEach(function(s){
+    var dia = String((s && s.data) || '').slice(0, 10);
+    if(!dia) return;
+    (byDay[dia] = byDay[dia] || []).push(s);
+  });
+  var totalMin = 0, atendimentoMin = 0, deslocamentoMin = 0, dias = 0;
+  Object.keys(byDay).forEach(function(dia){
+    var r = computeDayWorkedMinutes(byDay[dia], homeAddr, routeMin);
+    if(!r.sessoes) return;
+    totalMin += r.totalMin;
+    atendimentoMin += r.atendimentoMin;
+    deslocamentoMin += r.deslocamentoMin;
+    dias++;
+  });
+  return { totalMin: totalMin, atendimentoMin: atendimentoMin, deslocamentoMin: deslocamentoMin, dias: dias };
+}
+
+/* Duração da sessão: usa o agendamento vinculado; senão o padrão do app (50 min). */
+function sessionDurationForEntry(e){
+  if(!e) return 50;
+  var i, sc, dur;
+  for(i = 0; i < schedules.length; i++){
+    sc = schedules[i];
+    if(sc && e.id && sc.atendimentoId && String(sc.atendimentoId) === String(e.id)){
+      dur = parseInt(sc.duracaoMin, 10);
+      if(isFinite(dur) && dur > 0) return dur;
+    }
+  }
+  var key = entryPatientKey(e) + '|' + String(e.data || '').slice(0, 10) + '|' + String(e.hora || '').slice(0, 5);
+  for(i = 0; i < schedules.length; i++){
+    sc = schedules[i];
+    if(!sc || !sc.data || !sc.hora) continue;
+    var k2 = entryPatientKey({ nome: sc.pacienteNome }) + '|' + String(sc.data).slice(0, 10) + '|' + String(sc.hora).slice(0, 5);
+    if(k2 === key){
+      dur = parseInt(sc.duracaoMin, 10);
+      if(isFinite(dur) && dur > 0) return dur;
+    }
+  }
+  return 50;
+}
+
+/* Converte lançamentos do Financeiro em sessões com endereço + duração. */
+function collectWorkSessions(list){
+  var out = [];
+  (list || []).forEach(function(e){
+    if(!e || !e.hora) return;
+    if(String(e.status) === 'Cancelado') return;
+    out.push({
+      data: String(e.data || '').slice(0, 10),
+      hora: String(e.hora),
+      duracaoMin: (String(e.status) === 'Ausência') ? 0 : sessionDurationForEntry(e),
+      endereco: getPatientFullAddress(findPatientByName(e.nome))
+    });
+  });
+  return out;
+}
+
+/* Resumo da jornada de uma lista de lançamentos. */
+function workedHoursSummary(list){
+  _workHoursApproxLegs = 0;
+  var resumo = computePeriodWorkedMinutes(collectWorkSessions(list), getHomeAddress(), routeMinutesBetween);
+  resumo.deslocamentoEstimado = _workHoursApproxLegs > 0;
+  return resumo;
+}
+
+/* Lançamentos da semana corrente (segunda a domingo), respeitando o filtro de paciente. */
+function entriesForCurrentWeek(){
+  var hoje = new Date();
+  var dow = (hoje.getDay() + 6) % 7; // segunda = 0
+  var ini = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() - dow);
+  var fim = new Date(ini.getFullYear(), ini.getMonth(), ini.getDate() + 6);
+  var iniISO = isoDate(ini), fimISO = isoDate(fim);
+  var pFilter = document.getElementById('patientFilter') ? document.getElementById('patientFilter').value : '';
+  var pFilterObj = pFilter ? (patients.find(function(x){ return x.id === pFilter; }) || findPatientByName(pFilter)) : null;
+  return entries.filter(function(e){
+    var d = String(e.data || '').slice(0, 10);
+    if(!d || d < iniISO || d > fimISO) return false;
+    if(!pFilter) return true;
+    return pFilterObj ? entryMatchesPatient(e, pFilterObj) : (e.nome === pFilter);
+  });
+}
+
+/* Segunda-feira (início da semana) de uma data ISO YYYY-MM-DD. */
+function weekStartISO(iso){
+  var d = new Date(String(iso || '') + 'T00:00:00');
+  if(isNaN(d.getTime())) return '';
+  var dow = (d.getDay() + 6) % 7; // segunda = 0
+  var seg = new Date(d.getFullYear(), d.getMonth(), d.getDate() - dow);
+  var mm = String(seg.getMonth() + 1); if(mm.length < 2) mm = '0' + mm;
+  var dd = String(seg.getDate()); if(dd.length < 2) dd = '0' + dd;
+  return seg.getFullYear() + '-' + mm + '-' + dd;
+}
+
+function formatDayMonth(iso){
+  var d = new Date(String(iso || '') + 'T00:00:00');
+  if(isNaN(d.getTime())) return '';
+  var dd = d.getDate(), mm = d.getMonth() + 1;
+  return (dd < 10 ? '0' + dd : dd) + '/' + (mm < 10 ? '0' + mm : mm);
+}
+
+/* Jornada semana a semana (segunda a domingo) do período. */
+function workedHoursByWeek(list){
+  var sessoes = collectWorkSessions(list);
+  var porSemana = {};
+  sessoes.forEach(function(s){
+    var w = weekStartISO(s.data);
+    if(!w) return;
+    (porSemana[w] = porSemana[w] || []).push(s);
+  });
+  return Object.keys(porSemana).sort().map(function(w){
+    var r = computePeriodWorkedMinutes(porSemana[w], getHomeAddress(), routeMinutesBetween);
+    var fim = new Date(w + 'T00:00:00');
+    fim.setDate(fim.getDate() + 6);
+    r.inicio = w;
+    r.fim = isoDate(fim);
+    return r;
+  });
+}
+
+/* Pinta o cartão de horas trabalhadas na aba Financeiro. */
+function updateWorkedHoursCard(monthList, skipRouteFetch){
+  var wEl = document.getElementById('whWeekVal');
+  var mEl = document.getElementById('whMonthVal');
+  if(!wEl || !mEl) return;
+
+  _workHoursApproxLegs = 0;
+  var semana = workedHoursSummary(entriesForCurrentWeek());
+  var mes = workedHoursSummary(monthList);
+
+  var valor = function(r){ return r.dias ? formatDurationFriendly(r.totalMin) : '—'; };
+  var detalhe = function(r){
+    if(!r.dias) return 'sem sessões';
+    return r.dias + (r.dias === 1 ? ' dia · ' : ' dias · ') +
+      formatDurationFriendly(r.atendimentoMin) + ' atend. + ' +
+      formatDurationFriendly(r.deslocamentoMin) + ' desloc.';
+  };
+
+  wEl.textContent = valor(semana);
+  mEl.textContent = valor(mes);
+  var wSub = document.getElementById('whWeekSub');
+  var mSub = document.getElementById('whMonthSub');
+  if(wSub) wSub.textContent = detalhe(semana);
+  if(mSub) mSub.textContent = detalhe(mes);
+
+  var card = document.getElementById('workHoursCard');
+  if(card){
+    card.title = (semana.deslocamentoEstimado || mes.deslocamentoEstimado)
+      ? 'Jornada = da saída de casa até a chegada em casa, somando atendimento e deslocamento. Trechos sem rota calculada usam estimativa (abrir a Agenda/Simulador de rotas refina com o Google Maps).'
+      : 'Jornada = da saída de casa até a chegada em casa, somando atendimento e deslocamento (rotas reais do Google Maps).';
+  }
+
+  var weeksEl = document.getElementById('whWeeksList');
+  if(weeksEl){
+    var semanas = workedHoursByWeek(monthList);
+    weeksEl.innerHTML = semanas.length ? semanas.map(function(r){
+      return '<div class="wh-week-row">' +
+        '<span class="w-lbl">' + formatDayMonth(r.inicio) + ' a ' + formatDayMonth(r.fim) +
+          '<br><span class="w-sub">' + r.dias + (r.dias === 1 ? ' dia · ' : ' dias · ') +
+          formatDurationFriendly(r.atendimentoMin) + ' atend. + ' +
+          formatDurationFriendly(r.deslocamentoMin) + ' desloc.</span></span>' +
+        '<span class="w-val">' + formatDurationFriendly(r.totalMin) + '</span>' +
+      '</div>';
+    }).join('') : '<div class="w-sub" style="padding:6px 0;">Nenhuma sessão neste mês.</div>';
+  }
+
+  /* Refina o deslocamento em background: pede as rotas reais que ainda faltam ao motor de rotas. */
+  if(!skipRouteFetch){
+    var pendentes = Object.keys(_workHoursRouteQueue);
+    if(pendentes.length){
+      var lote = pendentes.slice(0, 12).map(function(k){ return _workHoursRouteQueue[k]; });
+      _workHoursRouteQueue = {};
+      requestRoutesCalculation(lote, function(){ updateWorkedHoursCard(monthList, true); });
+    }
+  }
 }
 
 function calcFuelCost(distanceKm){

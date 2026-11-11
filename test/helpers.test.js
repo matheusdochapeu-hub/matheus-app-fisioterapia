@@ -1161,3 +1161,142 @@ describe('deduplicação em mês fechado', () => {
     assert.deepEqual(buildDuplicateIndex(list, {}, dupKey), { e2: 'e1' });
   });
 });
+
+describe('jornada: horas trabalhadas (casa → pacientes → casa)', () => {
+  const parseTimeMinutes = extractFn('parseTimeMinutes');
+  const computeDayWorkedMinutes = extractFnWithScope('computeDayWorkedMinutes', { parseTimeMinutes });
+  const computePeriodWorkedMinutes = extractFnWithScope('computePeriodWorkedMinutes', { computeDayWorkedMinutes });
+
+  const casa = 'Casa';
+  const ruaA = 'Rua A, 10';
+  const ruaB = 'Rua B, 20';
+
+  // função de rota falsa: mapa "origem>destino" -> minutos
+  const rotas = (mapa) => (origem, destino) => mapa[origem + '>' + destino] || 0;
+
+  test('uma sessão: conta ida de casa, sessão e volta para casa', () => {
+    const r = computeDayWorkedMinutes(
+      [{ hora: '14:00', duracaoMin: 50, endereco: ruaA }],
+      casa,
+      rotas({ [casa + '>' + ruaA]: 10, [ruaA + '>' + casa]: 12 })
+    );
+    assert.equal(r.atendimentoMin, 50);
+    assert.equal(r.deslocamentoMin, 22);
+    assert.equal(r.totalMin, 72); // 50 + 10 + 12
+    assert.equal(r.sessoes, 1);
+  });
+
+  test('duas sessões fora de ordem: ordena por horário e soma o trecho entre pacientes', () => {
+    const r = computeDayWorkedMinutes(
+      [
+        { hora: '16:00', duracaoMin: 50, endereco: ruaA },
+        { hora: '14:00', duracaoMin: 50, endereco: ruaB }
+      ],
+      casa,
+      rotas({
+        [casa + '>' + ruaB]: 8,
+        [ruaB + '>' + ruaA]: 7,
+        [ruaA + '>' + casa]: 12
+      })
+    );
+    assert.equal(r.atendimentoMin, 100);
+    assert.equal(r.deslocamentoMin, 27);
+    assert.equal(r.totalMin, 197); // 14:00 -> 16:50 = 170 min + 27 de deslocamento
+  });
+
+  test('intervalo entre sessões conta como jornada (do 1º início ao último fim)', () => {
+    const r = computeDayWorkedMinutes(
+      [
+        { hora: '08:00', duracaoMin: 50, endereco: ruaA },
+        { hora: '11:00', duracaoMin: 50, endereco: ruaB }
+      ],
+      casa,
+      rotas({}) // sem deslocamento conhecido
+    );
+    assert.equal(r.deslocamentoMin, 0);
+    assert.equal(r.totalMin, 230); // 08:00 -> 11:50
+  });
+
+  test('paciente sem endereço não inventa deslocamento', () => {
+    const r = computeDayWorkedMinutes(
+      [{ hora: '09:00', duracaoMin: 50, endereco: '' }],
+      casa,
+      rotas({ [casa + '>']: 30, ['>' + casa]: 30 })
+    );
+    assert.equal(r.deslocamentoMin, 0);
+    assert.equal(r.totalMin, 50);
+  });
+
+  test('sessão sem horário é ignorada', () => {
+    const r = computeDayWorkedMinutes(
+      [{ hora: '', duracaoMin: 50, endereco: ruaA }],
+      casa,
+      rotas({})
+    );
+    assert.equal(r.sessoes, 0);
+    assert.equal(r.totalMin, 0);
+  });
+
+  test('ausência (duração 0) mantém só o deslocamento', () => {
+    const r = computeDayWorkedMinutes(
+      [{ hora: '10:00', duracaoMin: 0, endereco: ruaA }],
+      casa,
+      rotas({ [casa + '>' + ruaA]: 10, [ruaA + '>' + casa]: 10 })
+    );
+    assert.equal(r.atendimentoMin, 0);
+    assert.equal(r.totalMin, 20);
+  });
+
+  test('período soma os dias e ignora lançamentos sem data', () => {
+    const mapa = { [casa + '>' + ruaA]: 10, [ruaA + '>' + casa]: 10 };
+    const r = computePeriodWorkedMinutes(
+      [
+        { data: '2026-11-09', hora: '08:00', duracaoMin: 50, endereco: ruaA },
+        { data: '2026-11-10', hora: '08:00', duracaoMin: 50, endereco: ruaA },
+        { data: '', hora: '09:00', duracaoMin: 50, endereco: ruaA }
+      ],
+      casa,
+      rotas(mapa)
+    );
+    assert.equal(r.dias, 2);
+    assert.equal(r.atendimentoMin, 100);
+    assert.equal(r.deslocamentoMin, 40);
+    assert.equal(r.totalMin, 140);
+  });
+
+  test('período vazio devolve zeros', () => {
+    const r = computePeriodWorkedMinutes([], casa, rotas({}));
+    assert.deepEqual(r, { totalMin: 0, atendimentoMin: 0, deslocamentoMin: 0, dias: 0 });
+  });
+});
+
+describe('jornada: card na aba Financeiro', () => {
+  test('o cartão existe no HTML com os dois períodos', () => {
+    assert.ok(html.includes('id="workHoursCard"'), 'cartão de horas trabalhadas');
+    assert.ok(html.includes('id="whWeekVal"'), 'valor da semana');
+    assert.ok(html.includes('id="whMonthVal"'), 'valor do mês');
+    assert.ok(html.includes('Esta semana') && html.includes('No m'), 'rótulos das colunas');
+  });
+
+  test('o cartão é atualizado junto com os KPIs do Financeiro', () => {
+    assert.ok(html.includes('updateWorkedHoursCard(list)'), 'renderList atualiza o cartão');
+    assert.ok(html.includes('function updateWorkedHoursCard('));
+  });
+
+  const weekStartISO = extractFn('weekStartISO');
+
+  test('a semana começa na segunda-feira', () => {
+    assert.equal(weekStartISO('2026-11-10'), '2026-11-09', 'terça cai na segunda anterior');
+    assert.equal(weekStartISO('2026-11-09'), '2026-11-09', 'segunda é ela mesma');
+    assert.equal(weekStartISO('2026-11-15'), '2026-11-09', 'domingo pertence à semana que começou na segunda');
+    assert.equal(weekStartISO('2026-11-16'), '2026-11-16', 'segunda seguinte abre outra semana');
+    assert.equal(weekStartISO(''), '');
+    assert.equal(weekStartISO('sem-data'), '');
+  });
+
+  test('a visão semana a semana está no cartão', () => {
+    assert.ok(html.includes('id="whWeeksList"'), 'lista de semanas');
+    assert.ok(html.includes('Ver semana a semana'), 'resumo expansível');
+    assert.ok(html.includes('function workedHoursByWeek('), 'cálculo por semana');
+  });
+});

@@ -1241,8 +1241,10 @@
           <div class="label">&#10003; Recebido (Pago)</div>
           <div class="value" id="metricRecebido">R$ ••••••</div>
         </div>
-        <div class="metric accent">
-          <div class="label">&#8987; A receber (Realizado)</div>
+        <div class="metric accent" id="metricPendenteBox" onclick="openPendingReceivablesModal()" role="button" tabindex="0"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openPendingReceivablesModal();}"
+             style="cursor:pointer;" title="Ver quem ainda não pagou">
+          <div class="label">&#8987; A receber (Realizado) <span style="font-size:10px;opacity:.7;">&rsaquo; ver nomes</span></div>
           <div class="value" id="metricPendente">R$ ••••••</div>
         </div>
       </div>
@@ -2057,6 +2059,7 @@ async function loadData(opts){
     var res = await fetch(fetchUrl, { method: 'GET', cache: 'no-store' });
     if(!res.ok) throw new Error('HTTP ' + res.status);
     var data = await res.json();
+    _lastLoadOk = true;
 
     // A PLANILHA É A FONTE DA VERDADE OFICIAL PARA ATENDIMENTOS FINANCEIROS
     entries = (data.atendimentos || []).filter(function(r){
@@ -2283,6 +2286,7 @@ async function loadData(opts){
     renderEvolutionsTab();
     renderList();
   }catch(e){
+    _lastLoadOk = false;
     if(patients.length === 0) patients = getLocalPatients();
     if(schedules.length === 0) schedules = getLocalSchedules();
     if(evolutions.length === 0) evolutions = getLocalEvolutions();
@@ -2300,6 +2304,7 @@ async function loadData(opts){
 
 /* ---------- Sincronização Automática Multi-Dispositivo (Celular <-> Computador) ---------- */
 var _lastAutoSyncTs = 0;
+var _lastLoadOk = true; // false quando a última leitura da planilha falhou (aí o local não é confiável)
 var _isSyncing = false;
 
 async function checkAutoSync(force){
@@ -2309,6 +2314,8 @@ async function checkAutoSync(force){
   // Não interrompe o usuário caso esteja com modal aberto preenchendo formulário
   var root = document.getElementById('modalRoot');
   if(root && root.innerHTML.trim() !== '') return;
+  // Nem atropela uma gravação de pagamento em andamento (foi o que fazia o pagamento "voltar")
+  if(typeof statusWriteBusy === 'function' && statusWriteBusy()) return;
 
   _isSyncing = true;
   _lastAutoSyncTs = Date.now();
@@ -5668,6 +5675,75 @@ async function deleteEntry(id, returnContext){
   }
 }
 
+/* ============================================================
+   "A RECEBER" — quem ainda não pagou (agrupado por paciente)
+   ============================================================ */
+/* Mesma regra do KPI: só lançamentos válidos (fora duplicidade) e ainda não pagos. */
+function pendingReceivablesByPatient(list){
+  var byKey = {}, ordem = [];
+  (list || []).forEach(function(e){
+    if(!e) return;
+    if(String(e.status) === 'Pago') return;
+    if((parseFloat(e.valor) || 0) <= 0) return; // ausência/bloqueio não é valor a receber
+    if(typeof isDuplicateEntry === 'function' && isDuplicateEntry(e)) return;
+    var k = entryPatientKey(e);
+    if(!byKey[k]){
+      byKey[k] = { nome: getEntryDisplayName(e), total: 0, sessoes: 0, itens: [] };
+      ordem.push(k);
+    }
+    byKey[k].total += parseFloat(e.valor) || 0;
+    byKey[k].sessoes++;
+    byKey[k].itens.push(e);
+  });
+  return ordem.map(function(k){ return byKey[k]; }).sort(function(a, b){ return b.total - a.total; });
+}
+
+function openPendingReceivablesModal(){
+  var lista = pendingReceivablesByPatient(entriesForMonth());
+  var oculto = isFinancialsHidden();
+  var money = function(v){ return oculto ? 'R$ •••' : formatMoney(v); };
+  var total = 0, sessoes = 0;
+  lista.forEach(function(p){ total += p.total; sessoes += p.sessoes; });
+
+  var corpo = lista.length ? lista.map(function(p){
+    var chips = p.itens.slice().sort(function(a, b){
+      return String(a.data).localeCompare(String(b.data)) || String(a.hora).localeCompare(String(b.hora));
+    }).map(function(e){
+      var rotulo = formatDayMonth(e.data) + (e.hora ? ' ' + String(e.hora).slice(0, 5) : '') + ' · ' + money(e.valor);
+      return '<button class="rep-entry-btn" style="font-size:11px;" title="Registrar pagamento deste lançamento" ' +
+        'onclick="openPaymentModal(\'' + escapeHtml(e.id) + '\')">' + rotulo + '</button>';
+    }).join('');
+
+    return '<div style="border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:8px;">' +
+      '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;">' +
+        '<b style="font-size:13.5px;">' + escapeHtml(p.nome) + '</b>' +
+        '<span style="font-family:\'IBM Plex Mono\',monospace;font-weight:700;color:var(--accent-ink);white-space:nowrap;">' + money(p.total) + '</span>' +
+      '</div>' +
+      '<div style="font-size:11px;color:var(--ink-soft);margin-top:2px;">' +
+        p.sessoes + (p.sessoes === 1 ? ' sessão em aberto' : ' sessões em aberto') +
+        ' · toque em uma data para registrar o pagamento' +
+      '</div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">' + chips + '</div>' +
+    '</div>';
+  }).join('') : '<p style="font-size:13px;color:var(--ink-soft);">Ninguém em aberto neste mês. 🍃</p>';
+
+  var html = '<div class="modal-bg" onclick="closeModalBg(event)">' +
+    '<div class="modal">' +
+      '<div class="grabber"></div>' +
+      '<h2>Quem ainda não pagou</h2>' +
+      '<p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 12px;">' +
+        monthLabelCap(currentMonth) + ' · ' + sessoes + (sessoes === 1 ? ' sessão' : ' sessões') +
+        ' · <b>' + money(total) + '</b> em aberto' +
+      '</p>' +
+      corpo +
+      '<div class="btn-row">' +
+        '<button class="btn ghost" onclick="closeModal()">Fechar</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+  openModal(html);
+}
+
 function openPaymentModal(id, returnToContext){
   var e = entries.find(function(x){ return x.id === id; });
   if(!e) return;
@@ -5694,30 +5770,72 @@ function openPaymentModal(id, returnToContext){
   openModal(html);
 }
 
+/* Gravação de status em andamento: evita que o auto-sync (45 s / foco / troca de aba)
+   releia a planilha no meio da gravação e "desmarque" um pagamento recém-registrado. */
+var _statusWriteUntil = 0;
+function statusWriteBusy(){ return Date.now() < _statusWriteUntil; }
+
+/* Confirma na planilha (fonte da verdade) se o status pegou; se não pegou, grava de novo.
+   Devolve true quando a planilha confere com o que o app acabou de fazer. */
+async function confirmEntryStatusOnSheet(id, status, paymentDate){
+  var confere = function(){
+    if(!_lastLoadOk) return false;
+    var atual = null;
+    for(var i = 0; i < entries.length; i++){ if(entries[i].id === id){ atual = entries[i]; break; } }
+    if(!atual) return false;
+    if(String(atual.status) !== String(status)) return false;
+    if(status === 'Pago' && paymentDate){
+      return String(atual.paymentDate || '').slice(0, 10) === String(paymentDate).slice(0, 10);
+    }
+    return true;
+  };
+
+  try{ await loadData({ silent: true }); }catch(e){ }
+  if(confere()) return true;
+
+  try{ await postAction({ action: 'update_status', id: id, status: status, paymentDate: paymentDate || '' }); }catch(e){ }
+  try{ await loadData({ silent: true }); }catch(e){ }
+  return confere();
+}
+
 async function submitPayment(id, returnToContext){
   var e = entries.find(function(x){ return x.id === id; });
   if(!e) return;
   var payDate = document.getElementById('payDate').value || isoDate(new Date());
 
-  var oldStatus = e.status, oldDate = e.paymentDate;
+  // Feedback imediato; a confirmação acontece na planilha logo abaixo.
   e.status = 'Pago';
   e.paymentDate = payDate;
   returnFromEntryModal(returnToContext);
   renderList();
-  showToast('Pagamento registrado.', 'ok');
+  showToast('Registrando pagamento…', 'info');
 
+  _statusWriteUntil = Date.now() + 10000;
+  var gravou = false;
   try{
     await postAction({ action: 'update_status', id: id, status: 'Pago', paymentDate: payDate });
   }catch(err){
-    e.status = oldStatus; e.paymentDate = oldDate;
-    renderList();
-    if(returnToContext === 'reports' && document.getElementById('repBody')){
-      renderReportBody();
-    } else if(returnToContext && document.getElementById('pFinSessionsList')){
-      renderPatientFinancialDetails(returnToContext);
-    }
-    showError('Falha ao registrar pagamento na planilha.');
+    // A resposta pode falhar mesmo com a planilha já gravada: quem decide é a confirmação.
   }
+  try{
+    gravou = await confirmEntryStatusOnSheet(id, 'Pago', payDate);
+  }finally{
+    _statusWriteUntil = 0;
+  }
+
+  if(gravou){
+    showToast('Pagamento registrado.', 'ok');
+    return;
+  }
+
+  renderList();
+  if(returnToContext === 'reports' && document.getElementById('repBody')){
+    renderReportBody();
+  } else if(returnToContext && document.getElementById('pFinSessionsList')){
+    renderPatientFinancialDetails(returnToContext);
+  }
+  showError('O pagamento não foi confirmado na planilha. Tente novamente.');
+  showToast('Não deu para gravar o pagamento na planilha.', 'info');
 }
 
 async function unpayEntry(id, returnToContext){
@@ -5725,7 +5843,6 @@ async function unpayEntry(id, returnToContext){
   if(!e) return;
   if(!confirm('Voltar o status desta sessão para "Pendente"?')) return;
 
-  var oldStatus = e.status, oldDate = e.paymentDate;
   e.status = 'Pendente'; e.paymentDate = '';
   if(returnToContext === 'reports'){
     if(document.getElementById('repBody')) renderReportBody();
@@ -5735,20 +5852,31 @@ async function unpayEntry(id, returnToContext){
     closeModal();
   }
   renderList();
-  showToast('Status alterado para Pendente.', 'ok');
+  showToast('Alterando status…', 'info');
 
+  _statusWriteUntil = Date.now() + 10000;
+  var gravou = false;
   try{
     await postAction({ action: 'update_status', id: id, status: 'Pendente', paymentDate: '' });
-  }catch(err){
-    e.status = oldStatus; e.paymentDate = oldDate;
-    renderList();
-    if(returnToContext === 'reports' && document.getElementById('repBody')){
-      renderReportBody();
-    } else if(returnToContext && document.getElementById('pFinSessionsList')){
-      renderPatientFinancialDetails(returnToContext);
-    }
-    showError('Falha ao atualizar status na planilha.');
+  }catch(err){ }
+  try{
+    gravou = await confirmEntryStatusOnSheet(id, 'Pendente', '');
+  }finally{
+    _statusWriteUntil = 0;
   }
+
+  if(gravou){
+    showToast('Status alterado para Pendente.', 'ok');
+    return;
+  }
+
+  renderList();
+  if(returnToContext === 'reports' && document.getElementById('repBody')){
+    renderReportBody();
+  } else if(returnToContext && document.getElementById('pFinSessionsList')){
+    renderPatientFinancialDetails(returnToContext);
+  }
+  showError('Não foi possível atualizar o status na planilha.');
 }
 
 function badgeClick(id, returnToContext){

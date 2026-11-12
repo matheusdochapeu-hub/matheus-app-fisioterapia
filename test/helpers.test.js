@@ -1300,3 +1300,76 @@ describe('jornada: card na aba Financeiro', () => {
     assert.ok(html.includes('function workedHoursByWeek('), 'cálculo por semana');
   });
 });
+
+describe('"A receber": quem ainda não pagou', () => {
+  const pendingReceivablesByPatient = extractFnWithScope('pendingReceivablesByPatient', {
+    entryPatientKey: (e) => 'nm:' + String(e.nome).toLowerCase(),
+    isDuplicateEntry: () => false,
+    getEntryDisplayName: (e) => e.nome
+  });
+
+  const lista = [
+    { id: '1', nome: 'Ana', valor: 95, status: 'Pendente', data: '2026-11-03', hora: '13:30' },
+    { id: '2', nome: 'Ana', valor: 95, status: 'Pendente', data: '2026-11-05', hora: '13:00' },
+    { id: '3', nome: 'Bia', valor: 200, status: 'Pendente', data: '2026-11-04', hora: '09:00' },
+    { id: '4', nome: 'Ana', valor: 95, status: 'Pago', data: '2026-11-10', hora: '13:00' },
+    { id: '5', nome: 'Carla', valor: 70, status: 'Pendente', data: '2026-11-12', hora: '15:00' }
+  ];
+
+  test('agrupa por paciente e soma só o que está em aberto', () => {
+    const r = pendingReceivablesByPatient(lista);
+    assert.equal(r.length, 3);
+    assert.deepEqual(r.map(p => p.nome), ['Bia', 'Ana', 'Carla'], 'ordenado por valor em aberto');
+    assert.equal(r[0].total, 200);
+    assert.equal(r[1].total, 190);
+    assert.equal(r[1].sessoes, 2);
+    assert.equal(r[2].total, 70);
+  });
+
+  test('pagamento já quitado não entra na lista', () => {
+    const r = pendingReceivablesByPatient(lista);
+    const ana = r.find(p => p.nome === 'Ana');
+    assert.equal(ana.itens.length, 2, 'as 2 sessões em aberto da Ana');
+    assert.ok(ana.itens.every(e => e.status !== 'Pago'));
+  });
+
+  test('lista vazia devolve nada', () => {
+    assert.deepEqual(pendingReceivablesByPatient([]), []);
+    assert.deepEqual(pendingReceivablesByPatient(null), []);
+  });
+
+  test('sessão de valor zero (ausência/bloqueio) não vira cobrança', () => {
+    const r = pendingReceivablesByPatient([
+      { id: '9', nome: 'Dora', valor: 0, status: 'Ausência', data: '2026-11-12', hora: '10:00' }
+    ]);
+    assert.deepEqual(r, []);
+  });
+
+  test('o KPI "A receber" abre a lista de nomes', () => {
+    assert.ok(html.includes('onclick="openPendingReceivablesModal()"'), 'KPI clicável');
+    assert.ok(html.includes('function openPendingReceivablesModal('));
+    assert.ok(html.includes('Quem ainda não pagou'), 'título do modal');
+  });
+});
+
+describe('pagamento: gravação não pode ser desfeita pela releitura da planilha', () => {
+  test('submitPayment confirma na planilha antes de desistir', () => {
+    assert.ok(html.includes('function confirmEntryStatusOnSheet('), 'confirmação existe');
+    assert.ok(html.includes("confirmEntryStatusOnSheet(id, 'Pago', payDate)"), 'pagamento confirma');
+  });
+
+  test('auto-sync é bloqueado enquanto a gravação está em andamento', () => {
+    assert.ok(html.includes('function statusWriteBusy('), 'guarda existe');
+    assert.ok(html.includes('if(typeof statusWriteBusy === \'function\' && statusWriteBusy()) return;'), 'guarda usada no auto-sync');
+  });
+
+  test('a última leitura da planilha é registrada (local não vale quando falhou)', () => {
+    assert.ok(html.includes('var _lastLoadOk = true;'), 'flag declarada');
+    assert.ok(html.includes('_lastLoadOk = true;'), 'sucesso');
+    assert.ok(html.includes('_lastLoadOk = false;'), 'falha');
+  });
+
+  test('unpayEntry também confirma antes de reverter', () => {
+    assert.ok(html.includes("confirmEntryStatusOnSheet(id, 'Pendente', '')"), 'estorno confirma');
+  });
+});

@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#B5542E">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
-<meta http-equiv="refresh" content="0; url=atendimentos.html">
+<script>location.replace('atendimentos.html' + location.search + location.hash);</script>
 <link rel="canonical" href="atendimentos.html">
 <style>
   html,body{margin:0;height:100%;background:#FBF3EC;color:#8A6F5E;
@@ -22,5 +22,26 @@
     <p><a href="atendimentos.html">Clique aqui se não for redirecionada.</a></p>
   </div>
   <script>location.replace('atendimentos.html');</script>
+
+<script>
+/* Volta ao Nexo — aparece só quando a página foi aberta pelo shell (?de=nexo). */
+(function () {
+  try {
+    if (new URLSearchParams(location.search).get('de') !== 'nexo') return;
+    var voltar = document.createElement('a');
+    voltar.href = '../Nexo/';
+    voltar.textContent = '‹ Nexo';
+    voltar.setAttribute('aria-label', 'Voltar ao Nexo');
+    voltar.style.cssText =
+      'position:fixed;left:12px;bottom:12px;z-index:2147483000;' +
+      'display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:8px 14px;' +
+      'border-radius:999px;background:rgba(20,20,19,.82);color:#fff;' +
+      'font:600 13px/1 system-ui,-apple-system,"Segoe UI",sans-serif;' +
+      'text-decoration:none;box-shadow:0 6px 18px rgba(0,0,0,.28);' +
+      'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)';
+    document.body.appendChild(voltar);
+  } catch (e) {}
+})();
+</script>
 </body>
 </html>

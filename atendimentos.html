@@ -10757,5 +10757,26 @@ async function init(){
 
 init();
 </script>
+
+<script>
+/* Volta ao Nexo — aparece só quando a página foi aberta pelo shell (?de=nexo). */
+(function () {
+  try {
+    if (new URLSearchParams(location.search).get('de') !== 'nexo') return;
+    var voltar = document.createElement('a');
+    voltar.href = '../Nexo/';
+    voltar.textContent = '‹ Nexo';
+    voltar.setAttribute('aria-label', 'Voltar ao Nexo');
+    voltar.style.cssText =
+      'position:fixed;left:12px;bottom:12px;z-index:2147483000;' +
+      'display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:8px 14px;' +
+      'border-radius:999px;background:rgba(20,20,19,.82);color:#fff;' +
+      'font:600 13px/1 system-ui,-apple-system,"Segoe UI",sans-serif;' +
+      'text-decoration:none;box-shadow:0 6px 18px rgba(0,0,0,.28);' +
+      'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)';
+    document.body.appendChild(voltar);
+  } catch (e) {}
+})();
+</script>
 </body>
 </html>

@@ -1,7 +1,15 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `10/11/2026`  
-Versão do Service Worker: `atend-v71` (`sw.js`)
+Versão do Service Worker: `atend-v72` (`sw.js`)
+
+---
+
+## 36. Reajuste com seleção e edição manual (`v72`)
+- **Seleção por paciente:** cada linha da calculadora ganhou checkbox (todos marcados por padrão) com "selecionar todos" no cabeçalho. O botão do rodapé mostra a contagem: "Aplicar selecionados (N)".
+- **Edição manual:** a coluna "Novo valor" virou campo editável — o valor sugerido (inflação + 2,5% arredondado) é só o ponto de partida; dá para digitar qualquer valor antes de aplicar.
+- **Aplicação segura:** linha já aplicada fica travada (checkbox/valor/botão desabilitados) e o valor antigo passa a mostrar o novo, evitando reaplicar ou compor reajuste em cima de reajuste.
+- **Service Worker:** `atend-v72`.
 
 ---
 

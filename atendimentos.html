@@ -199,6 +199,9 @@
   .adj-old{color:var(--ink-soft);text-decoration:line-through;}
   .adj-new{font-weight:700;color:var(--success-ink);}
   .adj-input{width:72px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-family:'IBM Plex Mono',monospace;text-align:right;font-size:13px;}
+  .adj-check-cell{width:30px;text-align:center !important;padding-left:0 !important;padding-right:0 !important;}
+  .adj-input.adj-new-input{width:92px;text-align:right;}
+  .adj-input.adj-new-input:disabled{opacity:.55;background:var(--bg);}
   .adj-row-btn{background:var(--primary-soft);border:1px solid var(--primary);color:var(--primary-deep);border-radius:8px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;}
 
   .month-nav{
@@ -5323,11 +5326,12 @@ function openPriceAdjustModal(){
   var rows = ativos.map(function(p){
     var val = parseValor(p.valorPadrao);
     return '<tr data-pid="'+escapeHtml(p.id)+'" data-val="'+val+'">' +
+      '<td class="adj-check-cell"><input type="checkbox" class="adj-check" checked onchange="updateAdjSelectionLabel()"></td>' +
       '<td>'+escapeHtml(getPatientDisplayName(p))+'</td>' +
       '<td class="adj-old-cell"'+(val > 0 ? '' : ' style="text-decoration:none;"')+'>'+(val > 0 ? formatMoney(val) : 'sem valor')+'</td>' +
       '<td class="adj-exact">&mdash;</td>' +
-      '<td class="adj-new">&mdash;</td>' +
-      '<td><button class="adj-row-btn" onclick="applyPriceAdjustToPatient(\''+escapeHtml(p.id)+'\')">Aplicar</button></td>' +
+      '<td><input class="adj-input adj-new-input" type="number" step="0.01" min="0" inputmode="decimal" oninput="markAdjEdited(this)" '+(val > 0 ? '' : 'disabled')+'></td>' +
+      '<td><button class="adj-row-btn" onclick="applyPriceAdjustToPatient(\''+escapeHtml(p.id)+'\')"'+(val > 0 ? '' : ' disabled')+'>Aplicar</button></td>' +
     '</tr>';
   }).join('');
 
@@ -5335,7 +5339,7 @@ function openPriceAdjustModal(){
     '<div class="modal">' +
       '<div class="grabber"></div>' +
       '<h2>Reajuste de Valor da Sessão</h2>' +
-      '<p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 12px;">Cálculo: <b>valor atual &times; (inflação + 2,5%)</b>, arredondado para cima. O novo valor vira o padrão do paciente para novos lançamentos — sessões já lançadas não mudam.</p>' +
+      '<p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 12px;">Cálculo: <b>valor atual &times; (inflação + 2,5%)</b>, arredondado para cima. Você pode <b>digitar o valor final</b> em cada linha e escolher quem reajustar. O novo valor vira o padrão do paciente para novos lançamentos — sessões já lançadas não mudam.</p>' +
       '<div class="filter-grid-2">' +
         '<div><label class="filter-label">Inflação acumulada (12 meses) %</label>' +
           '<input id="adjInflation" class="adj-input" style="width:100%;text-align:left;" type="number" step="0.1" min="0" value="'+priceAdjustState.inflacao+'" oninput="updatePriceAdjustPreview()"></div>' +
@@ -5351,18 +5355,41 @@ function openPriceAdjustModal(){
       '</div>' +
       '<div style="max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:var(--radius-xs);">' +
         '<table class="adj-table">' +
-          '<thead><tr><th>Paciente</th><th>Atual</th><th>Reajustado</th><th>Arredondado</th><th></th></tr></thead>' +
+          '<thead><tr>' +
+            '<th class="adj-check-cell"><input type="checkbox" id="adjCheckAll" checked onchange="toggleAdjAll(this.checked)" title="Selecionar todos"></th>' +
+            '<th>Paciente</th><th>Atual</th><th>Reajustado</th><th>Novo valor</th><th></th>' +
+          '</tr></thead>' +
           '<tbody id="adjBody">'+rows+'</tbody>' +
         '</table>' +
       '</div>' +
       '<div class="btn-row">' +
         '<button class="btn ghost" onclick="closeModal()">Fechar</button>' +
-        '<button class="btn primary" style="flex:1;" onclick="applyPriceAdjustToAll()">Aplicar a todos</button>' +
+        '<button class="btn primary" style="flex:1;" id="adjApplySelectedBtn" onclick="applyPriceAdjustToSelected()">Aplicar selecionados</button>' +
       '</div>' +
     '</div>' +
   '</div>';
   openModal(html);
   updatePriceAdjustPreview();
+}
+
+function toggleAdjAll(checked){
+  var chks = document.querySelectorAll('#adjBody .adj-check');
+  for(var i = 0; i < chks.length; i++){ if(!chks[i].disabled) chks[i].checked = checked; }
+  updateAdjSelectionLabel();
+}
+
+function updateAdjSelectionLabel(){
+  var sel = document.querySelectorAll('#adjBody .adj-check:checked').length;
+  var btn = document.getElementById('adjApplySelectedBtn');
+  if(btn){
+    btn.textContent = 'Aplicar selecionados (' + sel + ')';
+    btn.disabled = sel === 0;
+  }
+}
+
+function markAdjEdited(inp){
+  var tr = inp.parentNode ? inp.parentNode.parentNode : null;
+  if(tr && tr.getAttribute){ tr.setAttribute('data-edited', '1'); }
 }
 
 function updatePriceAdjustPreview(){
@@ -5382,21 +5409,22 @@ function updatePriceAdjustPreview(){
   var rows = document.querySelectorAll('#adjBody tr');
   for(var i = 0; i < rows.length; i++){
     var tr = rows[i];
+    if(tr.getAttribute('data-applied') === '1') continue;
     var val = parseFloat(tr.getAttribute('data-val')) || 0;
     var exatoEl = tr.querySelector('.adj-exact');
-    var novoEl = tr.querySelector('.adj-new');
-    if(!exatoEl || !novoEl) continue;
+    var inp = tr.querySelector('.adj-new-input');
+    if(!exatoEl || !inp) continue;
     if(val <= 0){
       exatoEl.textContent = '—';
-      novoEl.textContent = '—';
-      tr.setAttribute('data-new', '0');
       continue;
     }
     var r = computeAdjustedPrice(val, infl, step);
     exatoEl.textContent = formatMoney(r.exato);
-    novoEl.textContent = formatMoney(r.arredondado);
-    tr.setAttribute('data-new', String(r.arredondado));
+    if(tr.getAttribute('data-edited') !== '1'){
+      inp.value = r.arredondado ? r.arredondado.toFixed(2) : '';
+    }
   }
+  updateAdjSelectionLabel();
 }
 
 async function savePatientDefaultValue(p, newValue){
@@ -5415,38 +5443,53 @@ async function savePatientDefaultValue(p, newValue){
 
 async function applyPriceAdjustToPatient(pid){
   var tr = document.querySelector('#adjBody tr[data-pid="'+pid+'"]');
-  if(!tr) return;
-  var val = parseFloat(tr.getAttribute('data-new')) || 0;
-  if(!val) return;
+  if(!tr || tr.getAttribute('data-applied') === '1') return;
+  var inp = tr.querySelector('.adj-new-input');
+  var val = inp ? parseFloat(inp.value) : NaN;
+  if(!isFinite(val) || val <= 0){
+    showToast('Informe um valor maior que zero para este paciente.', 'info');
+    return;
+  }
   var p = patients.find(function(x){ return x.id === pid; });
   if(!p) return;
+
   await savePatientDefaultValue(p, val);
+
+  tr.setAttribute('data-applied', '1');
   tr.setAttribute('data-val', String(val));
+  tr.setAttribute('data-new', String(val));
+  var chk = tr.querySelector('.adj-check');
+  if(chk){ chk.checked = false; chk.disabled = true; }
+  if(inp){ inp.value = val.toFixed(2); inp.disabled = true; }
+  var rowBtn = tr.querySelector('.adj-row-btn');
+  if(rowBtn){ rowBtn.disabled = true; rowBtn.textContent = 'Aplicado'; }
   var old = tr.querySelector('.adj-old-cell');
   if(old){ old.textContent = formatMoney(val); old.style.textDecoration = 'none'; }
-  updatePriceAdjustPreview();
+  updateAdjSelectionLabel();
   showToast('Valor de ' + getPatientDisplayName(p) + ' atualizado para ' + formatMoney(val) + '.', 'ok');
 }
 
-async function applyPriceAdjustToAll(){
-  if(!confirm('Aplicar o novo valor a todos os pacientes da lista?')) return;
+async function applyPriceAdjustToSelected(){
   var rows = document.querySelectorAll('#adjBody tr');
-  var updated = 0;
+  var targets = [];
   for(var i = 0; i < rows.length; i++){
     var tr = rows[i];
-    var val = parseFloat(tr.getAttribute('data-new')) || 0;
-    if(!val) continue;
-    var pid = tr.getAttribute('data-pid');
-    var p = patients.find(function(x){ return x.id === pid; });
-    if(!p) continue;
-    await savePatientDefaultValue(p, val);
-    tr.setAttribute('data-val', String(val));
-    var old = tr.querySelector('.adj-old-cell');
-    if(old){ old.textContent = formatMoney(val); old.style.textDecoration = 'none'; }
-    updated++;
+    if(tr.getAttribute('data-applied') === '1') continue;
+    var chk = tr.querySelector('.adj-check');
+    if(!chk || !chk.checked || chk.disabled) continue;
+    targets.push(tr.getAttribute('data-pid'));
   }
-  updatePriceAdjustPreview();
-  showToast(updated + ' paciente(s) com novo valor de sessão.', 'ok');
+  if(targets.length === 0){ showToast('Selecione pelo menos um paciente.', 'info'); return; }
+  if(!confirm('Aplicar o novo valor a ' + targets.length + ' paciente(s) selecionado(s)?')) return;
+
+  var aplicados = 0;
+  for(var j = 0; j < targets.length; j++){
+    var before = document.querySelector('#adjBody tr[data-pid="'+targets[j]+'"]');
+    await applyPriceAdjustToPatient(targets[j]);
+    if(before && before.getAttribute('data-applied') === '1') aplicados++;
+  }
+  updateAdjSelectionLabel();
+  showToast(aplicados + ' paciente(s) reajustado(s).', 'ok');
 }
 
 function returnFromEntryModal(returnContext){

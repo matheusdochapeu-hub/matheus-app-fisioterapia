@@ -1,7 +1,17 @@
 # Memória de Atualizações — App Fisioterapia (`matheus-app-fisioterapia`)
 
 Data da consolidação: `10/11/2026`  
-Versão do Service Worker: `atend-v65` (`sw.js`)
+Versão do Service Worker: `atend-v71` (`sw.js`)
+
+---
+
+## 35. Ticket Médio, Relatório Completo e Reajuste de Sessão (`v71`)
+- **Ticket médio no Financeiro:** novo chip "ticket médio (mês)" = ganho real do mês ÷ sessões do mês. Abaixo dos chips, uma linha mostra o ticket do mês e o ticket geral (todo o histórico), deixando claro o período de cada um.
+- **Ticket médio por mês:** o Relatório (visão anual) ganhou a seção "Ticket Médio por Mês", com sessões e ticket de cada mês.
+- **Relatório completo em PDF:** substitui o export simples. Traz resumo do período, consolidado mês a mês (sessões, ticket, faturamento, recebido, a receber, previsto), tabela por paciente (com ticket individual), formas de pagamento, lista completa de sessões e previsão real × previsto × possível.
+- **Consolidado anual:** segundo botão no Relatório, gera o ano inteiro independentemente do filtro de mês.
+- **Calculadora de reajuste:** botão `Reajuste` na barra de ações do Financeiro. Calcula valor × (inflação + 2,5%), arredonda para cima em múltiplos de R$ 5 ou R$ 10 e permite aplicar por paciente ou em todos. Altera o valor padrão do paciente (novos lançamentos); sessões já lançadas não mudam.
+- **Service Worker:** `atend-v71`; +4 testes de reajuste (104 no total).
 
 ---
 

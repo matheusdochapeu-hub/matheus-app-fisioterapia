@@ -1449,3 +1449,32 @@ describe('Google Agenda: cancelar/excluir precisa remover o evento', () => {
     assert.ok(html.includes('Reparar Google Agenda'), 'botão no modal de configuração');
   });
 });
+
+describe('Google Agenda: a conta é a da Scarlet (scarletsantos7@gmail.com)', () => {
+  const codeGs = fs.readFileSync(path.join(__dirname, '../Code.gs'), 'utf-8');
+
+  test('e-mail canônico definido uma vez e reutilizado', () => {
+    assert.ok(codeGs.includes("var AGENDA_SCARLET_EMAIL = 'scarletsantos7@gmail.com';"), 'constante canônica');
+    assert.ok(codeGs.includes('var APP_ORGANIZER_EMAIL = AGENDA_SCARLET_EMAIL;'), 'organizadora deriva dela');
+    assert.ok(codeGs.includes('var DEFAULT_CALENDAR_ID = AGENDA_SCARLET_EMAIL;'), 'agenda padrão deriva dela');
+    assert.ok(html.includes("var APP_ORGANIZER_EMAIL = 'scarletsantos7@gmail.com';"), 'app usa o mesmo e-mail');
+  });
+
+  test('a variante com typo não é mais aceita', () => {
+    assert.ok(!codeGs.includes('scarletssantos7'), 'Code.gs sem o e-mail errado');
+    assert.ok(!html.includes('scarletssantos7'), 'app sem o e-mail errado');
+  });
+
+  test('sem a agenda dela, o app NÃO grava em outra conta', () => {
+    assert.ok(codeGs.includes("mode: 'blocked_outra_conta'"), 'fallback bloqueado');
+    assert.ok(codeGs.includes('Nada foi gravado em outra agenda'), 'mensagem explícita');
+    // o fallback não pode devolver um calendário qualquer para escrita
+    const trechoFallback = codeGs.slice(codeGs.indexOf("mode: 'blocked_outra_conta'") - 400, codeGs.indexOf("mode: 'blocked_outra_conta'"));
+    assert.ok(!/cal:\s*defaultCal/.test(trechoFallback), 'fallback não usa a agenda do executor');
+  });
+
+  test('test_calendar confirma que a agenda conectada é a dela', () => {
+    assert.ok(codeGs.includes('result.contaOk'), 'devolve contaOk');
+    assert.ok(codeGs.includes('result.agendaEsperada'), 'devolve a agenda esperada');
+  });
+});

@@ -54,6 +54,14 @@ node --test test/**/*.test.js   # 74 testes
    campos vazios (existe cache `ft_evo_vitals_cache` para isso). Preserve a lógica.
 3. Ao publicar assets, **incrementar `CACHE_NAME`** no `sw.js`.
 4. Dados reais de pacientes são sensíveis: não usar em testes nem em capturas de tela.
+5. **O Google Agenda é o da Scarlet — `scarletsantos7@gmail.com`.** O deployment do Apps
+   Script precisa ser publicado **logado nessa conta** e autorizar o CalendarApp nela
+   (`autorizarGoogleAgenda`). O código **bloqueia de propósito** gravar em outra agenda
+   (inclusive `@usp.br`): evento criado na conta errada não aparece na agenda dela.
+   `resolveUserCalendar_` só devolve calendário nos modos `direct_native`/`direct_shared`;
+   qualquer outro caso vira `blocked_outra_conta` e o evento não é criado.
+   Se agendamento/cancelamento não mexer na agenda, o primeiro diagnóstico é
+   **⚙️ Google Agenda → 🔍 Testar Agenda** (a resposta diz a conta que está executando).
 
 ## Vizinhança (ecossistema)
 

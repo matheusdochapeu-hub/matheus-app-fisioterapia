@@ -6,8 +6,11 @@
  * Organizadora Principal do Aplicativo: scarletsantos7@gmail.com
  */
 
-var APP_ORGANIZER_EMAIL = 'scarletsantos7@gmail.com';
-var DEFAULT_CALENDAR_ID = 'scarletsantos7@gmail.com';
+/* A agenda deste app é SEMPRE a da Scarlet. O deployment deve ser publicado logado
+   nesta conta e autorizar o CalendarApp nela (Executar autorizarGoogleAgenda). */
+var AGENDA_SCARLET_EMAIL = 'scarletsantos7@gmail.com';
+var APP_ORGANIZER_EMAIL = AGENDA_SCARLET_EMAIL;
+var DEFAULT_CALENDAR_ID = AGENDA_SCARLET_EMAIL;
 
 var SHEET_ATEND = 'Atendimentos';
 var SHEET_PAC = 'Pacientes';
@@ -476,7 +479,7 @@ function resolveUserCalendar_(calendarId) {
   var effectiveEmail = '';
   try { effectiveEmail = Session.getEffectiveUser().getEmail().toLowerCase(); } catch (e2) {}
 
-  var KNOWN_SCARLET_EMAILS = ['scarletssantos7@gmail.com', 'scarletsantos7@gmail.com'];
+  var KNOWN_SCARLET_EMAILS = [AGENDA_SCARLET_EMAIL];
   var isTargetScarlet = KNOWN_SCARLET_EMAILS.indexOf(cid) !== -1;
   var isCallerScarlet = effectiveEmail && (KNOWN_SCARLET_EMAILS.indexOf(effectiveEmail) !== -1);
 
@@ -549,7 +552,7 @@ function resolveUserCalendar_(calendarId) {
     }
   } catch (eAll) {}
 
-  // 3. Fallback: Se o executor for a conta USP, NUNCA criar na agenda da USP!
+  // 3. Não achou a agenda da Scarlet: NÃO grava em outra conta (o evento ficaria fora da agenda dela).
   if (isForbiddenDevCalendar_(effectiveEmail) || !defaultCal || isForbiddenDevCalendar_(defaultCal)) {
     var resBlocked = {
       cal: null,
@@ -565,12 +568,13 @@ function resolveUserCalendar_(calendarId) {
   }
 
   var resFallback = {
-    cal: defaultCal,
-    calendarId: cid || (defaultCal ? defaultCal.getId() : 'primary'),
-    targetGuest: (cid && cid.indexOf('@') > -1 && cid !== 'primary') ? cid : APP_ORGANIZER_EMAIL,
+    cal: null,
+    calendarId: AGENDA_SCARLET_EMAIL,
+    targetGuest: AGENDA_SCARLET_EMAIL,
     isOwner: false,
     isDirectShared: false,
-    mode: 'default_no_invite'
+    mode: 'blocked_outra_conta',
+    warning: 'Este app só grava na agenda de ' + AGENDA_SCARLET_EMAIL + '. A conta logada (' + (effectiveEmail || 'desconhecida') + ') não tem essa agenda com permissão de escrita — publique o app logado na conta da Scarlet e rode autorizarGoogleAgenda. Nada foi gravado em outra agenda.'
   };
   _resolvedCalendarCache[cid] = resFallback;
   return resFallback;
@@ -1007,15 +1011,17 @@ function doPost(e) {
       result.mode = resolvedTest.mode;
       result.calendarId = resolvedTest.calendarId;
       result.organizer = APP_ORGANIZER_EMAIL;
+      result.agendaEsperada = AGENDA_SCARLET_EMAIL;
+      result.contaOk = String(resolvedTest.calendarId || '').toLowerCase().indexOf(AGENDA_SCARLET_EMAIL) !== -1;
       result.effectiveUser = effectiveEmail;
       result.sendInvites = false;
 
       if (resolvedTest.mode === 'direct_native') {
-        result.message = 'Conectado nativamente à conta organizadora (' + APP_ORGANIZER_EMAIL + '). Os agendamentos são gravados diretamente na agenda sem envio de e-mails.';
+        result.message = 'Conectado nativamente à conta da Scarlet (' + AGENDA_SCARLET_EMAIL + '). Os agendamentos são gravados direto na agenda dela, sem e-mails.';
       } else if (resolvedTest.mode === 'direct_shared') {
-        result.message = 'Conectado diretamente à agenda compartilhada de Scarlet Santos (' + (resolvedTest.cal.getName() || APP_ORGANIZER_EMAIL) + ') sem envio de convites por e-mail.';
+        result.message = 'Conectado à agenda da Scarlet (' + AGENDA_SCARLET_EMAIL + ', compartilhada com ' + (effectiveEmail || 'esta conta') + '). Grava direto na agenda dela, sem convites.';
       } else {
-        result.message = 'Conectado à agenda ativa (' + (resolvedTest.cal.getName() || effectiveEmail) + '). Agendamentos são gravados diretamente sem envio de convites por e-mail. Para que gravem nativamente na agenda de Scarlet Santos (' + APP_ORGANIZER_EMAIL + '), compartilhe-a com ' + (effectiveEmail || 'esta conta') + ' no Google Calendar.';
+        result.message = 'Conectado a outra agenda (' + (resolvedTest.cal.getName() || effectiveEmail) + '). Publique o app logado em ' + AGENDA_SCARLET_EMAIL + ' para gravar na agenda dela.';
       }
     }
     return ContentService.createTextOutput(JSON.stringify(result))

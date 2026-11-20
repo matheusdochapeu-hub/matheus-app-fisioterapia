@@ -1,4 +1,4 @@
-﻿const { test, describe } = require('node:test');
+const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -1395,5 +1395,57 @@ describe('computeAdjustedPrice (reajuste inflação + 2,5%)', () => {
   test('arredonda sempre para cima (nunca para baixo)', () => {
     assert.equal(computeAdjustedPrice(90, 4.5, 5).arredondado, 100);
     assert.equal(computeAdjustedPrice(100, 0, 5).arredondado, 105);
+  });
+});
+
+describe('Google Agenda: cancelar/excluir precisa remover o evento', () => {
+  const codeGs = fs.readFileSync(path.join(__dirname, '../Code.gs'), 'utf-8');
+
+  test('o cancelamento envia o id do evento (não deixa o estado local sobrescrever)', () => {
+    // o id é limpo no estado local antes do POST; se `sc` vier por último no Object.assign,
+    // ele apaga o prevEventId e o backend fica sem como apagar o evento.
+    const trecho = html.slice(html.indexOf('async function cancelScheduleStatus'));
+    assert.ok(trecho.includes('calendarEventId: prevEventId'), 'envia o id anterior');
+    assert.ok(trecho.includes('Object.assign({}, sc, {'), 'sc entra primeiro, campos explícitos vencem');
+  });
+
+  test('apagar evento devolve resultado e não é silencioso', () => {
+    assert.ok(codeGs.includes("return 'deleted'"), 'deleted');
+    assert.ok(codeGs.includes("return 'not_found'"), 'not_found');
+    assert.ok(codeGs.includes("return houveErro ? 'error' : 'not_found'"), 'erro de permissão');
+    assert.ok(codeGs.includes('getAllCalendars'), 'procura em todas as agendas acessíveis');
+  });
+
+  test('sem id, procura o evento pelo conteúdo (título/horário)', () => {
+    assert.ok(codeGs.includes('function findCalendarEventIdByContent_'));
+    if (html.length && codeGs.includes('findCalendarEventIdByContent_(item)')) {
+      assert.ok(codeGs.includes('getEventsForDay'), 'varre o dia');
+    }
+  });
+
+  test('cancelamento com falha mantém o vínculo e avisa', () => {
+    assert.ok(codeGs.includes('O evento continua no Google Agenda'), 'mensagem de falha');
+    assert.ok(html.includes('respCanc.calendarEventId'), 'front restaura o id quando o backend mantém');
+    assert.ok(html.includes('respCanc.calendarWarning'), 'front mostra o aviso');
+  });
+
+  test('exclusão de agendamento usa o mesmo caminho e avisa', () => {
+    assert.ok(codeGs.includes("remocaoDel === 'not_found'"), 'fallback por conteúdo na exclusão');
+    assert.ok(html.includes('respDel.calendarWarning'), 'front mostra o aviso da exclusão');
+  });
+
+  test('valores crus da planilha são normalizados antes do CalendarApp', () => {
+    assert.ok(codeGs.includes('function normalizarItemAgenda_'));
+    assert.ok(codeGs.includes("formatCellValue_('Data', row.Data)"), 'Data vira yyyy-mm-dd');
+    assert.ok(codeGs.includes("formatCellValue_('Hora', row.Hora)"), 'Hora vira HH:mm');
+  });
+
+  test('ações de reparo existem no backend e no botão do app', () => {
+    assert.ok(codeGs.includes("body.action === 'calendar_purge_cancelled'"));
+    assert.ok(codeGs.includes("body.action === 'calendar_backfill_missing'"));
+    assert.ok(html.includes('function repararGoogleAgenda('));
+    assert.ok(html.includes("action: 'calendar_purge_cancelled'"));
+    assert.ok(html.includes("action: 'calendar_backfill_missing'"));
+    assert.ok(html.includes('Reparar Google Agenda'), 'botão no modal de configuração');
   });
 });

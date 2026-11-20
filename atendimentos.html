@@ -7503,6 +7503,9 @@ function openCalendarSettingsModal(){
         '<button class="btn primary" type="button" onclick="saveCalendarSettings()">Salvar Configurações</button>' +
       '</div>' +
       '<div class="btn-row" style="margin-top:8px;">' +
+        '<button class="btn ghost" type="button" style="width:100%;font-size:12px;" onclick="repararGoogleAgenda()">🧹 Reparar Google Agenda (eventos sobrando / faltando)</button>' +
+      '</div>' +
+      '<div class="btn-row" style="margin-top:8px;">' +
         '<button class="btn ghost" type="button" style="width:100%;" onclick="closeModal()">Fechar</button>' +
       '</div>' +
     '</div>' +
@@ -7539,6 +7542,56 @@ async function testGoogleCalendarConnection(){
       resBox.innerHTML = '⚠️ <strong>Atenção:</strong> ' + escapeHtml(msg) + '<br><span style="font-size:11px;">No editor do Apps Script, selecione a função <code>autorizarGoogleAgenda</code> no topo e clique em <strong>Executar</strong> para autorizar o Google Agenda.</span>';
     }
   }
+}
+
+async function repararGoogleAgenda(){
+  var resBox = document.getElementById('calTestResultBox');
+  var escreve = function(html, cor){
+    if(!resBox) return;
+    resBox.classList.remove('hidden');
+    resBox.style.background = cor === 'erro' ? '#FBE6E4' : (cor === 'ok' ? 'var(--ok-bg)' : 'var(--surface)');
+    resBox.style.border = '1px solid ' + (cor === 'erro' ? 'var(--err)' : (cor === 'ok' ? 'var(--ok)' : 'var(--line)'));
+    resBox.style.color = cor === 'erro' ? 'var(--err)' : (cor === 'ok' ? '#2b4718' : 'var(--ink)');
+    resBox.innerHTML = html;
+  };
+
+  escreve('⏳ Reparando o Google Agenda: apagando eventos de cancelados e criando os que faltam...', 'neutro');
+
+  var partes = [];
+  var houveFalha = false;
+
+  try{
+    var limpeza = await postAction({ action: 'calendar_purge_cancelled' });
+    partes.push('🧹 <strong>' + (limpeza.purged || 0) + '</strong> evento(s) de agendamentos cancelados removido(s)' +
+      (limpeza.alreadyClean ? ' (' + limpeza.alreadyClean + ' já estavam limpos)' : ''));
+    if(limpeza.failed) houveFalha = true;
+  }catch(e){
+    houveFalha = true;
+    partes.push('⚠️ Não foi possível limpar os cancelados: ' + escapeHtml(e && e.message ? e.message : String(e)));
+  }
+
+  try{
+    var faltando = await postAction({ action: 'calendar_backfill_missing' });
+    partes.push('📅 <strong>' + (faltando.created || 0) + '</strong> evento(s) criado(s) e <strong>' + (faltando.linked || 0) + '</strong> religado(s) a eventos que já existiam');
+    if(faltando.failed) houveFalha = true;
+    if(faltando.calendarWarning) partes.push('⚠️ ' + escapeHtml(faltando.calendarWarning));
+  }catch(e2){
+    houveFalha = true;
+    var msg2 = e2 && e2.message ? e2.message : String(e2);
+    if(msg2.indexOf('Ação não reconhecida') > -1){
+      partes.push('⚠️ <strong>Atualize o Code.gs:</strong> copie o novo <code>Code.gs</code> para o editor do Apps Script, rode <code>autorizarGoogleAgenda</code> e publique uma <strong>Nova versão</strong>.');
+    } else {
+      partes.push('⚠️ Não foi possível criar os eventos que faltam: ' + escapeHtml(msg2));
+    }
+  }
+
+  escreve('<strong>Reparo do Google Agenda</strong><br>' + partes.join('<br>'), houveFalha ? 'erro' : 'ok');
+  if(houveFalha){
+    showToast('Reparo parcial: veja o detalhe na caixa de status.', 'info');
+  } else {
+    showToast('Google Agenda reparado.', 'ok');
+  }
+  try{ await loadData({ silent: true }); }catch(e3){}
 }
 
 function saveCalendarSettings(){
@@ -8345,15 +8398,28 @@ async function cancelScheduleStatus(id){
 
   try{
     var pObj = getSchedulePatientObj(sc);
-    await postAction(Object.assign({
+    // sc vai primeiro: os campos explícitos abaixo precisam vencer (o id do evento foi
+    // limpo no estado local, mas é ele que permite apagar o evento no Google Agenda).
+    var respCanc = await postAction(Object.assign({}, sc, {
       action: 'update_schedule',
+      status: 'Cancelado',
+      calendarEventId: prevEventId,
       pacienteDisplay: dispName,
       telefone: pObj ? (pObj.telefone || '') : '',
-      endereco: getPatientFullAddress(pObj),
-      calendarEventId: prevEventId
-    }, sc));
+      endereco: getPatientFullAddress(pObj)
+    }));
+    if(respCanc && respCanc.calendarEventId){
+      // A planilha manteve o vínculo: o evento NÃO saiu da agenda.
+      sc.calendarEventId = respCanc.calendarEventId;
+      saveLocalSchedules();
+      renderAgendaTab();
+    }
+    if(respCanc && respCanc.calendarWarning){
+      showToast('⚠️ ' + respCanc.calendarWarning, 'info');
+    }
   }catch(e){
     console.warn('Aviso ao sincronizar cancelamento na planilha:', e);
+    showToast('⚠️ O cancelamento não chegou ao Google Agenda. Abra ⚙️ Google Agenda → Testar Agenda.', 'info');
   }
 }
 
@@ -10099,6 +10165,9 @@ async function submitSchedule(){
             renderAgendaTab();
             showToast('Sincronizado com o Google Agenda!', 'ok');
           }
+          if(resp && resp.calendarWarning){
+            showToast('⚠️ Evento não criado no Google Agenda: ' + resp.calendarWarning, 'info');
+          }
         } else {
           var batchItems = createdItems.map(function(it){
             return Object.assign({}, it, {
@@ -10122,6 +10191,9 @@ async function submitSchedule(){
           }
           if(respB && respB.calendarSyncedCount > 0){
             showToast(respB.calendarSyncedCount + ' evento(s) no Google Agenda (' + (calId || 'Scarlet') + ')!', 'ok');
+          }
+          if(respB && respB.calendarWarning){
+            showToast('⚠️ Parte dos eventos não entrou no Google Agenda: ' + respB.calendarWarning, 'info');
           }
         }
       }catch(syncErr){
@@ -10258,14 +10330,18 @@ async function deleteSchedule(id){
   showToast('Agendamento removido.', 'ok');
 
   try{
-    await postAction({
+    var respDel = await postAction({
       action: 'delete_schedule',
       id: sc.id,
       calendarEventId: sc.calendarEventId || '',
       calendarId: sc.calendarId || getUserCalendarId()
     });
+    if(respDel && respDel.calendarWarning){
+      showToast('⚠️ ' + respDel.calendarWarning, 'info');
+    }
   }catch(err){
     console.warn('Aviso ao remover agendamento na planilha/Google Agenda:', err);
+    showToast('⚠️ O agendamento não foi removido do Google Agenda. Abra ⚙️ Google Agenda → Testar Agenda.', 'info');
   }
 }
 

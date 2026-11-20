@@ -687,8 +687,20 @@ function updateCalendarEventForSchedule_(item) {
   try {
     enrichScheduleItemWithPatient_(item);
     if (item.status === 'Cancelado') {
+      var remocao = 'not_found';
       if (item.calendarEventId) {
-        deleteCalendarEventForSchedule_(item.calendarEventId, item.calendarId);
+        remocao = deleteCalendarEventForSchedule_(item.calendarEventId, item.calendarId);
+      }
+      // Sem vínculo na planilha (id perdido): procura o evento pelo conteúdo e apaga também.
+      if (remocao === 'not_found') {
+        var achadoCancel = findCalendarEventIdByContent_(item);
+        if (achadoCancel) remocao = deleteCalendarEventForSchedule_(achadoCancel, item.calendarId);
+      }
+      if (remocao === 'error') {
+        return {
+          eventId: item.calendarEventId || '',
+          warning: 'O evento continua no Google Agenda: sem permissão para apagá-lo. Rode autorizarGoogleAgenda no editor do Apps Script e teste a conexão.'
+        };
       }
       return { eventId: '', warning: '' };
     }
@@ -696,7 +708,7 @@ function updateCalendarEventForSchedule_(item) {
       return createCalendarEventForSchedule_(item);
     }
     var dates = parseScheduleDates_(item.data, item.hora, item.duracaoMin);
-    if (!dates) return { eventId: item.calendarEventId, warning: '' };
+    if (!dates) return { eventId: item.calendarEventId, warning: 'Data/hora inválida: o evento não foi atualizado no Google Agenda.' };
     var resolved = resolveUserCalendar_(item.calendarId);
     if (!resolved.cal || isForbiddenDevCalendar_(resolved.cal)) {
       return { eventId: item.calendarEventId, warning: 'Edição na conta USP bloqueada.' };
@@ -729,19 +741,116 @@ function updateCalendarEventForSchedule_(item) {
   }
 }
 
-function deleteCalendarEventForSchedule_(eventId, calendarId) {
-  if (!eventId) return;
+/** Normaliza os valores crus da planilha (que o Sheets pode ter convertido em data/hora). */
+function normalizarItemAgenda_(row, extra) {
+  var item = {};
+  if (row) {
+    item.data = formatCellValue_('Data', row.Data);
+    item.hora = formatCellValue_('Hora', row.Hora);
+    item.duracaoMin = parseInt(row.DuracaoMin, 10) || 50;
+    item.pacienteId = row.PacienteID || '';
+    item.pacienteNome = row.PacienteNome || '';
+    item.observacao = row.Observacao || '';
+    item.calendarId = row.CalendarId || DEFAULT_CALENDAR_ID || 'primary';
+    item.calendarEventId = row.CalendarEventId || '';
+    item.status = row.Status || '';
+  }
+  if (extra) {
+    for (var k in extra) {
+      if (extra.hasOwnProperty(k) && extra[k] !== undefined) item[k] = extra[k];
+    }
+  }
+  return item;
+}
+
+/**
+ * Procura no Google Agenda o evento correspondente a um agendamento quando o id se perdeu
+ * (ex.: eventos criados antes de o CalendarApp ser autorizado).
+ * Casa pelo título exato ou pelo nome do paciente + horário de início exato.
+ */
+function findCalendarEventIdByContent_(item) {
   try {
-    var resolved = resolveUserCalendar_(calendarId);
-    var ev = null;
-    if (resolved.cal) {
-      try { ev = resolved.cal.getEventById(eventId); } catch (e) {}
+    if (!item || !item.data) return '';
+    var dates = parseScheduleDates_(item.data, item.hora, item.duracaoMin);
+    if (!dates) return '';
+    var alvoTitulo = String(buildCalendarTitleAndDesc_(item).title || '').trim();
+    var alvoNome = String(item.pacienteDisplay || item.pacienteNome || '').trim().toLowerCase();
+
+    var alvos = [];
+    try {
+      var r = resolveUserCalendar_(item.calendarId);
+      if (r && r.cal) alvos.push(r.cal);
+    } catch (e0) {}
+    try {
+      var todas = CalendarApp.getAllCalendars() || [];
+      for (var i = 0; i < todas.length; i++) {
+        var c = todas[i];
+        if (!c || isForbiddenDevCalendar_(c)) continue;
+        var jaTem = false;
+        for (var j = 0; j < alvos.length; j++) { if (alvos[j].getId() === c.getId()) { jaTem = true; break; } }
+        if (!jaTem) alvos.push(c);
+      }
+    } catch (eAll) {}
+
+    for (var a = 0; a < alvos.length; a++) {
+      var eventos = [];
+      try { eventos = alvos[a].getEventsForDay(dates.start) || []; } catch (eDay) { continue; }
+      for (var k = 0; k < eventos.length; k++) {
+        var ev = eventos[k];
+        var titulo = String(ev.getTitle() || '').trim();
+        var inicio = ev.getStartTime();
+        var mesmaHora = Math.abs(inicio.getTime() - dates.start.getTime()) < 60000;
+        if ((alvoTitulo && titulo === alvoTitulo) || (alvoNome && titulo.toLowerCase().indexOf(alvoNome) !== -1 && mesmaHora)) {
+          return ev.getId();
+        }
+      }
     }
-    if (!ev) {
-      try { ev = CalendarApp.getDefaultCalendar().getEventById(eventId); } catch (e2) {}
+  } catch (errHash) {}
+  return '';
+}
+
+/**
+ * Apaga um evento pelo id, tentando a agenda resolvida, todas as agendas acessíveis e a padrão.
+ * Devolve 'deleted' | 'not_found' | 'error'.
+ */
+function deleteCalendarEventForSchedule_(eventId, calendarId) {
+  if (!eventId) return 'not_found';
+
+  var alvos = [];
+  try {
+    var resolvida = resolveUserCalendar_(calendarId);
+    if (resolvida && resolvida.cal) alvos.push(resolvida.cal);
+  } catch (e0) {}
+  try {
+    var todas = CalendarApp.getAllCalendars() || [];
+    for (var i = 0; i < todas.length; i++) {
+      var c = todas[i];
+      if (!c || isForbiddenDevCalendar_(c)) continue;
+      var jaTem = false;
+      for (var j = 0; j < alvos.length; j++) { if (alvos[j].getId() === c.getId()) { jaTem = true; break; } }
+      if (!jaTem) alvos.push(c);
     }
-    if (ev) ev.deleteEvent();
-  } catch (err) {}
+  } catch (eAll) {}
+  try {
+    var padrao = CalendarApp.getDefaultCalendar();
+    if (padrao) alvos.push(padrao);
+  } catch (eDef) {}
+
+  if (!alvos.length) return 'error'; // sem permissão nenhuma para o CalendarApp
+
+  var houveErro = false;
+  for (var a = 0; a < alvos.length; a++) {
+    try {
+      var ev = alvos[a].getEventById(eventId);
+      if (ev) {
+        ev.deleteEvent();
+        return 'deleted';
+      }
+    } catch (eFind) {
+      houveErro = true;
+    }
+  }
+  return houveErro ? 'error' : 'not_found';
 }
 
 var NON_PATIENT_NAMES_ = ['agachamento', 'flexao', 'prancha', 'exercicio', 'rotina', 'alongamento', '__bloqueio__', 'bloqueio', 'ausencia', 'ferias'];
@@ -1176,21 +1285,22 @@ function doPost(e) {
 
       var updatedRow = updateRowObjectById_(sAgUpd, body.id, fieldsToUpdate);
 
-      var mergedItem = {
+      // A planilha pode devolver Data/Hora já convertidos em data: normaliza antes de ir ao CalendarApp.
+      var mergedItem = normalizarItemAgenda_(updatedRow, {
         id: body.id,
-        pacienteId: updatedRow ? updatedRow.PacienteID : body.pacienteId,
-        pacienteNome: updatedRow ? updatedRow.PacienteNome : body.pacienteNome,
-        pacienteDisplay: body.pacienteDisplay || (updatedRow ? updatedRow.PacienteNome : '') || body.pacienteNome,
-        data: updatedRow ? updatedRow.Data : body.data,
-        hora: updatedRow ? updatedRow.Hora : body.hora,
-        duracaoMin: updatedRow ? updatedRow.DuracaoMin : body.duracaoMin,
-        status: updatedRow ? updatedRow.Status : body.status,
-        observacao: updatedRow ? updatedRow.Observacao : body.observacao,
-        endereco: body.endereco || '',
-        telefone: body.telefone || '',
-        calendarEventId: body.calendarEventId || (updatedRow ? updatedRow.CalendarEventId : '') || '',
-        calendarId: body.calendarId || (updatedRow ? updatedRow.CalendarId : '') || DEFAULT_CALENDAR_ID || 'primary'
-      };
+        pacienteId: body.pacienteId,
+        pacienteNome: body.pacienteNome,
+        data: body.data,
+        hora: body.hora,
+        duracaoMin: body.duracaoMin,
+        status: body.status,
+        observacao: body.observacao,
+        calendarId: body.calendarId
+      });
+      mergedItem.pacienteDisplay = body.pacienteDisplay || mergedItem.pacienteNome || '';
+      mergedItem.calendarEventId = body.calendarEventId || mergedItem.calendarEventId || '';
+      mergedItem.endereco = body.endereco || '';
+      mergedItem.telefone = body.telefone || '';
 
       var updCal = updateCalendarEventForSchedule_(mergedItem);
       if (updCal.eventId !== undefined && (!updatedRow || updCal.eventId !== updatedRow.CalendarEventId)) {
@@ -1204,8 +1314,94 @@ function doPost(e) {
       var deletedRow = deleteRowById_(sAgDel, body.id);
       var evIdToDel = body.calendarEventId || (deletedRow && deletedRow.CalendarEventId) || '';
       var calIdToDel = body.calendarId || (deletedRow && deletedRow.CalendarId) || DEFAULT_CALENDAR_ID || 'primary';
-      if (evIdToDel) {
-        deleteCalendarEventForSchedule_(evIdToDel, calIdToDel);
+
+      var remocaoDel = 'not_found';
+      if (evIdToDel) remocaoDel = deleteCalendarEventForSchedule_(evIdToDel, calIdToDel);
+
+      // A linha já saiu da planilha: se o id do evento se perdeu, procura pelo conteúdo.
+      if (remocaoDel === 'not_found' && deletedRow) {
+        var itemDel = normalizarItemAgenda_(deletedRow, { calendarId: calIdToDel, calendarEventId: evIdToDel });
+        var achadoDel = findCalendarEventIdByContent_(itemDel);
+        if (achadoDel) remocaoDel = deleteCalendarEventForSchedule_(achadoDel, calIdToDel);
+      }
+
+      if (remocaoDel === 'error') {
+        result.calendarWarning = 'O agendamento saiu da planilha, mas o evento pode ter ficado no Google Agenda (sem permissão no CalendarApp).';
+      }
+
+    } else if (body.action === 'calendar_purge_cancelled') {
+      /* Faxina: apaga do Google Agenda os eventos de agendamentos já cancelados que ficaram para trás. */
+      var sAgPurge = getAgendSheet_();
+      var linhasPurge = sheetToObjects_(sAgPurge);
+      var removidos = 0;
+      var falhas = 0;
+      var semEvento = 0;
+      for (var pIdx = 0; pIdx < linhasPurge.length; pIdx++) {
+        var linha = linhasPurge[pIdx];
+        if (String(linha.Status) !== 'Cancelado') continue;
+        var itemPurge = normalizarItemAgenda_(linha);
+        var apagou = 0;
+        for (var tentativa = 0; tentativa < 5; tentativa++) {
+          var alvo = itemPurge.calendarEventId || findCalendarEventIdByContent_(itemPurge);
+          if (!alvo) break;
+          var st = deleteCalendarEventForSchedule_(alvo, itemPurge.calendarId);
+          if (st === 'deleted') {
+            apagou++;
+            itemPurge.calendarEventId = ''; // busca o próximo evento igual, se houver
+          } else if (st === 'error') {
+            falhas++;
+            break;
+          } else {
+            break;
+          }
+        }
+        if (apagou > 0) {
+          removidos += apagou;
+          updateRowObjectById_(sAgPurge, linha.ID, { CalendarEventId: '' });
+        } else if (falhas === 0) {
+          semEvento++;
+        }
+      }
+      result.purged = removidos;
+      result.failed = falhas;
+      result.alreadyClean = semEvento;
+      if (falhas > 0) {
+        result.calendarWarning = 'Não foi possível apagar ' + falhas + ' evento(s): autorize o CalendarApp (autorizarGoogleAgenda) e tente de novo.';
+      }
+
+    } else if (body.action === 'calendar_backfill_missing') {
+      /* Recria no Google Agenda os eventos que faltam para agendamentos futuros sem vínculo. */
+      var sAgBack = getAgendSheet_();
+      var linhasBack = sheetToObjects_(sAgBack);
+      var hojeIso = Utilities.formatDate(new Date(), getTimeZone_(), 'yyyy-MM-dd');
+      var criadosBack = 0, vinculadosBack = 0, falhasBack = 0;
+      for (var bIdx = 0; bIdx < linhasBack.length; bIdx++) {
+        var rb = linhasBack[bIdx];
+        var stBack = String(rb.Status || '');
+        if (stBack !== 'Agendado' && stBack !== 'Realizado') continue;
+        if (String(rb.CalendarEventId || '').trim()) continue;
+        if (String(rb.Data || '') < hojeIso) continue;
+
+        var itemBack = normalizarItemAgenda_(rb);
+        var jaExiste = findCalendarEventIdByContent_(itemBack);
+        if (jaExiste) {
+          updateRowObjectById_(sAgBack, rb.ID, { CalendarEventId: jaExiste });
+          vinculadosBack++;
+          continue;
+        }
+        var novoEv = createCalendarEventForSchedule_(itemBack);
+        if (novoEv.eventId) {
+          updateRowObjectById_(sAgBack, rb.ID, { CalendarEventId: novoEv.eventId });
+          criadosBack++;
+        } else {
+          falhasBack++;
+        }
+      }
+      result.created = criadosBack;
+      result.linked = vinculadosBack;
+      result.failed = falhasBack;
+      if (falhasBack > 0) {
+        result.calendarWarning = falhasBack + ' evento(s) não puderam ser criados (verifique a autorização do CalendarApp).';
       }
 
     /* ---------- Evoluções Clínicas ---------- */

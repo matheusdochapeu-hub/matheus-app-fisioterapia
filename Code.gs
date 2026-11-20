@@ -749,11 +749,16 @@ function updateCalendarEventForSchedule_(item) {
       if (item.calendarEventId) {
         remocao = deleteCalendarEventForSchedule_(item.calendarEventId, item.calendarId);
       }
-      // Sem vínculo na planilha (id perdido): procura o evento pelo conteúdo e apaga também.
-      if (remocao === 'not_found') {
+      // Apaga também duplicatas do mesmo evento (mesmo título ou paciente + horário):
+      // foi assim que "cancelava e continuava na agenda" — sobrava uma cópia sem vínculo.
+      var duplicatasRemovidas = 0;
+      for (var dupTry = 0; dupTry < 4; dupTry++) {
         var achadoCancel = findCalendarEventIdByContent_(item);
-        if (achadoCancel) remocao = deleteCalendarEventForSchedule_(achadoCancel, item.calendarId);
+        if (!achadoCancel) break;
+        if (deleteCalendarEventForSchedule_(achadoCancel, item.calendarId) !== 'deleted') break;
+        duplicatasRemovidas++;
       }
+      if (remocao === 'not_found' && duplicatasRemovidas > 0) remocao = 'deleted';
       if (remocao === 'error') {
         return {
           eventId: item.calendarEventId || '',

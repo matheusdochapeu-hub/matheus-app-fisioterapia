@@ -992,9 +992,14 @@ function doPost(e) {
 
   if (body.action === 'test_calendar') {
     var resolvedTest = resolveUserCalendar_(body.calendarId);
+    var effectiveUserTest = '';
+    try { effectiveUserTest = Session.getEffectiveUser().getEmail(); } catch (eUt) {}
     if (!resolvedTest.cal) {
       result.success = false;
-      result.error = 'Não foi possível acessar o Google Agenda. Autorize o CalendarApp no editor do Apps Script executando a função autorizarGoogleAgenda.';
+      result.effectiveUser = effectiveUserTest;
+      result.error = 'Não foi possível acessar o Google Agenda. Autorize o CalendarApp no editor do Apps Script executando a função autorizarGoogleAgenda.' +
+        (effectiveUserTest ? ' (executando como: ' + effectiveUserTest + ')' : '') +
+        (isForbiddenDevCalendar_(effectiveUserTest) ? ' A conta @usp.br é bloqueada de propósito: publique o app logado na conta da Scarlet (scarletsantos7@gmail.com).' : '');
     } else {
       var effectiveEmail = '';
       try { effectiveEmail = Session.getEffectiveUser().getEmail(); } catch (eEff) {}

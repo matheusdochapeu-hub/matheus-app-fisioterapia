@@ -385,6 +385,60 @@ function autorizarGoogleAgenda() {
   Logger.log('Google Agenda autorizado com sucesso: ' + (cal ? cal.getName() : 'OK'));
 }
 
+/**
+ * DIAGNÓSTICO (rodar no editor do Apps Script, não no app).
+ * Selecione a função "diagnosticarAgenda" e clique em Executar: o log mostra
+ * qual conta o script está usando e se a agenda da Scarlet está acessível.
+ */
+function diagnosticarAgenda() {
+  var linhas = [];
+  function log(msg) { linhas.push(msg); Logger.log(msg); }
+
+  log('=== Diagnóstico do Google Agenda ===');
+  log('Agora: ' + new Date().toString());
+  log('Agenda esperada (constante): ' + AGENDA_SCARLET_EMAIL);
+
+  try { log('Usuário efetivo: ' + (Session.getEffectiveUser().getEmail() || '(vazio)')); }
+  catch (e1) { log('Usuário efetivo: ERRO ' + e1.message); }
+  try { log('Usuário ativo: ' + (Session.getActiveUser().getEmail() || '(vazio)')); }
+  catch (e2) { log('Usuário ativo: ERRO ' + e2.message); }
+
+  try {
+    var padrao = CalendarApp.getDefaultCalendar();
+    log('Agenda padrão: ' + (padrao ? padrao.getId() + ' | ' + padrao.getName() : 'null'));
+  } catch (e3) {
+    log('Agenda padrão: ERRO ' + e3.message + '  -> falta autorizar o CalendarApp (rodar autorizarGoogleAgenda).');
+  }
+
+  try {
+    var todas = CalendarApp.getAllCalendars() || [];
+    log('Agendas acessíveis: ' + todas.length);
+    for (var i = 0; i < todas.length; i++) {
+      log('  [' + i + '] ' + todas[i].getId() + ' | ' + todas[i].getName());
+    }
+  } catch (e4) { log('Agendas acessíveis: ERRO ' + e4.message); }
+
+  try {
+    var r = resolveUserCalendar_(AGENDA_SCARLET_EMAIL);
+    log('Resolução para ' + AGENDA_SCARLET_EMAIL + ': mode=' + r.mode +
+        ' | calendário=' + (r.cal ? 'OK' : 'null') +
+        ' | calendarId=' + r.calendarId +
+        ' | aviso=' + (r.warning || '-'));
+    if (r.cal) {
+      try {
+        var evs = r.cal.getEventsForDay(new Date());
+        log('Eventos de hoje na agenda resolvida: ' + evs.length);
+        for (var k = 0; k < Math.min(evs.length, 5); k++) {
+          log('  - ' + evs[k].getTitle() + ' @ ' + evs[k].getStartTime());
+        }
+      } catch (e5) { log('Eventos de hoje: ERRO ' + e5.message); }
+    }
+  } catch (e6) { log('Resolução: ERRO ' + e6.message); }
+
+  log('=== fim do diagnóstico (copie este log) ===');
+  return linhas.join('\n');
+}
+
 function pad2_(n) {
   return (n < 10 ? '0' : '') + n;
 }

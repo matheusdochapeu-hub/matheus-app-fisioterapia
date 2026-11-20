@@ -1053,11 +1053,34 @@ function doPost(e) {
     var effectiveUserTest = '';
     try { effectiveUserTest = Session.getEffectiveUser().getEmail(); } catch (eUt) {}
     if (!resolvedTest.cal) {
+      // Mensagem específica: o caso mais comum é a agenda dela não estar compartilhada
+      // com a conta que executa o script (a planilha/script ficam nessa conta).
+      var contaExecutora = effectiveUserTest;
+      if (!contaExecutora) {
+        try {
+          var calPadraoDiag = CalendarApp.getDefaultCalendar();
+          if (calPadraoDiag) contaExecutora = calPadraoDiag.getId();
+        } catch (eCalDiag) {}
+      }
+      var conhecidas = [];
+      try { conhecidas = CalendarApp.getAllCalendars() || []; } catch (eCals) {}
+      var temADela = false;
+      for (var cIdx2 = 0; cIdx2 < conhecidas.length; cIdx2++) {
+        if (String(conhecidas[cIdx2].getId() || '').toLowerCase().indexOf(AGENDA_SCARLET_EMAIL) !== -1) { temADela = true; break; }
+      }
+
       result.success = false;
+      result.mode = resolvedTest.mode;
       result.effectiveUser = effectiveUserTest;
-      result.error = 'Não foi possível acessar o Google Agenda. Autorize o CalendarApp no editor do Apps Script executando a função autorizarGoogleAgenda.' +
-        (effectiveUserTest ? ' (executando como: ' + effectiveUserTest + ')' : '') +
-        (isForbiddenDevCalendar_(effectiveUserTest) ? ' A conta @usp.br é bloqueada de propósito: publique o app logado na conta da Scarlet (scarletsantos7@gmail.com).' : '');
+      result.agendaEsperada = AGENDA_SCARLET_EMAIL;
+      if (!contaExecutora) {
+        result.error = 'O script não tem a permissão de perfil do Google (userinfo.email) e não consegue nem identificar a conta. No editor do Apps Script: Configurações do projeto → "Mostrar appsscript.json" → apague o bloco "oauthScopes" e rode autorizarGoogleAgenda de novo.';
+      } else if (!temADela) {
+        result.error = 'A agenda de ' + AGENDA_SCARLET_EMAIL + ' não está compartilhada com a conta que executa o script (' + contaExecutora + '). ' +
+          'Na conta da Scarlet: Google Agenda → Configurações → Compartilhar com pessoas específicas → adicionar ' + contaExecutora + ' com "Fazer alterações em eventos".';
+      } else {
+        result.error = 'A agenda de ' + AGENDA_SCARLET_EMAIL + ' aparece, mas o script não conseguiu permissão de escrita. Rode autorizarGoogleAgenda na conta ' + contaExecutora + ' e publique uma Nova versão.';
+      }
     } else {
       var effectiveEmail = '';
       try { effectiveEmail = Session.getEffectiveUser().getEmail(); } catch (eEff) {}
